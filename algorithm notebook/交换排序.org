@@ -1,0 +1,183 @@
+#+TITLE: 交换排序
+
+* 冒泡排序
+
+基本思想：假设待排序表长为 n，从前向后（从后向前）两两比较相邻元素的值，若为逆序（即 A[i-1] > A[i]），则交换它们，直到序列比较完，这是一趟冒泡排序。一次冒泡排序确定一个元素的位置，这样最多 n-1 躺冒泡就能把所有元素排好序
+
+#+BEGIN_SRC c
+// 从前向后冒泡
+void BubbleSort(ElemType A[], int n)
+{
+    for(i = n-1; i >= 1; --i)
+    {
+        flag = false;     // 表示本趟冒泡是否发生交换的标志
+        for(j = 0; j < i; ++j)
+        {
+            if(A[j].key > A[j+1].key)
+            {
+                swap(A[j], A[j+1]);
+                flag = true;
+            }
+        }
+        if(false == flag)
+            return;
+    }
+}
+
+// 从后向前冒泡
+void BubbleSort(ElemType A[], int n)
+{
+    for(i = 0; i <= n-2; ++i)
+    {
+        flag = false;
+        for(j = n-1; j > i; --j)
+        {
+            if(A[j].key < A[j-1].key)
+            {
+                swap(A[j], A[j-1]);
+                flag = true;
+            }
+        }
+        if(false == flag)
+            return;
+    }
+}
+#+END_SRC
+
+冒泡排序总结：
+平均时间复杂度为 O(n^{2})， 最坏情况下的时间复杂度为 O(n^{2})，最好情况下的时间复杂度为 O(n)
+空间复杂度为 O(1)
+稳定性：稳定
+
+* 快排
+** 两个下标分别从首、尾向中间扫描
+
+基本思想：假设待排序表长为n，从前向后（从后向前）两两比较相邻元素的值，若为逆序（即 A[i-1] > A[i]），则交换它们，直到序列比较完，这是一趟冒泡排序。一次冒泡排序确定一个元素的位置，这样最多 n-1 躺冒泡就能把所有元素排好序
+
+#+BEGIN_SRC c
+int Partition(ElemType A[], int low, int high)
+{
+    ElemType pivot = A[low];
+    while(low < high)
+    {
+        while(low < high && A[high] >= pivot) --high;
+        A[low] = A[high];
+        while(low < high && A[low] <= pivot) ++low;
+        A[high] = A[low];
+    }
+    A[low] = pivot;
+    return low;
+}
+
+void QuickSort(ElemType A[], int low, int high)
+{
+    if(low < high)
+    {
+        int pivotIndex = Partition(A, low, high);
+        QuickSort(A, low, pivotIndex-1);
+        QuickSort(A, pivotIndex+1, high);
+    }
+}
+#+END_SRC
+
+** 两个指针一前一后向后扫描
+
+基本思想：设置两个下标 i、j，在子序列 {A[0], A[1], ..., A[j]} 中，使下标 i 左边的元素比基准值小，右边的元素比基准值大，j 不断向后扫描，扫描结束即确定基准值的最终位置
+特点：在一次划分中基准值左边的元素相对位置不变
+
+#+BEGIN_SRC c
+// 两个指针一前一后向后扫描
+int partition(ElemType A[], int low, int high)
+{
+    int i = low-1, j = low;
+    for(; j <= high; ++j)
+    {
+        if(A[j] <= A[high])     // 设置A[high]为基准点
+            swap(A[j], A[++i]);
+    }
+    return i;
+}
+
+// 两个指针一后一前向前扫描
+int Partition(ElemType A[], int low, int high)
+{
+    int i = high+1, j = high;
+    for(; j >= low; --j)
+    {
+        if(A[j] >= A[low])     // 设置A[low]为基准点
+            swap(A[j], A[--i]);
+    }
+    return i;
+}
+#+END_SRC
+
+快排总结：
+时间复杂度：平均时间复杂度为 O(nlog_{2}n) ，理想情况下时间复杂度为 O(nlog_{2}n)，当初始序列表基本有序或基本逆序时得到最坏情况下的时间复杂度 O(n2)
+空间复杂度：平均空间复杂度为 O(log_{2}n)，最坏情况下空间复杂度为 O(n)
+稳定性：不稳定
+快排优化：
+1. 递归过程中划分得到的子序列规模较小时不要继续递归调用快排，可以采用直接插入排序算法进行后续的排序工作
+2. 选取一个可以将序列中分的基准值。比如从首、尾、中间选取3个元素，取其中间值当基准值
+
+* 相关算法
+** 荷兰国旗问题
+
+问题描述：
+现有红白蓝三个不同颜色的小球，乱序排列在一起，请重新排列这些小球，使得红白蓝三色的同颜色的球在一起。这个问题之所以叫荷兰国旗问题，是因为我们可以将红白蓝三色小球想象成条状物，有序排列后正好组成荷兰国旗。
+分析：红白蓝分别对应数字 0、1、2。这个问题类似于快排中的一次划分过程，不过要采用3个指针，一前 begin，一中 cur，一后 end
+
+#+BEGIN_SRC c
+void Partition(int A[], int low, int high)
+{
+    int begin = low-1, cur = low, end = high+1;
+    while(cur < end)
+    {
+        if(A[cur] == 0)
+        {
+            ++begin;
+            A[begin] = A[begin]+A[cur]-(A[cur] = A[begin]);
+            ++cur;
+        }
+        else if(A[cur] == 1)
+        {
+            ++cur;
+        }
+        else if(A[cur] == 2)
+        {
+            --end;     // 该句执行完后，A[end]并没有进行排序
+            A[end] = A[end]+A[cur]-(A[cur] = A[end]);     // 执行完交换后不能执行++cur，因为交换前A[end]并没有排序（A[end]是交换后的A[cur]),所以需要对A[cur]进行排序
+        }
+    }
+}
+#+END_SRC
+
+** 找到最小 k 个数
+
+描述：输入 n 个整数，输出其中最小的 k 个
+分析：使用快排的一次划分，如果划分得到的下标刚好是 k-1，那么这个下标左侧的 k-1 个数字就是最小的 k 个数
+- 若 pivotIndex == k-1，则找到这 k 个数
+- 若 pivotIndex > k-1，则在序列左侧继续查找
+- 若 pivotIndex < k-1，则在序列右侧继续查找
+时间复杂度为 O(n)
+
+#+BEGIN_SRC c
+void GetMinK(int A[], int n, int k)
+{
+    int low = 0, high = n-1;
+    int pivotIndex = Partition(A, low, high);
+    while(pivotIndex != k-1)
+    {
+        if(pivotIndex > k-1)
+        {
+            high = pivotIndex-1;
+            pivotIndex = Partition(A, low, high);
+        }
+        else
+        {
+            low = pivotIndex+1;
+            pivotIndex = Partition(A, low, high);
+        }
+    }
+}
+#+END_SRC
+

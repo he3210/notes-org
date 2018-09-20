@@ -1,0 +1,124 @@
+body{
+    margin: 0 auto;
+    padding: 0;
+    width: 750px;
+    font-family: 'AvenirNextLTW01-Regular', Helvetica, sans-serif;
+}
+
+a{
+    color: rgba(0, 0, 0, 0.80);
+    text-decoration: underline;
+}
+
+header{
+    display: block;
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+nav{
+    text-transform: uppercase;
+    font-size: 30px;
+    text-decoration: none;
+}
+
+#bar{
+    display: block;
+    font-size:15px;
+    padding: 5px;
+    list-style-type: none;
+    border: 1px dashed black;
+}
+
+.menu{
+    font-family: "Menlo", sans-serif;
+    font-size:17px;
+    text-transform: uppercase;
+    list-style-type: none;
+    padding-left: 0;
+    padding-bottom: 25px;
+    color: #444;
+}
+
+.menu>li{
+    float: left;
+    padding-right: 25px;
+}
+
+.menu>li>a{
+    text-decoration: none;
+}
+
+footer{
+    text-align: center;
+    display: block;
+    font-size: 14px;
+    margin-top: 50px;
+    margin-bottom: 50px;
+}
+
+.content>h1, h2, h3, h4, h5, h6, h7 {
+    font-family: serif;
+    margin: 0;
+}
+
+img {
+    max-width: 90%;
+}
+
+pre {
+    display: block;
+    background: #eee;
+    padding-top: 3px;
+    padding-bottom: 3px;
+    padding-left: 20px;
+    padding-right: 20px;
+    line-height: 1.5em;
+    line-height:
+    font-size: 15px;
+    border-radius: 3px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: #333;
+}
+
+.content {
+    font-size: 18px;
+    line-height: 23pt;
+    margin: 0 auto;
+}
+
+.org-ul>li>a{
+    display: inline-block;
+    padding-top: 5px;
+    padding-bottom: 5px;
+    text-decoration:none;
+    border-bottom:1px solid #ccc;
+}
+
+div#table-of-contents {
+    border: 1px dashed #b2aaaa;
+    display: block;
+    position: absolute;
+    top: 100px;
+    width: 350px;
+    margin-left: 50%;
+    padding: 10px;
+    border-radius: 5px;
+    background: rgba(248, 245, 236, 0.6);
+    box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.125);
+    word-wrap: break-word;
+    box-sizing: border-box;
+}
+
+div#text-table-of-contents {
+    display: none;
+}
+
+h1.title {
+    display: block;
+    border-bottom: solid 1.5px #acacac;
+    padding: 10px;
+    margin-bottom: 30px;
+    text-align: center;
+}

@@ -1,0 +1,332 @@
+#+TITLE: 选择排序
+
+选择排序基本思想：每一趟（例如第 i 趟）在后面 n-i+1（i = 1, 2, ..., n-1)个待排序元素中选取关键字最小的元素，作为有序子序列的第 i 个元素，直到第 n-1 趟做完，待排序元素只剩下1个，就不用再选了
+选择排序包括简单选择排序和堆排
+
+* 简单选择排序
+
+#+BEGIN_SRC c
+void SelectSort(ElemType A[], int n)
+{
+    for(i = 0; i != n-1; ++i)
+    {
+        min = i;
+        for(j = i+1; j != n; ++j)
+        {
+            if(A[min].key > A[j].key)
+                min = j;
+        }
+        if(min != i)
+            swap(A[min], A[i]);
+    }
+}
+#+END_SRC
+
+时间复杂度始终是 O(n^{2})，空间复杂度为 O(1)
+稳定性：不稳定
+
+* 堆排
+
+** 大根堆实例一
+特点：
+- 堆中元素从下标 1 开始，下标 0 不存储堆中元素
+- 下标为 k 的结点的父结点为 k/2，子结点为 2*k、2*k+1
+
+#+BEGIN_SRC c
+// 形参k是向上调整的结点，也是堆的元素个数。该函数可以用于添加新结点
+void AdjustUp(ElemType A[], int k)
+{
+    A[0] = A[k];
+    i = k/2;
+    while(k > 1 && A[0].key > A[i].key)
+    {
+        A[k] = A[i];
+        k = i;
+        i = k/2;
+    }
+    A[k] = A[0];
+}
+
+// 形参k表示向下调整第k个结点。该函数可以用于删除结点
+void AdjustDown(ElemType A[], int n, int k)
+{
+    A[0] = A[k];
+    for(i = 2*k; i <= n; i *= 2)
+    {
+        if(i < n && A[i+1].key > A[i].key)
+            ++i;
+        if(A[i].key > A[0].key)
+        {
+            A[k] = A[i];
+            k = i;
+        }
+        else
+            break;
+    }
+    A[k] = A[0];
+}
+
+// 建立大顶堆
+void BuildMaxHeap(ElemType A[], int n)
+{
+    for(i = n/2; i != 0; --i)
+        AdjustDown(A, n, k);
+}
+
+// 从小到大排序
+void HeapSort(ElemType A[], int n)
+{
+    BuildMaxHeap(A, n);
+    for(i = n; i != 1; --i)
+    {
+        swap(A[1], A[i]);
+        AdjustDown(A, i-1, 1);
+    }
+}
+
+// 删除第k个结点
+int DelNode(ElemType A[], int n, int k)
+{
+    if(A[k].key == A[n].key)
+        return (--n);
+    if(A[k].key < A[n].key)
+    {
+        A[k] = A[n--];
+        AdjustUp(A, k);
+    }
+    else
+    {
+        A[k] = A[n--];
+        AdjustDown(A, n, k);
+    }
+    return n;
+}
+
+// 向大顶堆添加新结点
+int AddNode(ElemType A[], int n, ElemType node)
+{
+    A[++n] = node;
+    AdjustUp(A, n);
+    return n;
+}
+#+END_SRC
+
+** 大根堆实例二
+
+特点：
+- 堆中元素从下标 0 开始存储
+- 下标为 k 的结点的父结点为 (k-1)/2，子结点为 2*k+1、2*k+2
+
+#+BEGIN_SRC c
+  #include <stdio.h>
+  #include <string.h>
+
+  // 把下标为 k 的结点向上调整
+  void AdjustUp(int A[], int k)
+  {
+      int x = A[k];
+      int i = (k-1)/2;
+      while(k > 0 && x > A[i])
+      {
+          A[k] = A[i];
+          k = i;
+          i = (i-1)/2;
+      }
+      A[k] = x;
+  }
+
+  // 把下标为 k 的结点向下调整。n 表示堆中现有 n 个元素
+  void AdjustDown(int A[], int n, int k)
+  {
+      int x = A[k];
+      for(int i = 2*k + 1; i < n; i = 2*i + 1)
+      {
+          if(i + 1 < n && A[i+1] > A[i])
+              ++i;
+          if(x < A[i])
+          {
+              A[k] = A[i];
+              k = i;
+          }
+          else
+              break;
+      }
+      A[k] = x;
+  }
+
+  // 对长度为 n 的数组构建大根堆
+  void BuildMaxHeap(int A[], int n)
+  {
+      for(int i = (n-1-1)/2; i >= 0; --i)
+          AdjustDown(A, n, i);
+  }
+
+  void swap(int* a, int* b)
+  {
+      int t = *a;
+      ,*a = *b;
+      ,*b = t;
+  }
+
+  // 对数组 A 进行升序排序
+  void HeapSort(int A[], int n)
+  {
+      BuildMaxHeap(A, n);
+      for(int i = n-1; i > 0; --i)
+      {
+          swap(&A[0], &A[i]);
+          AdjustDown(A, i, 0);
+      }
+  }
+
+  // 删除第 k 个结点。返回堆中剩余结点个数
+  int DelNode(int A[], int n, int k)
+  {
+      if(A[k] == A[n-1])
+          return --n;
+      else
+      {
+          if(A[k] < A[n-1])
+          {
+              A[k] = A[n-1];
+              AdjustUp(A, k);
+          }
+          else
+          {
+              A[k] = A[n-1];
+              AdjustDown(A, n-1, k);
+          }
+      }
+      return --n;
+  }
+
+  // 向大根堆中添加新结点 node
+  int AddNode(int A[], int n, int node)
+  {
+      A[n] = node;
+      AdjustUp(A, n);
+      return n+1;
+  }
+
+  // 最小 k 个数
+  // 传入长度为 n 的数组 A，使用数组 B 返回最小的 k 个数
+  int MinK(int A[], int n, int B[], int k)
+  {
+      if(k < n)
+          memmove(B, A, k*sizeof(int));
+      else
+      {
+          memmove(B, A, n*sizeof(int));
+          return n;
+      }
+
+      BuildMaxHeap(B, k);
+      for(int i = k; i < n; ++i)
+      {
+          if(A[i] < B[0])
+          {
+              B[0] = A[i];
+              AdjustDown(B, k, 0);
+          }
+          else
+              continue;
+      }
+      return k;
+  }
+
+  void PrintArray(int A[], int n)
+  {
+      for(int i = 0; i < n; ++i)
+          printf("%d ", A[i]);
+      putchar(10);
+  }
+
+  int main(void)
+  {
+      int A[32] = {2, 4, 3, 7, 1, 5, 9, 8, 0};
+      int n = 9;
+      printf("初始序列为：\n");
+      PrintArray(A, n);
+
+      BuildMaxHeap(A, n);
+      printf("\n建立大顶堆后的序列为：\n");
+      PrintArray(A, n);
+
+      HeapSort(A, n);    // 堆排序后破坏了堆的结构，如果要使用需要重新建立大顶堆
+      printf("\n堆排后序列为：\n");
+      PrintArray(A, n);
+
+      printf("\n重新建立大顶堆、添加新结点、排序后的序列分别为：\n");
+      BuildMaxHeap(A, n);
+      PrintArray(A, n);
+      n = AddNode(A, n, 66);
+      PrintArray(A, n);
+      HeapSort(A, n);
+      PrintArray(A, n);
+
+      printf("\n重新建立大顶堆、删除新结点、排序后的序列分别为：\n");
+      BuildMaxHeap(A, n);
+      PrintArray(A, n);
+      n = DelNode(A, n, 3);
+      PrintArray(A, n);
+      HeapSort(A, n);
+      PrintArray(A, n);
+
+      printf("\n序列、序列的最小的 k 个数分别为：\n");
+      int AA[32] = {2, 4, 3, 7, 1, 5, 9, 8, 0};
+      int k = 8;
+      int BB[k];
+      k = MinK(AA, 9, BB, k);
+      PrintArray(AA, 9);
+      PrintArray(BB, k);
+  }
+#+END_SRC
+
+** 总结
+
+最好、最坏、平均时间复杂度 O(nlog_{2}n)
+空间复杂度 O(1)
+稳定性：不稳定
+
+建堆的时间复杂度为 O(n)，推导如下:
+我们建立最大堆是从倒数第一个非子结点开始的，那么该结点的最大堆调整是1次，因为最多只跟它的子结点调整一次就可以得到最大堆，然后此类结点最多有多少个呢？根据树的性质，我们可以得出个数为 2h-1, h 为整个树的高度。我们暂且取此点为 S1，此点高度为1；
+那么 S1 的父结点 S2 需要几次，并且他的高度为2，没错，调整两次,同时有 2h-2 个该类结点。 如此类推, S3 调整三次，...，Sn 调整 N 次。
+总的比较次数就是：比较次数×该类结点个数之和
+也就是：
+
+#+BEGIN_QUOTE
+1*2h-1  +  2*2h-2 +  3*2h-3 +...+ (h-1)*21 + h*20
+(s1结点)  (s2结点)  (S3结点) ... (S(h-1))  (S(h)结点)
+这其实就是我们高中学的等比数列求和。
+该式子可以变成：
+2h-1 + 2h-2 + 2h-3 +...+ 21 + 20          = (2h-1)(这个结果可以根据等比求和公式求出，此处略)
+\plus
+2h-2 + 2h-3 +...+ 21 + 20                         = (2h-1 -1)
+\plus
+2h-3 +...+ 21 + 20                                      = (2h-2-1)
+\plus
+...
+20                                                                           = 21-1
+通过上面的化简，我们可以得出另外一个公式就是：
+2h+ 2h-1 + 2h-2+ 2h-3 +...+ 21 - h
+在利用等比数列求和公式得出：
+2h+1 - 2 - h
+这个就是我们总的时间：此时带入 h=logn
+就等于 2*n-2-logn
+根据 BIG-O 定理，时间复杂度就是 O(n).
+#+END_QUOTE
+
+** 优化
+
+- 对堆进行封装
+ #+BEGIN_SRC c
+   typedef struct min_heap
+   {
+       ElemType** p; // 动态分配的内存空间地址。堆中存放的元素为指向 ElemType 类型的指针
+       unsigned n, a;    // n 为堆中元素个数，a 为堆的内存容量
+   } min_heap_t;
+ #+END_SRC
+- 堆的容量可增大
+- 堆中存放的元素使用指针表示。防止直接拷贝整个元素
+
+为达到如上优化目的，可参考 libevent 中小根堆的实现

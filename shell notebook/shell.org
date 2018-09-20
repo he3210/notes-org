@@ -1,0 +1,3 @@
+#+TITLE: shell
+
+- [[./ffmpeg 处理视频 & gif 生成.org][ffmpeg 处理视频 & gif 生成]]

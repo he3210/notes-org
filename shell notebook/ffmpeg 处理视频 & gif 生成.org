@@ -1,0 +1,53 @@
+#+TITLE: ffmpeg 处理视频 & gif 生成
+
+* 生成 gif
+
+** 获取 mov 视频
+- 在 mac 上使用 =QuickTime Player= 录屏
+- iphone 上拍摄视频
+
+** 生成 gif
+#+BEGIN_SRC shell
+$ ffmpeg -ss 00:00:00.000 -t 00:00:09.000 -i "emacs 列编辑.mov" -pix_fmt rgb8 -r 7 "emacs 列编辑.gif
+#+END_SRC
+
+特点：
+- 未经过压缩，分辨率和视频相同
+- 自定义转换的开始时间点和持续时长
+- 自定义输出帧率
+
+#+BEGIN_SRC shell
+$ ffmpeg -ss 00:00:00.000 -t 00:00:09.000 -i "emacs 列编辑.mov" -pix_fmt rgb8 -s 1276x480 -r 7 "emacs 列编辑.gif"  # 指定分辨率
+#+END_SRC
+
+- =-ss 00:00:00.000 -t 00:00:09.000= ::  从视频的第0秒开始截取，截取 9 秒钟视频片段
+- =-i=  ::    输入视频，其后跟视频路径
+- =pix_fmt rgb8=  ::   RGB 颜色限制
+- =-s 1276x480=  ::  输出分辨率。默认 gif 的分辨率为 mov 视频的分辨率，可以省略这个参数
+- =-r 7=  ::  输出帧率为每秒 15 帧。根据需要最好范围在 [5, 15] 之间
+
+* 获取不带音频的视频
+
+#+BEGIN_SRC shell
+$ ffmpeg -i bird.mov -vcodec copy -an bird.mp4
+#+END_SRC
+
+- =-an=  :: 禁止输出音频
+- =-vcodec copy= :: 复制视频编码
+
+* 提取音频
+
+#+BEGIN_SRC shell
+$ ffmpeg -i input.mov -write_xing 0 output.mp3
+#+END_SRC
+
+* 视频时长裁剪
+
+#+BEGIN_SRC shell
+$ ffmpeg -ss 00:00:01.000 -t 00:00:10.000 -i "input.mov" "output.mov"  # 从第一秒开始，获取10秒的视频
+$ ffmpeg -sseof -00:00:01.000 -i "bird.mov" "bird.mp4"  # 获取最后一秒的视频，并转为 mp4
+#+END_SRC
+
+- =-sseof=  ::  相对于文件末尾的开始时间
+
+

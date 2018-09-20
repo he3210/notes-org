@@ -1,0 +1,75 @@
+#+TITLE: 二分查找
+
+* 二分查找
+
+适合二分查找的存储结构必须具有随机存取的特性
+#+BEGIN_SRC c
+int Binary_Search(Elemtype A[], int low, int high, Elemtype key)
+{
+    int mid;
+    while(low <= high)
+    {
+        mid = low + (high - low)/2;
+
+        if(A[mid] == key)
+            return mid;
+        else if(A[mid] > key)
+            high = mid - 1;
+        else
+            low = mid + 1;
+    }
+
+    return -1;
+}
+#+END_SRC
+
+* 扩展算法
+
+有一个循环有序数组A，如：{7, 8, 9, 0, 1, 2, 3, 4, 5, 6}，不知道最小值的位置。如何从这样的数组中寻找一个特定的元素呢？
+分析：如下图，首先判断mid位于两个子递增序列中的左边递增序列，还是右边递增序列
+
+#+ATTR_ORG: :width 22%
+#+ATTR_HTML: :width 22%
+[[../images/二分查找.png]]
+
+该算法不支持含有重复元素的序列。例如：[2, 2, 2, 3, 2, 2, 2]。事实上，在这种情况下，只能依次遍历
+#+BEGIN_SRC c
+int search(int A[], int low, int high, int key)
+{
+    while(low <= high)
+    {
+        int mid = low + (high - low)/2;
+        if(A[mid] == key)
+            return mid;
+        else
+        {
+            if(A[low] <= A[mid])        // 第一种情况，mid在左侧
+            {
+                if(key > A[mid])        // key在mid左侧
+                    high = mid - 1;
+                else                    // key在mid右侧
+                {
+                    if(key >= A[low])
+                        high = mid - 1;
+                    else
+                        low = mid + 1;
+                }
+            }
+            else                        // 第二种情况mid在右侧
+            {
+                if(key < A[mid])        // key在mid左侧
+                    high = mid - 1;
+                else                    // key在mid右侧
+                {
+                    if(key <= A[high])
+                        low = mid + 1;
+                    else
+                        high = mid - 1;
+                }
+            }
+        }
+    }
+
+    return -1;
+}
+#+END_SRC

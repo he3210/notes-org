@@ -1,0 +1,30 @@
+#+TITLE:
+#+DATE: <2018-07-09 Tue>
+#+AUTHOR: 时中贺
+#+EMAIL: shi_zhonghe@163.com
+#+LANGUAGE: zh-CN
+#+CREATOR: <a href="http://www.gnu.org/software/emacs/">Emacs</a> 25.3.1 (<a href="https://orgmode.org">Org</a> mode 8.2.10)
+#+HTML_DOCTYPE: xhtml-strict
+#+HTML_CONTAINER: div
+#+OPTIONS: H:4 toc:t num:t ::t
+#+OPTIONS: author:nil creator:nil timestamp:nil date:nil email:nil
+#+OPTIONS: todo:t tasks:t
+#+OPTIONS: |:t f:t *:t
+#+OPTIONS: tex:t ^:nil
+#+OPTIONS: html-postamble:t html-preamble:t
+#+OPTIONS: ':t -:t <:t \n:nil arch:headline c:nil
+#+OPTIONS: d:(not LOGBOOK) e:t inline:t
+#+OPTIONS: p:nil pri:nil stat:t tags:t
+#+DESCRIPTION:
+#+EXCLUDE_TAGS: noexport
+#+SELECT_TAGS: export
+#+KEYWORDS: org-mode, emacs
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="file:///Users/he/notes/html/css/default.css"/>
+#+HTML_HEAD_EXTRA: <script src="file:///Users/he/notes/html/css/function.js" type="text/javascript"></script>
+#+HTML_HTML5_FANCY:
+#+HTML_INCLUDE_SCRIPTS:
+#+HTML_INCLUDE_STYLE:
+#+HTML_LINK_HOME:
+#+HTML_LINK_UP:
+#+HTML_MATHJAX:
+#+INFOJS_OPT:

@@ -1,0 +1,711 @@
+#+TITLE: libevent 核心流程
+
+* 简单示例
+
+四个核心函数
+- event_base_new 创建一个 event_base 对象
+- event_new 创建一个 event 事件
+- event_add 注册一个 event 事件到 event_base 中
+- event_base_dispatch 事件主循环。监听已经注册到 event_base 中的事件，并处理
+
+#+BEGIN_SRC c
+#include <unistd.h>
+#include <stdio.h>
+#include <string.h>
+#include <event2/event.h>
+
+void
+example_cb(int fd, short events, void *arg)
+{
+    char buf[512];
+    printf("in example_cb, fd = %d, events = %d, arg = %p\n", fd, events, arg);
+    read(fd, buf, sizeof(buf));
+    write(STDOUT_FILENO, buf, strlen(buf));
+}
+int
+main()
+{
+    // 使用 event_base 默认配置
+    struct event_base *base = event_base_new();
+    struct event *example_ev = event_new(base, STDIN_FILENO, EV_READ | EV_PERSIST, example_cb, NULL);
+    event_add(example_ev, NULL); // 没有超时
+    event_base_dispatch(base);
+    return 0;
+}
+#+END_SRC
+
+#+BEGIN_SRC sh
+$ gcc aaa.c -o aaa -levent
+$ ./aaa                                                                                                                                                                                       12:38:11
+[warn] kq_init: detected broken kqueue; not using.: Undefined error: 0
+hello
+in example_cb, fd = 0, events = 2, arg = 0x0
+hello
+#+END_SRC
+
+* event_base_new
+
+#+BEGIN_SRC c
+// 该函数会生产一个内容为空的配置信息 cfg，使用该配置生成一个 event_base 对象
+struct event_base *
+event_base_new(void)
+{
+    struct event_base *base = NULL;
+    struct event_config *cfg = event_config_new();  // cfg 中的配置信息是空的。如果有特殊需求，需要调用相关函数对 cfg 进行设置
+    if (cfg) {
+        base = event_base_new_with_config(cfg);
+        event_config_free(cfg);
+    }
+    return base;
+}
+
+struct event_base *
+event_base_new_with_config(const struct event_config *cfg)
+{
+    int i;
+    struct event_base *base;
+    int should_check_environment;
+
+#ifndef _EVENT_DISABLE_DEBUG_MODE
+    event_debug_mode_too_late = 1;
+#endif
+
+    if ((base = mm_calloc(1, sizeof(struct event_base))) == NULL) {
+        event_warn("%s: calloc", __func__);
+        return NULL;
+    }
+    detect_monotonic();  // 检测是否支持 monotonic 时间类型，并设置全局变量 use_monotonic
+    gettime(base, &base->event_tv);  // 如果 base->tv_cache 时间缓存已设置，返回该时间；否则执行系统调用获取当前时间
+
+    min_heap_ctor(&base->timeheap);  // 初始化小根堆
+    TAILQ_INIT(&base->eventqueue);   // 初始化已注册事件队列
+    base->sig.ev_signal_pair[0] = -1;// 初始化 signal socket pair
+    base->sig.ev_signal_pair[1] = -1;
+    base->th_notify_fd[0] = -1;
+    base->th_notify_fd[1] = -1;
+
+    event_deferred_cb_queue_init(&base->defer_queue);       // 初始化延时回调函数队列
+    base->defer_queue.notify_fn = notify_base_cbq_callback;
+    base->defer_queue.notify_arg = base;
+    if (cfg)
+        base->flags = cfg->flags;
+
+    evmap_io_initmap(&base->io);              // 初始化 io 事件 fd 到 event 的映射
+    evmap_signal_initmap(&base->sigmap);      // 初始化 signal 事件 signal 到 event 的映射
+    event_changelist_init(&base->changelist); // 初始化 changelist
+
+    base->evbase = NULL;
+
+    should_check_environment =
+        !(cfg && (cfg->flags & EVENT_BASE_FLAG_IGNORE_ENV));
+
+    // 遍历后端，获取第一个符合条件的后端并初始化
+    for (i = 0; eventops[i] && !base->evbase; i++) {
+        // 剔除不符合条件的后端（I/O 多路复用机制）
+        if (cfg != NULL) {
+            /* determine if this backend should be avoided */
+            if (event_config_is_avoided_method(cfg,
+                eventops[i]->name))
+                continue;
+            if ((eventops[i]->features & cfg->require_features)
+                != cfg->require_features)
+                continue;
+        }
+
+        /* also obey the environment variables */
+        // 剔除不符合环境变量的后端
+        if (should_check_environment &&
+            event_is_method_disabled(eventops[i]->name))
+            continue;
+
+        base->evsel = eventops[i];  // 选取后端
+        base->evbase = base->evsel->init(base);  // 初始化后端，返回后端的详细信息
+    }
+
+    if (base->evbase == NULL) {
+        event_warnx("%s: no event mechanism available",
+            __func__);
+        base->evsel = NULL;
+        event_base_free(base);
+        return NULL;
+    }
+
+    if (evutil_getenv("EVENT_SHOW_METHOD"))
+        event_msgx("libevent using: %s", base->evsel->name);
+
+    /* allocate a single active event queue */
+    // 为 base 的激活事件队列数组分配空间，数组长度为1，分配一个激活事件队列
+    if (event_base_priority_init(base, 1) < 0) {
+        event_base_free(base);
+        return NULL;
+    }
+
+    /* prepare for threading */
+// libevent 默认是不开启多线程的，也没有锁、条件变量这些东西
+// 可以调用接口 evthread_use_windows_threads() 或者 evthread_use_pthreads() 进行定制
+#ifndef _EVENT_DISABLE_THREAD_SUPPORT  // 如果编译时线程支持
+    if (EVTHREAD_LOCKING_ENABLED() &&  // 测试是否锁函数为 NULL
+        (!cfg || !(cfg->flags & EVENT_BASE_FLAG_NOLOCK))) {  // 判定当前配置是否支持锁
+        int r;
+        EVTHREAD_ALLOC_LOCK(base->th_base_lock,
+            EVTHREAD_LOCKTYPE_RECURSIVE);
+        base->defer_queue.lock = base->th_base_lock;
+        EVTHREAD_ALLOC_COND(base->current_event_cond);
+        r = evthread_make_base_notifiable(base);
+        if (r<0) {
+            event_warnx("%s: Unable to make base notifiable.", __func__);
+            event_base_free(base);
+            return NULL;
+        }
+    }
+#endif
+
+#ifdef WIN32
+    if (cfg && (cfg->flags & EVENT_BASE_FLAG_STARTUP_IOCP))
+        event_base_start_iocp(base, cfg->n_cpus_hint);
+#endif
+
+    return (base);
+}
+#+END_SRC
+
+* event_new
+
+#+BEGIN_SRC c
+// 该函数只是申请了一个 struct event 的内存空间，然后将参数原封不动的传给 event_assign
+struct event *
+event_new(struct event_base *base, evutil_socket_t fd, short events, void (*cb)(evutil_socket_t, short, void *), void *arg)
+{
+    struct event *ev;
+    ev = mm_malloc(sizeof(struct event));
+    if (ev == NULL)
+        return (NULL);
+    if (event_assign(ev, base, fd, events, cb, arg) < 0) {
+        mm_free(ev);
+        return (NULL);
+    }
+
+    return (ev);
+}
+
+// 生成一个 event，事件优先级默认为中等。初始化 event 所属 event_base，相关联的 fd，事件类型，事件发生后的回调函数等等
+int
+event_assign(struct event *ev, struct event_base *base, evutil_socket_t fd, short events, void (*callback)(evutil_socket_t, short, void *), void *arg)
+{
+    if (!base)
+        base = current_base;
+
+    _event_debug_assert_not_added(ev);
+
+    ev->ev_base = base;
+
+    ev->ev_callback = callback;
+    ev->ev_arg = arg;
+    ev->ev_fd = fd;
+    ev->ev_events = events;
+    ev->ev_res = 0;
+    ev->ev_flags = EVLIST_INIT;
+    ev->ev_ncalls = 0;
+    ev->ev_pncalls = NULL;
+
+    // 如果是信号事件，ev->ev_closure 值设为 EV_CLOSURE_SIGNAL
+    if (events & EV_SIGNAL) {
+        if ((events & (EV_READ|EV_WRITE)) != 0) {
+            event_warnx("%s: EV_SIGNAL is not compatible with "
+                "EV_READ or EV_WRITE", __func__);
+            return -1;
+        }
+        ev->ev_closure = EV_CLOSURE_SIGNAL;
+    }
+    else {
+        // 如果是 persist 事件，ev->ev_closure 值设为 EV_CLOSURE_PERSIST
+        if (events & EV_PERSIST) {
+            evutil_timerclear(&ev->ev_io_timeout);  // 事件的超时时长清零
+            ev->ev_closure = EV_CLOSURE_PERSIST;
+        }
+        // 如果是其它事件，ev->ev_closure 值设为 EV_CLOSURE_NONE
+        else {
+            ev->ev_closure = EV_CLOSURE_NONE;
+        }
+    }
+
+    min_heap_elem_init(ev);
+
+    // 设置事件优先级，默认新 new 的事件优先级为中等
+    if (base != NULL) {
+        /* by default, we put new events into the middle priority */
+        ev->ev_pri = base->nactivequeues / 2;
+    }
+
+    _event_debug_note_setup(ev);
+
+    return 0;
+}
+#+END_SRC
+
+* 向 event_base 注册事件
+
+** event_add
+
+#+BEGIN_SRC c
+// event_add 只是为 event_base 加了锁，然后调用 event_add_internal
+int
+event_add(struct event *ev, const struct timeval *tv)
+{
+    int res;
+
+    if (EVUTIL_FAILURE_CHECK(!ev->ev_base)) {
+        event_warnx("%s: event has no event_base set.", __func__);
+        return -1;
+    }
+
+    EVBASE_ACQUIRE_LOCK(ev->ev_base, th_base_lock);
+
+    res = event_add_internal(ev, tv, 0);  // 0 表示传入的 tv 是时间间隔而不是绝对时间
+
+    EVBASE_RELEASE_LOCK(ev->ev_base, th_base_lock);
+
+    return (res);
+}
+
+// 该函数会调用 evmap_io_add 或 evmap_signal_add，将事件插入 io 事件队列或 signal 事件队列
+// 然后调用 event_queue_insert 将事件插入已注册事件队列
+// 最后，小根堆和 common-timeout 结合注册超时事件
+static inline int
+event_add_internal(struct event *ev, const struct timeval *tv,
+    int tv_is_absolute)
+{
+    struct event_base *base = ev->ev_base;
+    int res = 0;
+    int notify = 0;
+
+    EVENT_BASE_ASSERT_LOCKED(base);
+    _event_debug_assert_is_setup(ev);
+
+    event_debug((
+         "event_add: event: %p (fd "EV_SOCK_FMT"), %s%s%scall %p",
+         ev,
+         EV_SOCK_ARG(ev->ev_fd),
+         ev->ev_events & EV_READ ? "EV_READ " : " ",
+         ev->ev_events & EV_WRITE ? "EV_WRITE " : " ",
+         tv ? "EV_TIMEOUT " : " ",
+         ev->ev_callback));
+
+    EVUTIL_ASSERT(!(ev->ev_flags & ~EVLIST_ALL));
+
+    // tv 不为 NULL，说明 ev 为超时事件。若 ev 不在 timeout 最小堆或 common-timeout 中，为其在最小堆中预留一个位置
+    // 有可能在小根堆中为 ev 预留位置了，但 ev 最后插入到 common-timeout 队列中了。但并不碍事。
+    if (tv != NULL && !(ev->ev_flags & EVLIST_TIMEOUT)) {
+        if (min_heap_reserve(&base->timeheap,
+            1 + min_heap_size(&base->timeheap)) == -1)
+            return (-1);  /* ENOMEM == errno */
+    }
+
+    // 如果主线程当前正在执行 ev 的回调函数，且 ev 是信号事件，且当前线程不是主线程，就等待主线程执行完 ev 的回调函数再执行添加操作
+#ifndef _EVENT_DISABLE_THREAD_SUPPORT
+    if (base->current_event == ev && (ev->ev_events & EV_SIGNAL)
+        && !EVBASE_IN_THREAD(base)) {
+        ++base->current_event_waiters;  // cond wait 的线程数量自增 1
+        EVTHREAD_COND_WAIT(base->current_event_cond, base->th_base_lock);
+    }
+#endif
+
+    // 如果 ev 是 I/O 事件或 signal 事件，且 ev 不在注册事件队列和激活事件队列中，将其插入到相应队列中
+    if ((ev->ev_events & (EV_READ|EV_WRITE|EV_SIGNAL)) &&
+        !(ev->ev_flags & (EVLIST_INSERTED|EVLIST_ACTIVE))) {
+        if (ev->ev_events & (EV_READ|EV_WRITE))                 // 如果 event 是 I/O 事件
+            res = evmap_io_add(base, ev->ev_fd, ev);            // 添加到 event_base.event_io_map，并注册到 I/O 多路复用后端上
+        else if (ev->ev_events & EV_SIGNAL)                     // 如果 event 是 signal 事件
+            res = evmap_signal_add(base, (int)ev->ev_fd, ev);   // 添加到 event_base.event_signal_map
+        if (res != -1) // 如果上一步操作没有失败
+            event_queue_insert(base, ev, EVLIST_INSERTED);      // 插入到注册事件队列
+        // 如果上一步在 evmap_io_add 或 evmap_signal_add 函数内部执行了添加操作
+        if (res == 1) {
+            // 需要 notify 主线程。
+            // 原因：当主线程在执行 event_base_dispatch 进入 I/O 多路复用函数时，会处于休眠状态，休眠前解锁
+            // 当次线程向 event_base 添加新事件时，需要及时唤醒主线程，告知其有新事件加入
+            notify = 1;
+            res = 0;
+        }
+    }
+
+    // 如果事件现在已经处于相应队列中，且该事件是超时事件，就需要为事件设置超时时间
+    if (res != -1 && tv != NULL) {
+        struct timeval now;
+        int common_timeout;
+
+        // 用户把这个事件设置成了 EV_PERSIST，即永久事件
+        // 对于永久超时事件，记录用户设置的超时时长
+        if (ev->ev_closure == EV_CLOSURE_PERSIST && !tv_is_absolute)
+            ev->ev_io_timeout = *tv;
+
+        // 如果超时事件已经在超时队列中，就需要把它从超时队列中先删掉
+        if (ev->ev_flags & EVLIST_TIMEOUT) {
+            // 如果该超时事件是堆顶元素，就需要唤醒主线程。因为重新为该超时事件设置超时值
+            if (min_heap_elt_is_top(ev))
+                notify = 1;
+            event_queue_remove(base, ev, EVLIST_TIMEOUT);
+        }
+
+        // 如果该事件因为超时而被激活，将其从激活队列移除
+        if ((ev->ev_flags & EVLIST_ACTIVE) &&
+            (ev->ev_res & EV_TIMEOUT)) {
+            if (ev->ev_events & EV_SIGNAL) {
+                if (ev->ev_ncalls && ev->ev_pncalls) {
+                    *ev->ev_pncalls = 0;
+                }
+            }
+
+            event_queue_remove(base, ev, EVLIST_ACTIVE);
+        }
+
+        // 计算事件的超时时间（绝对时间）。在 libevent 内部肯定得使用超时时间（绝对时间）而不应该是超时时长（相对时间）来进行超时管理
+        // libevent 的超时时长是相对于调用 event_add 的时间，而不是 event_base_dispatch 的时间
+        gettime(base, &now);
+
+        common_timeout = is_common_timeout(tv, base);  // 用来判断该 timeval 是否带有 common-timeout 标志
+        if (tv_is_absolute) {
+            ev->ev_timeout = *tv;
+        }
+        // 计算带 common-timeout 标志的超时时间（绝对时间）
+        else if (common_timeout) {
+            struct timeval tmp = *tv;
+            tmp.tv_usec &= MICROSECONDS_MASK;              // 取真正的时间部分，common-timeout 标志位和下标位不要
+            evutil_timeradd(&now, &tmp, &ev->ev_timeout);  // 转化为绝对时间
+            ev->ev_timeout.tv_usec |=
+                (tv->tv_usec & ~MICROSECONDS_MASK);        // 绝对时间加上 common-timeout 标志位和下标位
+        } else {
+            evutil_timeradd(&now, tv, &ev->ev_timeout);
+        }
+
+        event_debug((
+             "event_add: timeout in %d seconds, call %p",
+             (int)tv->tv_sec, ev->ev_callback));
+
+        // 如果 ev 超时时间带 common-timeout 标记，就插入到 common-timeout 队列
+        // 如果 ev 超时时间不带 common-timeout 标记，就插入到小根堆
+        // 并给事件 ev 打上 EVLIST_TIMEOUT 标志，说明超时事件已经插入到超时队列（common-timeout 队列或小根堆）
+        event_queue_insert(base, ev, EVLIST_TIMEOUT);
+        // 如果 common-timeout 队列是第一次插入，就会运行 event_add_internal 注册 common-timeout 超时事件，
+        // 将 common-timeout 超时事件放入小根堆，此时才会影响主线程，设置 notify，这个设置 notify 的操作在 if 下面的 else 代码块中。
+        if (common_timeout) {
+            struct common_timeout_list *ctl =
+                get_common_timeout_list(base, &ev->ev_timeout);
+            // 如果 common-timeout 队列第一次插入超时事件，就注册 common-timeout 超时事件。注册时会把 common-timeout 超时事件插入到最小堆
+            if (ev == TAILQ_FIRST(&ctl->events)) {
+                common_timeout_schedule(ctl, &now, ev);
+            }
+        }
+        else {
+            // 如果本次插入的是最小的，就需要唤醒主线程，告诉其最小超时值已经变了
+            if (min_heap_elt_is_top(ev))
+                notify = 1;
+        }
+    }
+
+    // 如果当前线程不是主线程且注册事件成功，就唤醒主线程
+    if (res != -1 && notify && EVBASE_NEED_NOTIFY(base))
+        evthread_notify_base(base);
+
+    _event_debug_note_add(ev);
+
+    return (res);
+}
+#+END_SRC
+
+** evmap_io_add
+
+#+BEGIN_SRC c
+// 添加 I/O 事件 ev 到 event_base.event_io_map。并向 I/O 多路复用函数注册事件
+// 调用该函数时，需要 ev 没有注册
+int
+evmap_io_add(struct event_base *base, evutil_socket_t fd, struct event *ev)
+{
+    const struct eventop *evsel = base->evsel;
+    struct event_io_map *io = &base->io;
+    struct evmap_io *ctx = NULL;
+    int nread, nwrite, retval = 0;
+    short res = 0, old = 0;
+    struct event *old_ev;
+
+    EVUTIL_ASSERT(fd == ev->ev_fd);
+
+    if (fd < 0)
+        return 0;
+
+#ifndef EVMAP_USE_HT  // map 不使用哈希表，用数组
+    // 如果 fd 大于等于数组最大长度，则为数组 map 扩容
+    if (fd >= io->nentries) {
+        if (evmap_make_space(io, fd, sizeof(struct evmap_io *)) == -1)
+            return (-1);
+    }
+#endif
+    // 获取 event_io_map slot 位置上的 evmap_io，若 evmap_io 为 NULL，就为其分配空间并调用 evmap_io_init 初始化。最终使指针 ctx 指向该 evmap_io
+    GET_IO_SLOT_AND_CTOR(ctx, io, fd, evmap_io, evmap_io_init,
+                         evsel->fdinfo_len);
+
+    nread = ctx->nread;
+    nwrite = ctx->nwrite;
+
+    // old 保存着之前向 I/O 多路复用函数注册的 fd 上的 I/O 事件类型
+    if (nread)
+        old |= EV_READ;
+    if (nwrite)
+        old |= EV_WRITE;
+
+    // res 保存着需要向 I/O 多路复用函数监听的 I/O 事件类型
+    // 如果第一次向 event_base 在 fd 上注册读事件，就需要 I/O 多路复用函数在 fd 上监听读事件
+    if (ev->ev_events & EV_READ) {
+        if (++nread == 1)
+            res |= EV_READ;
+    }
+    // 如果第一次向 event_base 在 fd 上注册写事件，就需要 I/O 多路复用函数在 fd 上监听写事件
+    if (ev->ev_events & EV_WRITE) {
+        if (++nwrite == 1)
+            res |= EV_WRITE;
+    }
+    // 在一个 fd 上不能注册太多读事件或写事件。读事件数量和写事件数量均不能大于 0xffff
+    if (EVUTIL_UNLIKELY(nread > 0xffff || nwrite > 0xffff)) {
+        event_warnx("Too many events reading or writing on fd %d",
+            (int)fd);
+        return -1;
+    }
+    if (EVENT_DEBUG_MODE_IS_ON() &&
+        (old_ev = TAILQ_FIRST(&ctx->events)) &&
+        (old_ev->ev_events&EV_ET) != (ev->ev_events&EV_ET)) {
+        event_warnx("Tried to mix edge-triggered and non-edge-triggered"
+            " events on fd %d", (int)fd);
+        return -1;
+    }
+
+    // 如果 res 存在，就需要 I/O 多路复用函数在 fd 上监听新的 I/O 事件
+    if (res) {
+        // extra 在 evsel->add 函数中转化成 event_changelist_fdinfo* 类型
+        // 这个额外信息保存了一个索引，该索引减去 1 后，它会索引到该 fd 对应的 event_change 在 event_changelist 的位置
+        // 这个索引如果为 0，说明在 event_changelist 中没有该 fd 的位置，需要在 event_changelist 获得一个位置
+        void *extra = ((char*)ctx) + sizeof(struct evmap_io);
+        /* XXX(niels): we cannot mix edge-triggered and
+         * level-triggered, we should probably assert on
+         * this. */
+        if (evsel->add(base, ev->ev_fd,
+            old, (ev->ev_events & EV_ET) | res, extra) == -1)
+            return (-1);
+        retval = 1;
+    }
+
+    // 向 I/O 多路复用函数注册完 I/O 事件后，维护下 event_base.event_io_map.entries[fd] 的值
+    ctx->nread = (ev_uint16_t) nread;
+    ctx->nwrite = (ev_uint16_t) nwrite;
+    TAILQ_INSERT_TAIL(&ctx->events, ev, ev_io_next);
+
+    return (retval);
+}
+#+END_SRC
+
+** evmap_signal_add
+
+#+BEGIN_SRC c
+// 注册信号事件
+int
+evmap_signal_add(struct event_base *base, int sig, struct event *ev)
+{
+    const struct eventop *evsel = base->evsigsel;
+    struct event_signal_map *map = &base->sigmap;
+    struct evmap_signal *ctx = NULL;
+
+    // 如果 event_signal_map 的内存空间不够，扩容
+    if (sig >= map->nentries) {
+        if (evmap_make_space(
+            map, sig, sizeof(struct evmap_signal *)) == -1)
+            return (-1);
+    }
+    // 为 ctx 赋值。如果 event_signal_map 上 sig 对应的 evmap_signal 为空，就为其分配空间并初始化；否则直接为 ctx 赋值
+    GET_SIGNAL_SLOT_AND_CTOR(ctx, map, sig, evmap_signal, evmap_signal_init,
+        base->evsigsel->fdinfo_len);
+
+    // 如果首次为这个信号注册事件，就注册该信号到信号后端
+    if (TAILQ_EMPTY(&ctx->events)) {
+        if (evsel->add(base, ev->ev_fd, 0, EV_SIGNAL, NULL)
+            == -1)
+            return (-1);
+    }
+
+    // 插入到队尾
+    TAILQ_INSERT_TAIL(&ctx->events, ev, ev_signal_next);
+
+    return (1);
+}
+#+END_SRC
+
+** event_queue_insert
+
+该函数第三个参数取值为 EVLIST_INSERTED 时，代表插入事件到注册事件队列
+取值为 EVLIST_TIMEOUT 时，代表插入事件到小根堆或 common-timeout 队列
+
+#+BEGIN_SRC c
+// 根据 base 和 queue，把 ev 插入到不同的队列中
+// queue 取值为 EVLIST_INSERTED、EVLIST_ACTIVE、EVLIST_TIMEOUT 其中之一
+static void
+event_queue_insert(struct event_base *base, struct event *ev, int queue)
+{
+    EVENT_BASE_ASSERT_LOCKED(base);
+
+    // 如果 ev 已经在 queue 标记所标志的队列中，直接返回
+    if (ev->ev_flags & queue) {
+        /* Double insertion is possible for active events */
+        if (queue & EVLIST_ACTIVE)
+            return;
+
+        event_errx(1, "%s: %p(fd "EV_SOCK_FMT") already on queue %x", __func__,
+            ev, EV_SOCK_ARG(ev->ev_fd), queue);
+        return;
+    }
+
+    // 如果不是 libevent 的内部事件，注册事件数量加 1
+    if (~ev->ev_flags & EVLIST_INTERNAL)
+        base->event_count++;
+
+    ev->ev_flags |= queue;
+    switch (queue) {
+    case EVLIST_INSERTED:
+        TAILQ_INSERT_TAIL(&base->eventqueue, ev, ev_next);
+        break;
+    case EVLIST_ACTIVE:
+        base->event_count_active++;
+        TAILQ_INSERT_TAIL(&base->activequeues[ev->ev_pri],
+            ev,ev_active_next);
+        break;
+    case EVLIST_TIMEOUT: {
+        // 如果是带有 common-timeout 标志的超时时间，就把 event 插入到 event_base 的 common_timeout_list 数组的一个队列中
+        if (is_common_timeout(&ev->ev_timeout, base)) {
+            struct common_timeout_list *ctl =
+                get_common_timeout_list(base, &ev->ev_timeout);
+            insert_common_timeout_inorder(ctl, ev);
+        }
+        // 否则就直接插入到小根堆中
+        else
+            min_heap_push(&base->timeheap, ev);
+        break;
+    }
+    default:
+        event_errx(1, "%s: unknown queue %x", __func__, queue);
+    }
+}
+#+END_SRC
+
+* 事件主循环 event_base_dispatch
+
+#+BEGIN_SRC c
+int
+event_base_dispatch(struct event_base *event_base)
+{
+    return (event_base_loop(event_base, 0));
+}
+
+int
+event_base_loop(struct event_base *base, int flags)
+{
+    const struct eventop *evsel = base->evsel;
+    struct timeval tv;
+    struct timeval *tv_p;
+    int res, done, retval = 0;
+
+    EVBASE_ACQUIRE_LOCK(base, th_base_lock);
+
+    // 如果已经正在运行 event_base_loop，解锁并返回。 在 event_base 中，同一时间只能运行一个 event_base_loop 函数。
+    if (base->running_loop) {
+        event_warnx("%s: reentrant invocation.  Only one event_base_loop"
+            " can run on each event_base at once.", __func__);
+        EVBASE_RELEASE_LOCK(base, th_base_lock);
+        return -1;
+    }
+
+    base->running_loop = 1;  // 标志正在运行 event_base_loop
+
+    clear_time_cache(base);  // 缓存时间清零
+
+    // 如果当前 event_base 已经加入了信号事件
+    if (base->sig.ev_signal_added && base->sig.ev_n_signals_added)
+        evsig_set_base(base);
+
+    done = 0;
+
+#ifndef _EVENT_DISABLE_THREAD_SUPPORT
+    base->th_owner_id = EVTHREAD_GET_ID();
+#endif
+
+    base->event_gotterm = base->event_break = 0;
+
+    while (!done) {
+        base->event_continue = 0;
+
+        if (base->event_gotterm) {
+            break;
+        }
+
+        // 立即终止循环
+        if (base->event_break) {
+            break;
+        }
+
+        // 时间校正。
+        // 如果使用了 monotonic 时间，不操作 tv 直接返回；否则校正时间，并且 tv 赋值为未校正过的 tv_cache
+        timeout_correct(base, &tv);
+
+        tv_p = &tv;
+        // 如果所有激活事件都已处理完毕，并且 event_base_loop 没有设置 EVLOOP_NONBLOCK
+        if (!N_ACTIVE_CALLBACKS(base) && !(flags & EVLOOP_NONBLOCK)) {
+            timeout_next(base, &tv_p);  // 计算下一个超时事件还有多久会超时
+        }
+        // 如果设置了 EVLOOP_NONBLOCK 或着还有激活事件没有处理完毕，就不再阻塞
+        else {
+            evutil_timerclear(&tv);
+        }
+
+        // 如果当前没有注册的事件，也没有激活的事件，就退出循环
+        if (!event_haveevents(base) && !N_ACTIVE_CALLBACKS(base)) {
+            event_debug(("%s: no events registered.", __func__));
+            retval = 1;
+            goto done;
+        }
+
+        // 如果第一次循环，获取当前时间
+        // 如果不是第一次循环了，就获取缓存的时间 tv_cache，保存到 event_tv
+        gettime(base, &base->event_tv);
+
+        clear_time_cache(base);  // 缓存时间 tv_cache 清零
+
+        res = evsel->dispatch(base, tv_p);    // dispatch 是一个函数指针，其内调用了 I/O 多路复用函数
+
+        if (res == -1) {
+            event_debug(("%s: dispatch returned unsuccessfully.",
+                __func__));
+            retval = -1;
+            goto done;
+        }
+
+        update_time_cache(base); // 更新时间缓存 tv_cache
+
+        timeout_process(base);   // 把所有超时了的事件放入激活队列
+
+        // 处理所有激活事件队列中的激活事件
+        if (N_ACTIVE_CALLBACKS(base)) {
+            int n = event_process_active(base);
+            if ((flags & EVLOOP_ONCE)
+                && N_ACTIVE_CALLBACKS(base) == 0
+                && n != 0)
+                done = 1;
+        } else if (flags & EVLOOP_NONBLOCK)
+            done = 1;
+    }
+    event_debug(("%s: asked to terminate loop.", __func__));
+
+done:
+    clear_time_cache(base);
+    base->running_loop = 0;
+
+    EVBASE_RELEASE_LOCK(base, th_base_lock);
+
+    return (retval);
+}
+#+END_SRC

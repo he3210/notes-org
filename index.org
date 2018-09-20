@@ -1,0 +1,22 @@
+#+TITLE: He's notes
+#+OPTIONS: toc:nil num:nil ^:nil
+
+# 首页不标题显示，这里实现虽然不优雅
+#+BEGIN_EXPORT html
+<style>
+h1.title {
+display: none
+}
+</style>
+#+END_EXPORT
+
+
+- [[file:./test/math.org][数学公式]]
+
+- [[file:./libevent notebook/common-timeout.org][超时队列]]
+
+- [[file:./test/remember.org][remember]]
+
+- [[file:./test/worg.org][worg]]
+
+- [[file:./test/o-blog.org][o-blog]]

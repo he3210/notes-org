@@ -1,0 +1,356 @@
+#+TITLE: libevent 源码之 common-timeout
+
+* 为什么要用 common-timeout 呢？
+
+小根堆插入和删除操作事件复杂度都是 =O(logN)= ，但如果把大量具有相同超时时长的 event 放到小根堆上，效率会下降很多。
+
+- common-timeout 是专门处理：有大量超时事件的超时时长相同的这种情况
+- 小根堆是用在：各个超时事件的超时时长是随机的这种情况
+
+这样，小根堆和 common-timeout 配合就可以提高一些效率
+需要注意的是： *超时时间 = 调用 event_add 时的时间 + 超时时长* （超时时长就是一个时间间隔）
+
+* common-timeout 原理
+
+对于具有相同的超时时长的超时事件，可以把它们按照超时时间升序地放到一个 *common-timeout 队列* 中。
+那么队首元素必定最先超时，然后第二元素第二个超时，...
+根据 *队列中元素按顺序依次超时* 这一特点，libevent 专门为该队列创建了一个代表事件 —— *common-timeout 超时事件* ，它的超时时间被设置为队首元素的超时时间（即该事件超时队首元素必定超时），由它代替队列中的元素插入到小根堆中。
+主要算法如下：
+
+- common-timeout 超时事件超时后，在其 callback 函数中检查队首元素是否超时。
+- 如果队首元素超时，取出队首元素，直接放入激活队列。然后继续检查队首元素是否超时；
+- 如果队首元素未超时，就把队首元素的超时时间赋值给 common-timeout 超时事件，重新注册 common-timeout 事件。注册 common-timeout 超时事件时，会把它插入最小堆中，用最小堆监控该事件是否超时。如果 common-timeout 超时事件激活了，就又调用它的回调函数，又是一个循环。
+
+这样就不用把大量具有相同超时时长的超时事件放入小根堆了。
+而只需把这些相同超时时长的超时事件按时间顺序放入 *common-timeout 队列* ，生成一个代表事件 —— *common-timeout 超时事件* ，把该事件放入最小堆。
+从而减轻了小根堆的负担。
+
+* 基本数据结构
+
+#+BEGIN_SRC c
+struct common_timeout_list {
+    // 我叫它 common-timeout 队列
+    struct event_list events;
+    // 带 common-timeout 标志的超时时长，我称它为 common-timeout 超时时长
+    struct timeval duration;
+    // 我叫它 common-timeout 超时事件
+    // 内部事件，优先级最高，回调函数为：common_timeout_callback
+    // 该超时事件的超时时间会设置为 common-timeout 队列的队首元素的超时时间
+    // 调用 event_add_internal 进行注册时，超时 common-timeout 去掉了 common-timeout 标志，表明注册到小根堆中
+    struct event timeout_event;
+    struct event_base *base;
+};
+
+struct event_base {
+...
+    // 我叫它 common-timeout 数组
+    // 因为可以有多个不同时长的 common-timeout 队列，故得是数组。数组元素是指向 common_timeout_list 的指针
+    struct common_timeout_list **common_timeout_queues;
+    int n_common_timeouts;            // 数组长度
+    int n_common_timeouts_allocated;  // 数组容量
+...
+};
+#+END_SRC
+
+存储结构如下图：
+
+[[../images/common-timeout 存储结构.png]]
+
+- =common-timeout 队列= :: 具有相同超时时长的超时事件的队列，超时时间从队首到队尾是递增的
+- =common-timeout 超时事件= :: 它是 common-timeout 队列中所有元素的代表。它和队首元素超时时间相同的超时事件。只要它超时了，就说明队首元素也超时了，也应该被激活
+- =common-timeout 数组= :: 指的是 event_base.common_timeout_queues，它有 n_common_timeouts 个不同超时时长的元素。受 [[*common-timeout 标志][common-timeout 标志]] 限制，n_common_timeouts 最大值为 256
+
+* common-timeout 标志
+  :PROPERTIES:
+  :CUSTOM_ID: common-timeout 标志
+  :END:
+
+在 libevent 中使用 struct timeval 结构体来存储超时时间（或者超时时长），结构体如下：
+#+BEGIN_SRC c
+struct timeval
+{
+    __time_t tv_sec;        /* Seconds. */
+    __suseconds_t tv_usec;  /* Microseconds. */
+};
+#+END_SRC
+
+*那么如何区分一个 struct timeval 对象是否是 common-timeout 超时时间（超时时长）呢？*
+
+timeval.tv_usec 的单位是微秒，最大值为 999999，再大就进位到秒了。所以，只需 20 比特位就足以存储毫秒值了。但 timeval.tv_usec 的类型是 int 或 long，至少有 32 比特。
+
+*libevent 是这样区分的：*
+- timeval.tv_usec 的低 20 比特存储毫秒值
+- 中间 8 比特存储用来记录 common-timeout 数组的下标值。不过这也限制了数组的长度，数组最大长度为 256。超时事件根据这 8 比特可以直接索引到具有相同超时时长的 common-timeout 队列
+- 高 4 比特位作为标志位，标志它是一个专门用于 common-timeout 的时间
+
+相关代码如下：
+#+BEGIN_SRC c
+#define MICROSECONDS_MASK       COMMON_TIMEOUT_MICROSECONDS_MASK   // 低 20 比特位掩码
+#define COMMON_TIMEOUT_IDX_MASK 0x0ff00000  // common-timeout 次 8 比特位掩码
+#define COMMON_TIMEOUT_IDX_SHIFT 20
+#define COMMON_TIMEOUT_MASK     0xf0000000  // common-timeout 最高的 4 比特位掩码
+#define COMMON_TIMEOUT_MAGIC    0x50000000  // common-timeout 标志
+
+static inline int
+is_common_timeout(const struct timeval *tv,
+    const struct event_base *base)
+{
+    int idx;
+    if ((tv->tv_usec & COMMON_TIMEOUT_MASK) != COMMON_TIMEOUT_MAGIC)
+        return 0;
+    idx = COMMON_TIMEOUT_IDX(tv);
+    return idx < base->n_common_timeouts;
+}
+#+END_SRC
+
+在超时事件注册时，如果超时时间（超时时长）带有 common-timeout 标志，就把超时事件插入到 common-timeout 队列中；否则插入到小根堆中。
+
+* 初始化一个 common-timeout 超时时长
+
+- 如果该超时时长有对应的 common-timeout 队列，为其加上 common-timeout 标志直接返回；否则，为其分配应有的空间并初始化
+- 返回带 common-timeout 标志的超时时长
+- 需要注意的是：应该由该函数返回 common-timeout 超时时长，而不应该也不能自己手动为 struct timeval 变量加入 common-timeout 标志
+
+#+BEGIN_SRC c
+#define MAX_COMMON_TIMEOUTS 256  // 最多 common-timeout 队列的个数
+
+const struct timeval *
+event_base_init_common_timeout(struct event_base *base,
+    const struct timeval *duration)
+{
+    int i;
+    struct timeval tv;
+    const struct timeval *result=NULL;
+    struct common_timeout_list *new_ctl;
+
+    EVBASE_ACQUIRE_LOCK(base, th_base_lock);n
+    // 判断时间的微秒字段是否需要进位
+    if (duration->tv_usec > 1000000) {
+        memcpy(&tv, duration, sizeof(struct timeval));
+        if (is_common_timeout(duration, base))
+            tv.tv_usec &= MICROSECONDS_MASK;
+        tv.tv_sec += tv.tv_usec / 1000000;
+        tv.tv_usec %= 1000000;
+        duration = &tv;
+    }
+    // 遍历 common-timeout 数组，查看是否有和 duration 匹配的 common_timeout_list。
+    // 如果有就直接返回，否则需要为该 timeval 分配新的 common_timeout_list 内存
+    for (i = 0; i < base->n_common_timeouts; ++i) {
+        const struct common_timeout_list *ctl =
+            base->common_timeout_queues[i];
+        // 如果找到匹配的 common_timeout_list，直接返回
+        if (duration->tv_sec == ctl->duration.tv_sec &&
+            duration->tv_usec ==
+            (ctl->duration.tv_usec & MICROSECONDS_MASK)) {
+            EVUTIL_ASSERT(is_common_timeout(&ctl->duration, base));
+            result = &ctl->duration;
+            goto done;
+        }
+    }
+    // 如果 common_timeout_list 达到最大申请个数，就不能再分配了，直接返回
+    if (base->n_common_timeouts == MAX_COMMON_TIMEOUTS) {
+        event_warnx("%s: Too many common timeouts already in use; "
+            "we only support %d per event_base", __func__,
+            MAX_COMMON_TIMEOUTS);
+        goto done;
+    }
+    // 如果 base->common_timeout_queues 空间不足，为其扩容
+    if (base->n_common_timeouts_allocated == base->n_common_timeouts) {
+        int n = base->n_common_timeouts < 16 ? 16 :
+            base->n_common_timeouts*2;   // 初始值为 16 个 common_timeout_list，之后每次扩大为原先的 2 倍
+        struct common_timeout_list **newqueues =
+            mm_realloc(base->common_timeout_queues,
+            n*sizeof(struct common_timeout_queue *));
+        if (!newqueues) {
+            event_warn("%s: realloc",__func__);
+            goto done;
+        }
+        base->n_common_timeouts_allocated = n;
+        base->common_timeout_queues = newqueues;
+    }
+    // 申请新的 common_timeout_list 空间，并初始化其各个成员
+    new_ctl = mm_calloc(1, sizeof(struct common_timeout_list));
+    if (!new_ctl) {
+        event_warn("%s: calloc",__func__);
+        goto done;
+    }
+    TAILQ_INIT(&new_ctl->events);
+    new_ctl->duration.tv_sec = duration->tv_sec;
+    new_ctl->duration.tv_usec =
+        duration->tv_usec | COMMON_TIMEOUT_MAGIC |
+        (base->n_common_timeouts << COMMON_TIMEOUT_IDX_SHIFT);  // 设置 common-timeout 超时时长
+    evtimer_assign(&new_ctl->timeout_event, base,
+        common_timeout_callback, new_ctl);               // 生成一个 common-timeout 超时事件
+    new_ctl->timeout_event.ev_flags |= EVLIST_INTERNAL;  // common-timeout 事件为内部事件
+    event_priority_set(&new_ctl->timeout_event, 0);      // common-timeout 事件优先级设为最高
+    new_ctl->base = base;
+
+    base->common_timeout_queues[base->n_common_timeouts++] = new_ctl;   // 把 common_timeout_list 放到 event_base 上
+    result = &new_ctl->duration;
+
+done:
+    if (result)
+        EVUTIL_ASSERT(is_common_timeout(result, base));
+
+    EVBASE_RELEASE_LOCK(base, th_base_lock);
+    return result;
+}
+
+#+END_SRC
+
+* common-timeout 超时事件回调函数
+
+- 如果队首元素超时，取出队首元素，直接放入激活队列。然后继续检查队首元素是否超时；
+- 如果队首元素未超时，就把队首元素的超时时间赋值给 common-timeout 超时事件，重新注册 common-timeout 事件。注册 common-timeout 超时事件时，会把它插入最小堆中，用最小堆监控该事件是否超时。如果 common-timeout 超时事件激活了，就又调用它的回调函数，又是一个循环。
+- 如果 common-timeout 队列为空，直接退出回调函数
+#+BEGIN_SRC c
+// 注册 common-timeout 超时事件到小根堆，它会插入到 event_base 的最小堆，由最小堆监控该事件的超时情况
+static void
+common_timeout_schedule(struct common_timeout_list *ctl,
+    const struct timeval *now, struct event *head)
+{
+    struct timeval timeout = head->ev_timeout;  // 带有 common-timeout 标志的超时事件
+    timeout.tv_usec &= MICROSECONDS_MASK;       // 清除 common-timeout 标志
+    event_add_internal(&ctl->timeout_event, &timeout, 1);  // 注册 common-timeout 超时事件。使用的是绝对时间，且不带有 common-timeout 标志
+}
+
+// common-timeout 超时事件回调函数
+static void
+common_timeout_callback(evutil_socket_t fd, short what, void *arg)
+{
+    struct timeval now;
+    struct common_timeout_list *ctl = arg;
+    struct event_base *base = ctl->base;
+    struct event *ev = NULL;
+    EVBASE_ACQUIRE_LOCK(base, th_base_lock);
+    gettime(base, &now);
+    while (1) {
+        ev = TAILQ_FIRST(&ctl->events);
+        // 如果 ev 不存在或着已经有超时事件激活
+        if (!ev || ev->ev_timeout.tv_sec > now.tv_sec ||
+            (ev->ev_timeout.tv_sec == now.tv_sec &&
+            (ev->ev_timeout.tv_usec&MICROSECONDS_MASK) > now.tv_usec))
+            break;
+        event_del_internal(ev);                  // 从 event_base 注销事件 ev
+        event_active_nolock(ev, EV_TIMEOUT, 1);  // 将因为超时而激活的事件 ev 插入到激活队列
+    }
+    // 如果 ev 存在，修改 common-timeout 事件 timeout_event 的超时时间，并重新注册 timeout_event
+    if (ev)
+        common_timeout_schedule(ctl, &now, ev);
+    EVBASE_RELEASE_LOCK(base, th_base_lock);
+}
+#+END_SRC
+* 注册事件到 common-timeout 队列
+
+- 参数 tv 带有 common-timeout 标志，会把超时事件插入到相应的 common-timeout 队列
+- 参数 tv 不带 common-timeout 标志，并且不空，会把超时事件插入到小根堆中
+
+#+BEGIN_SRC c
+static inline int
+event_add_internal(struct event *ev, const struct timeval *tv,
+    int tv_is_absolute)
+{
+    struct event_base *base = ev->ev_base;
+    int res = 0;
+    int notify = 0;
+
+    EVENT_BASE_ASSERT_LOCKED(base);
+    _event_debug_assert_is_setup(ev);
+
+    ...... // 主题不相关的 debug 代码
+
+    EVUTIL_ASSERT(!(ev->ev_flags & ~EVLIST_ALL));
+
+    // tv 不为 NULL，说明 ev 为超时事件。若 ev 不在 timeout 最小堆或 common-timeout 中，为其在最小堆中预留一个位置
+    // 有可能在小根堆中为 ev 预留位置了，但 ev 最后插入到 common-timeout 队列中了。但并不碍事。
+    if (tv != NULL && !(ev->ev_flags & EVLIST_TIMEOUT)) {
+        if (min_heap_reserve(&base->timeheap,
+            1 + min_heap_size(&base->timeheap)) == -1)
+            return (-1);  /* ENOMEM == errno */
+    }
+
+    // 主题不相关代码
+    ......  // 如果该事件是 I/O 事件或 signal 事件，且它不在注册事件队列和激活事件队列中，将其插入到相应队列中
+
+    // 如果事件现在已经处于相应队列中，且该事件是超时事件，就需要为事件设置超时时间
+    if (res != -1 && tv != NULL) {
+        struct timeval now;
+        int common_timeout;
+
+        // 用户把这个事件设置成了 EV_PERSIST，即永久事件
+        // 对于永久超时事件，记录用户设置的超时时长
+        if (ev->ev_closure == EV_CLOSURE_PERSIST && !tv_is_absolute)
+            ev->ev_io_timeout = *tv;
+
+        // 如果超时事件已经在超时队列中，就需要把它从超时队列中先删掉
+        if (ev->ev_flags & EVLIST_TIMEOUT) {
+            // 如果该超时事件是堆顶元素，就需要唤醒主线程。因为重新为该超时事件设置超时值
+            if (min_heap_elt_is_top(ev))
+                notify = 1;
+            event_queue_remove(base, ev, EVLIST_TIMEOUT);
+        }
+        // 如果该事件因为超时而被激活，将其从激活队列移除
+        if ((ev->ev_flags & EVLIST_ACTIVE) &&
+            (ev->ev_res & EV_TIMEOUT)) {
+            if (ev->ev_events & EV_SIGNAL) {
+                if (ev->ev_ncalls && ev->ev_pncalls) {
+                    *ev->ev_pncalls = 0;
+                }
+            }
+
+            event_queue_remove(base, ev, EVLIST_ACTIVE);
+        }
+
+        // 计算事件的超时时间（绝对时间）。在 libevent 内部肯定得使用超时时间（绝对时间）而不应该是超时时长（相对时间）来进行超时管理
+        // libevent 的超时时长是相对于调用 event_add 的时间，而不是 event_base_dispatch 的时间
+        gettime(base, &now);
+
+        common_timeout = is_common_timeout(tv, base);  // 用来判断该 timeval 是否带有 common-timeout 标志
+        if (tv_is_absolute) {
+            ev->ev_timeout = *tv;
+        }
+        // 计算带 common-timeout 标志的超时时间（绝对时间）
+        else if (common_timeout) {
+            struct timeval tmp = *tv;
+            tmp.tv_usec &= MICROSECONDS_MASK;              // 取真正的时间部分，common-timeout 标志位和下标位不要
+            evutil_timeradd(&now, &tmp, &ev->ev_timeout);  // 转化为绝对时间
+            ev->ev_timeout.tv_usec |=
+                (tv->tv_usec & ~MICROSECONDS_MASK);        // 绝对时间加上 common-timeout 标志位和下标位
+        } else {
+            evutil_timeradd(&now, tv, &ev->ev_timeout);
+        }
+
+        event_debug((
+             "event_add: timeout in %d seconds, call %p",
+             (int)tv->tv_sec, ev->ev_callback));
+
+        // 如果 ev 超时时间带 common-timeout 标记，就插入到 common-timeout 队列
+        // 如果 ev 超时时间不带 common-timeout 标记，就插入到小根堆
+        // 并给事件 ev 打上 EVLIST_TIMEOUT 标志，说明超时事件已经插入到超时队列（common-timeout 队列或小根堆）
+        event_queue_insert(base, ev, EVLIST_TIMEOUT);
+
+        if (common_timeout) {
+            struct common_timeout_list *ctl =
+                get_common_timeout_list(base, &ev->ev_timeout);
+            // common-timeout 超时事件就是在这里注册的。
+            // 如果新插入的超时事件是 common-timeout 队列的首个事件，就需要注册 common-timeout 超时事件。由最小堆监控 common-timeout 超时事件的超时情况。
+            if (ev == TAILQ_FIRST(&ctl->events)) {
+                common_timeout_schedule(ctl, &now, ev);
+            }
+        }
+        else {
+            // 如果本次插入的是最小的，就需要唤醒主线程，告诉其最小超时值已经变了
+            if (min_heap_elt_is_top(ev))
+                notify = 1;
+        }
+    }
+
+    // 如果当前线程不是主线程且注册事件成功，就唤醒主线程
+    if (res != -1 && notify && EVBASE_NEED_NOTIFY(base))
+        evthread_notify_base(base);
+
+    _event_debug_note_add(ev);
+
+    return (res);
+}
+#+END_SRC

@@ -1,0 +1,64 @@
+#+TITLE: emacs 多行编辑
+
+* emacs 列编辑
+
+快捷键如下表
+
+| 列编辑快捷键 | 描述                                 |
+|--------------+--------------------------------------|
+| C-x r k      | 剪切一个矩形块                       |
+| C-x r y      | 粘贴一个矩形块                       |
+| C-x r o      | 插入一个矩形块                       |
+| C-x r c      | 清除一个矩形块(使其变成空白)         |
+| C-x r t      | 在选定区域的所有列前插入相同的字符串 |
+
+示例一：添加多行注释
+先按快捷键 =Ctrl-Space= 进入选中模式，选中一个区域，再按快捷键 =C-x r t= ，然后输入 =;; RET= 
+#+ATTR_ORG: :width 50%
+#+ATTR_HTML: :width 50%
+[[file:../images/emacs 列编辑.gif]]
+
+示例二：删除多行注释
+先按快捷键 =Ctrl-Space= 进入多行编辑模式，选中一个区域，再按快捷键 =C-x r k=
+#+ATTR_ORG: :width 50%
+#+ATTR_HTML: :width 50%
+[[file:../images/emacs 列编辑2.gif]]
+
+* 选中多列相同内容同时编辑
+** 配置后的快捷键
+
+| 快捷键 | 描述                                     |
+|--------+------------------------------------------|
+| C-c f  | 按照语义扩大选中区域                     |
+| C-c b  | 按照语义缩小选中区域                     |
+| C-c i  | 选中该 buffer 中所有和选中区域相同的内容 |
+
+常用用法：在 emacs 中使用搜索命令得到的 mini buffer 中，使用快捷键 =C-c f= =C-c b= 或者 =Ctrl-Space= 选中一个区域后，按快捷键 =C-c i= 选中该 mini buffer 中的所有相同区域。这样就可以同时编辑多个文本片段了
+
+** 插件 expand-region
+
+该插件用于按照语义智能选中一段文本
+官方推荐使用快捷键 ~C-=~ 扩大文本。我在终端下使用 emacs，但是在终端 emacs 中按快捷键 ~C-=~ 时， =ctrl= 会被终端吞掉，所以我改用为 =C-c f= 。 =C-c b= 同理
+
+添加配置
+#+BEGIN_SRC emacs-lisp
+;; 按 <C-c f> 扩大选中区域，按 <C-c b> 缩小选中区域
+(global-set-key (kbd "C-c f") 'er/expand-region)
+(global-set-key (kbd "C-c b") 'er/contract-region)
+#+END_SRC
+
+#+ATTR_ORG: :width 40%
+#+ATTR_HTML: :width 40%
+[[file:../images/emacs expand-region.gif]]
+
+** 插件 iedit
+
+该插件用于根据选中的内容，来选中 buffer 中所有相同的文本
+官方使用快捷键 =C-;= ，这里改用 =C-c i=
+
+添加配置
+#+BEGIN_SRC emacs-lisp
+;; 如果没有进入选中模式，就选中光标下的单词，并同时选中在该 buffer 中的所有该单词
+;; 如果已经在选中了一个区域，就选中该 buffer 中的所有和该区域相同的内容
+(global-set-key (kbd "C-c i") 'iedit-mode)
+#+END_SRC

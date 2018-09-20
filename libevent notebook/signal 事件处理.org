@@ -1,0 +1,536 @@
+#+TITLE: libevent 源码之 signal 事件处理
+
+* signal 事件集成策略
+
+集成思想:
+如果当 signal 发生时，并不立即调用该信号相应的事件处理函数。而是通过管道或其他方式（libevent 使用的通知方式是 socketpair）通知 I/O 复用程序哪些信号发生了。然后将发生的信号对应的信号事件插入到激活事件队列中，然后再统一与 I/O 事件以及 Timer 事件一起处理。
+
+集成步骤:
+1. 创建 socketpair
+2. 为这个 socketpair 的读 socket 在 libevent 的 event_base 实例上生成并注册一个内部的 persist 读事件（我称之为内部信号读事件）。
+3. 设置信号捕获函数。有信号发生，信号捕获函数在 socketpair 写端写入信号值
+4. I/O 多路复用函数中监听到内部信号读事件激活，即可将之与其他 I/O 事件、超时事件一起处理。这样就把 signal 事件、I/O 事件、超时事件集成到一起了
+
+* 主要数据结构
+
+#+BEGIN_SRC c
+struct event_base {
+    const struct eventop *evsigsel;  // 这个 event_base 使用的信号后端。包括添加信号、删除信号的方法
+    struct evsig_info sig;
+    struct event_signal_map sigmap;
+};
+
+// 管理 signal 的结构体。主要用于集成 signal 事件
+struct evsig_info {
+    struct event ev_signal;             // 我称它为内部信号读事件
+    evutil_socket_t ev_signal_pair[2];  // socket pair。ev_signal_pair[0] 为写 socket，ev_signal_pair[1] 为读 socket
+    int ev_signal_added;     // 记录 ev_signal 事件是否已经注册了
+    int ev_n_signals_added;  // 统计当前监听的信号数量
+
+    // sh_old 保存着原先的信号处理方式。主要用于删除信号时，还原信号的原先处理方式
+#ifdef _EVENT_HAVE_SIGACTION
+    struct sigaction **sh_old;
+#else
+    ev_sighandler_t **sh_old;
+#endif
+    int sh_old_max;          // 分配的 *sh_old 的最大数量。该字段用于判断是否需要为 sh_old 重新分配空间
+};
+
+// 类似一个 map，使用信号值可直接索引到 event_base 中在该信号上注册的所有信号事件
+struct event_signal_map {
+    void **entries;  // void** 当为 evmap_signal** 时，entries[sig_num] 类型为 evmap_signal*
+    int nentries;
+};
+
+struct evmap_signal {
+    struct event_list events;
+};
+#+END_SRC
+
+- =内部信号读事件= :: signal socket pair 的读 socket 向 event_base 注册读事件时生成的 event。它是为了把 signal 集成到 libevent 中而使用的一个内部事件
+
+* 内部信号读事件初始化
+
+初始化步骤：
+- 创建 socketpair
+- 为 socketpair 设置 FD_CLOEXEC 和 O_NONBLOCK 标志
+- 生成一个内部信号读事件，特点是：内部事件、persist、优先级最高。注意：该事件并没有注册，只是保存在 event_base 中了
+
+#+BEGIN_SRC c
+// 初始化 epoll，返回一个 epollop 指针。创建 epoll fd，为 epoll_event分配初始空间，创建信号的 socket pair 并生成一个 signal event
+static void *
+epoll_init(struct event_base *base)
+{
+    ...
+    // 创建 signal socket pair，并为 socket pair 的读 socket 在 libevent 的 event_base 实例上生成一个最高优先级的 persist 读事件
+    evsig_init(base);
+
+    return (epollop);
+}
+
+// 初始化内部信号读事件：创建一对 signal socket pair，并为 socket pair 的读 socket 生成一个最高优先级的 persist 读事件
+int
+evsig_init(struct event_base *base)
+{
+    // 创建 signal socket pair，base->sig.ev_signal_pair[0] 用于写，base->sig.ev_signal_pair[1] 用于读
+    if (evutil_socketpair(
+            AF_UNIX, SOCK_STREAM, 0, base->sig.ev_signal_pair) == -1) {
+#ifdef WIN32
+        /* Make this nonfatal on win32, where sometimes people
+           have localhost firewalled. */
+        event_sock_warn(-1, "%s: socketpair", __func__);
+#else
+        event_sock_err(1, -1, "%s: socketpair", __func__);
+#endif
+        return -1;
+    }
+
+    // 设置 FD_CLOEXEC
+    evutil_make_socket_closeonexec(base->sig.ev_signal_pair[0]);
+    evutil_make_socket_closeonexec(base->sig.ev_signal_pair[1]);
+    base->sig.sh_old = NULL;
+    base->sig.sh_old_max = 0;
+
+    // 设置 O_NONBLOCK
+    evutil_make_socket_nonblocking(base->sig.ev_signal_pair[0]);
+    evutil_make_socket_nonblocking(base->sig.ev_signal_pair[1]);
+
+    // 生成一个中等优先的 persist 的 I/O 读事件
+    // 我称它为内部信号读事件，事件类型为 EV_READ，而不是 EV_SIGNAL。
+    // 这个事件把 I/O 和 signal 事件集成在一起
+    event_assign(&base->sig.ev_signal, base, base->sig.ev_signal_pair[1],
+        EV_READ | EV_PERSIST, evsig_cb, base);
+
+    base->sig.ev_signal.ev_flags |= EVLIST_INTERNAL;  // 标记为 libevent 的内部事件
+    event_priority_set(&base->sig.ev_signal, 0);      // 调整信号事件优先级为最高级
+
+    base->evsigsel = &evsigops;    // 设置信号后端
+
+    return 0;
+}
+
+static const struct eventop evsigops = {
+    "signal",
+    NULL,
+    evsig_add,
+    evsig_del,
+    NULL,
+    NULL,
+    0, 0, 0
+};
+#+END_SRC
+
+- =内部信号读事件的回调函数= :: 用于读取发生的 signal，并把这些 signal 对应的所有信号事件放入激活队列
+- =信号后端= :: 包含一些方法，比如：信号添加、信号删除
+
+* 信号事件的注册
+
+调用顺序为：
+event_add 注册信号事件 --> event_add_internal --> evmap_signal_add
+
+其中
+- event_add 函数加了锁
+- event_add_internal 除了调用 evmap_signal_add 之外，还有就是做了一些超时事件的处理。比如：一个事件即是信号事件又是超时事件
+- evmap_signal_add 函数是注册信号事件的主逻辑
+
+#+BEGIN_SRC c
+int
+event_add(struct event *ev, const struct timeval *tv)
+{
+    int res;
+
+    if (EVUTIL_FAILURE_CHECK(!ev->ev_base)) {
+        event_warnx("%s: event has no event_base set.", __func__);
+        return -1;
+    }
+
+    EVBASE_ACQUIRE_LOCK(ev->ev_base, th_base_lock);
+
+    res = event_add_internal(ev, tv, 0);  // 0 表示传入的 tv 是时间间隔而不是绝对时间
+
+    EVBASE_RELEASE_LOCK(ev->ev_base, th_base_lock);
+
+    return (res);
+}
+
+static inline int
+event_add_internal(struct event *ev, const struct timeval *tv,
+    int tv_is_absolute)
+{
+    struct event_base *base = ev->ev_base;
+    int res = 0;
+    int notify = 0;
+
+    // 主题不相关代码
+    ...
+
+    // 如果 ev 是 I/O 事件或 signal 事件，且 ev 不在注册事件队列和激活事件队列中，将其插入到相应队列中
+    if ((ev->ev_events & (EV_READ|EV_WRITE|EV_SIGNAL)) &&
+        !(ev->ev_flags & (EVLIST_INSERTED|EVLIST_ACTIVE))) {
+        if (ev->ev_events & (EV_READ|EV_WRITE))                 // 如果 event 是 I/O 事件
+            res = evmap_io_add(base, ev->ev_fd, ev);            // 添加到 event_base.event_io_map，并注册到 I/O 多路复用后端上
+        else if (ev->ev_events & EV_SIGNAL)                     // 如果 event 是 signal 事件
+            res = evmap_signal_add(base, (int)ev->ev_fd, ev);   // 添加到 event_base.event_signal_map
+        if (res != -1) // 如果上一步操作没有失败
+            event_queue_insert(base, ev, EVLIST_INSERTED);      // 插入到注册事件队列
+        // 如果上一步在 evmap_io_add 或 evmap_signal_add 函数内部执行了添加操作
+        if (res == 1) {
+            // 需要 notify 主线程。
+            // 原因：当主线程在执行 event_base_dispatch 进入 I/O 多路复用函数时，会处于休眠状态，休眠前解锁
+            // 当次线程向 event_base 添加新事件时，需要及时唤醒主线程，告知其有新事件加入
+            notify = 1;
+            res = 0;
+        }
+    }
+
+    // 超时事件的处理。主题不相关代码
+    ...
+}
+
+// 注册 signal 事件
+int
+evmap_signal_add(struct event_base *base, int sig, struct event *ev)
+{
+    const struct eventop *evsel = base->evsigsel;
+    struct event_signal_map *map = &base->sigmap;
+    struct evmap_signal *ctx = NULL;
+
+    // 如果 event_signal_map 的内存空间不够，扩容
+    if (sig >= map->nentries) {
+        if (evmap_make_space(
+            map, sig, sizeof(struct evmap_signal *)) == -1)
+            return (-1);
+    }
+    // 为 ctx 赋值。如果 event_signal_map 上 sig 对应的 evmap_signal 为空，就为其分配空间并初始化；否则直接为 ctx 赋值
+    GET_SIGNAL_SLOT_AND_CTOR(ctx, map, sig, evmap_signal, evmap_signal_init,
+        base->evsigsel->fdinfo_len);
+
+    // 如果首次为这个信号注册事件，就注册该信号到信号后端。
+    // evsel->add 函数指针指向函数 evsig_add
+    if (TAILQ_EMPTY(&ctx->events)) {
+        if (evsel->add(base, ev->ev_fd, 0, EV_SIGNAL, NULL)
+            == -1)
+            return (-1);
+    }
+
+    // 插入到队尾
+    TAILQ_INSERT_TAIL(&ctx->events, ev, ev_signal_next);
+
+    return (1);
+}
+#+END_SRC
+
+* 注册信号
+
+注册信号和注册信号事件的区别：
+- 信号事件就是带有 EV_SIGNAL 标志的事件
+- 注册信号表示 libevent 要关注某个信号，只有信号注册了，才能有这个信号对应的事件
+
+注册信号要做的工作有：
+- 保存旧的信号处理方式到 event_base，用于删除信号时恢复
+- 设置新的信号处理方式。例如：信号处理函数（即是信号抓捕函数，用于发送信号值到 socketpair 写端）、当前信号正在处理时来了其它信号该如何处理、SA_RESTART 标志
+- 如果内部信号读事件没有注册，则注册之
+
+从代码中可以看出，当短时间发生多个信号，libevent 的处理逻辑是：
+- 对于异种信号，当正在执行 A 信号的抓捕函数时，如果此时来了其它任何信号都会暂时屏蔽。会先处理完 A 信号，再去处理其它信号。而不是递归处理信号
+- 对于同种信号，当正在执行 A 信号的抓捕函数时，如果此时来了多个 A 信号，当处理完这个 A 信号时，内核只会再向进程发送一个 A 信号
+
+#+BEGIN_SRC c
+// 信号后端注册信号
+// 参数 old events p 都没有用到
+static int
+evsig_add(struct event_base *base, evutil_socket_t evsignal, short old, short events, void *p)
+{
+    struct evsig_info *sig = &base->sig;
+    (void)p;
+
+    EVUTIL_ASSERT(evsignal >= 0 && evsignal < NSIG);
+
+    /* catch signals if they happen quickly */
+    EVSIGBASE_LOCK();
+    if (evsig_base != base && evsig_base_n_signals_added) {
+        event_warnx("Added a signal to event base %p with signals "
+            "already added to event_base %p.  Only one can have "
+            "signals at a time with the %s backend.  The base with "
+            "the most recently added signal or the most recent "
+            "event_base_loop() call gets preference; do "
+            "not rely on this behavior in future Libevent versions.",
+            base, evsig_base, base->evsel->name);
+    }
+    evsig_base = base;
+    evsig_base_n_signals_added = ++sig->ev_n_signals_added;
+    evsig_base_fd = base->sig.ev_signal_pair[0];
+    EVSIGBASE_UNLOCK();
+
+    event_debug(("%s: %d: changing signal handler", __func__, (int)evsignal));
+    // 设置信号的处理方式
+    if (_evsig_set_handler(base, (int)evsignal, evsig_handler) == -1) {
+        goto err;
+    }
+
+    // 内部信号读事件在这里注册
+    // 如果之前还没有注册过信号事件，就需要注册内部信号读事件
+    if (!sig->ev_signal_added) {
+        // 这里调用了 event_add 函数。而函数 evsig_add 的调用路径为：
+        // event_add 注册信号事件 --> event_add_internal  --> evmap_signal_add --> evsig_add
+        // 然后在 evsig_add 函数中又调用了 event_add，在这里递归调用了 event_add 函数。所以 event_add 加的锁是递归锁
+        if (event_add(&sig->ev_signal, NULL))
+            goto err;
+        sig->ev_signal_added = 1;
+    }
+
+    return (0);
+
+err:
+    EVSIGBASE_LOCK();
+    --evsig_base_n_signals_added;
+    --sig->ev_n_signals_added;
+    EVSIGBASE_UNLOCK();
+    return (-1);
+}
+
+// 设置指定信号的处理方式（信号处理函数、当前信号正在处理时来了其它信号该如何处理、等）
+// 它会为信号保存旧的处理方式，保存在 base->sig.sh_old[evsignal]
+int
+_evsig_set_handler(struct event_base *base,
+    int evsignal, void (__cdecl *handler)(int))
+{
+#ifdef _EVENT_HAVE_SIGACTION
+    struct sigaction sa;
+#else
+    ev_sighandler_t sh;
+#endif
+    struct evsig_info *sig = &base->sig;
+    void *p;
+
+    //为 sig->sh_old 分配空间
+    if (evsignal >= sig->sh_old_max) {
+        int new_max = evsignal + 1;
+        event_debug(("%s: evsignal (%d) >= sh_old_max (%d), resizing",
+                __func__, evsignal, sig->sh_old_max));
+        p = mm_realloc(sig->sh_old, new_max * sizeof(*sig->sh_old));
+        if (p == NULL) {
+            event_warn("realloc");
+            return (-1);
+        }
+
+        memset((char *)p + sig->sh_old_max * sizeof(*sig->sh_old),
+            0, (new_max - sig->sh_old_max) * sizeof(*sig->sh_old));
+
+        sig->sh_old_max = new_max;
+        sig->sh_old = p;
+    }
+
+    // 为 sig->sh_old[evsignal] 分配空间
+    sig->sh_old[evsignal] = mm_malloc(sizeof *sig->sh_old[evsignal]);
+    if (sig->sh_old[evsignal] == NULL) {
+        event_warn("malloc");
+        return (-1);
+    }
+
+#ifdef _EVENT_HAVE_SIGACTION
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = handler;
+    sa.sa_flags |= SA_RESTART;   // SA_RESTART 标志表示被信号打断的系统调用会自动重新发起
+    sigfillset(&sa.sa_mask);     // 将所有信号加入信号集
+
+    // 从 sigaction 函数调用可以看出：当正在处理 evsignal 信号时，如果此时来了其它任何信号都会暂时屏蔽。会先处理完 evsignal 信号，再去处理其它信号。
+    // 还有就是保存了 evsignal 信号原先的处理方式，保存在 base->sig.sh_old[evsignal]
+    if (sigaction(evsignal, &sa, sig->sh_old[evsignal]) == -1) {
+        event_warn("sigaction");
+        mm_free(sig->sh_old[evsignal]);
+        sig->sh_old[evsignal] = NULL;
+        return (-1);
+    }
+#else
+    if ((sh = signal(evsignal, handler)) == SIG_ERR) {
+        event_warn("signal");
+        mm_free(sig->sh_old[evsignal]);
+        sig->sh_old[evsignal] = NULL;
+        return (-1);
+    }
+    *sig->sh_old[evsignal] = sh;
+#endif
+
+    return (0);
+}
+
+// libevent 中所有信号的抓捕函数。它的工作就是把发生的信号值发送到 signal socketpair 的写端。
+// I/O 多路复用后端就会检测到 内部信号读事件触发，在其回调函数中读取发生的信号值。然后触发所有与此信号相关的事件
+static void __cdecl
+evsig_handler(int sig)
+{
+    int save_errno = errno;
+#ifdef WIN32
+    int socket_errno = EVUTIL_SOCKET_ERROR();
+#endif
+    ev_uint8_t msg;
+
+    if (evsig_base == NULL) {
+        event_warnx(
+            "%s: received signal %d, but have no base configured",
+            __func__, sig);
+        return;
+    }
+
+#ifndef _EVENT_HAVE_SIGACTION
+    signal(sig, evsig_handler);
+#endif
+
+    /* Wake up our notification mechanism */
+    msg = sig;
+    send(evsig_base_fd, (char*)&msg, 1, 0);
+    errno = save_errno;
+#ifdef WIN32
+    EVUTIL_SET_SOCKET_ERROR(socket_errno);
+#endif
+}
+#+END_SRC
+* 信号发生后执行的代码
+
+执行逻辑如下：
+1. 信号发生
+2. 信号抓捕函数（evsig_handler）执行，把信号值写入 socketpair 写端
+3. I/O 多路复用后端检测到 socketpair 读端有数据，内部信号读事件激活，将该事件让人激活队列，最终会执行该事件的回调函数。
+4. 内部信号读事件的回调函数会从 socketpair 读端读取发生的信号值，然后把该信号对应的所有信号事件放入激活队列尾部
+5. 因为内部信号读事件优先级最高，信号事件优先级 <= 内部信号读事件；又因为激活的信号事件插入了激活队列队尾。所以激活的信号事件在内部信号读事件之后得到执行。而不会等到 event_base_loop 的下一次循环
+
+#+BEGIN_SRC c
+// 该回调函数的作用是：读取信号 socketpair 的所有发生的信号数据，然后根据每一个信号值激活与此信号关联的所有信号事件
+static void
+evsig_cb(evutil_socket_t fd, short what, void *arg)
+{
+    static char signals[1024];
+    ev_ssize_t n;
+    int i;
+    int ncaught[NSIG];       // 一个数组。下标代表信号值，对应的值代表信号发生的次数
+    struct event_base *base;
+
+    base = arg;
+
+    memset(&ncaught, 0, sizeof(ncaught));
+
+    // 从读 socket 读取到 signal 信息，并统计到 ncaught
+    while (1) {
+        n = recv(fd, signals, sizeof(signals), 0);
+        if (n == -1) {
+            int err = evutil_socket_geterror(fd);
+            if (! EVUTIL_ERR_RW_RETRIABLE(err))
+                event_sock_err(1, fd, "%s: recv", __func__);
+            break;
+        } else if (n == 0) {
+            /* XXX warn? */
+            break;
+        }
+        for (i = 0; i < n; ++i) {
+            ev_uint8_t sig = signals[i];
+            if (sig < NSIG)
+                ncaught[sig]++;
+        }
+    }
+
+    EVBASE_ACQUIRE_LOCK(base, th_base_lock);
+    // 遍历每一个发生的信号，激活信号对应的事件列表
+    for (i = 0; i < NSIG; ++i) {
+        if (ncaught[i])
+            evmap_signal_active(base, i, ncaught[i]);
+    }
+    EVBASE_RELEASE_LOCK(base, th_base_lock);
+}
+
+// 激活 base 中的 sig 信号关联的所有事件
+void
+evmap_signal_active(struct event_base *base, evutil_socket_t sig, int ncalls)
+{
+    struct event_signal_map *map = &base->sigmap;
+    struct evmap_signal *ctx;
+    struct event *ev;
+
+    EVUTIL_ASSERT(sig < map->nentries);
+    GET_SIGNAL_SLOT(ctx, map, sig, evmap_signal);    // 在 event_base 实例中的信号--事件列表映射中找到 sig 映射的事件列表
+
+    // 遍历 sig 关联的 event_list，激活其中的每一个事件
+    TAILQ_FOREACH(ev, &ctx->events, ev_signal_next)
+        event_active_nolock(ev, EV_SIGNAL, ncalls);
+}
+
+// 将因为 res(例如：EV_SIGNAL, EV_READ 等) 而激活的事件 ev 插入到激活事件队列
+// 参数 ncalls 只有当事件是 EV_SIGNAL 时才有意义
+void
+event_active_nolock(struct event *ev, int res, short ncalls)
+{
+    struct event_base *base;
+
+    event_debug(("event_active: %p (fd "EV_SOCK_FMT"), res %d, callback %p",
+        ev, EV_SOCK_ARG(ev->ev_fd), (int)res, ev->ev_callback));
+
+
+    /* We get different kinds of events, add them together */
+    // 如果 event 已经处于激活队列中了，为它添加新的激活类型（例如：一个事件因为读就绪激活，又因为超时了而激活），然后直接返回
+    if (ev->ev_flags & EVLIST_ACTIVE) {
+        ev->ev_res |= res;
+        return;
+    }
+
+    base = ev->ev_base;
+
+    EVENT_BASE_ASSERT_LOCKED(base);
+
+    ev->ev_res = res;
+
+    // 如果该事件优先级比当前正在处理的事件优先级大，立即进行下一轮 event_base_loop 循环
+    if (ev->ev_pri < base->event_running_priority)
+        base->event_continue = 1;
+
+    // 信号事件
+    if (ev->ev_events & EV_SIGNAL) {
+#ifndef _EVENT_DISABLE_THREAD_SUPPORT
+        // 如果主线程正在执行 ev 的回调函数，且该线程不是主线程，就等待主线程执行完 ev 的回调函数，再把 ev 加入到激活队列
+        if (base->current_event == ev && !EVBASE_IN_THREAD(base)) {
+            ++base->current_event_waiters;
+            EVTHREAD_COND_WAIT(base->current_event_cond, base->th_base_lock);
+        }
+#endif
+        ev->ev_ncalls = ncalls;
+        ev->ev_pncalls = NULL;
+    }
+
+    event_queue_insert(base, ev, EVLIST_ACTIVE);  // 插入激活事件队列
+
+    // 如果该线程是次线程，就提醒主线程停止 waiting，来处理激活事件和要延迟执行的事件
+    if (EVBASE_NEED_NOTIFY(base))
+        evthread_notify_base(base);
+}
+
+// 该函数处理激活的信号事件，执行其回调函数
+static inline void
+event_signal_closure(struct event_base *base, struct event *ev)
+{
+    short ncalls;
+    int should_break;
+
+    /* Allows deletes to work */
+    ncalls = ev->ev_ncalls;
+    if (ncalls != 0)
+        ev->ev_pncalls = &ncalls;
+    EVBASE_RELEASE_LOCK(base, th_base_lock);
+    // 需要执行 ncalls 次回调函数
+    while (ncalls) {
+        ncalls--;
+        ev->ev_ncalls = ncalls;
+        if (ncalls == 0)
+            ev->ev_pncalls = NULL;
+        (*ev->ev_callback)(ev->ev_fd, ev->ev_res, ev->ev_arg);
+
+        EVBASE_ACQUIRE_LOCK(base, th_base_lock);
+        should_break = base->event_break;
+        EVBASE_RELEASE_LOCK(base, th_base_lock);
+
+        if (should_break) {
+            if (ncalls != 0)
+                ev->ev_pncalls = NULL;
+            return;
+        }
+    }
+}
+#+END_SRC

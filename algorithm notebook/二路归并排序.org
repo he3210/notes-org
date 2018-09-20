@@ -1,0 +1,175 @@
+#+TITLE: 二路归并排序
+
+* 二路归并排序思想
+
+递归的二路归并排序算法是基于分治的，其过程如下：
+分解：将含有 n 个元素的序列分成 2 个各含 n/2 个元素的子序列，对这 2 个子序列递归地进行排序
+合并：合并 2 个已排好序的子序列得到排序结果
+
+* 借助一个辅助数组的递归实现
+
+#+BEGIN_SRC c
+#define N 1024
+int B[1024];
+
+void merge(int A[], int low, int mid, int high)
+{
+    for(int i = low; i <= high; ++i)
+        B[i] = A[i];
+    int i = low, j = mid + 1, k = low;
+    for(;i <= mid && j <= high; ++k)
+    {
+        if(B[i] <= B[j])
+            A[k] = B[i++];
+        else
+            A[k] = B[j++];
+    }
+    while(i <= mid)
+        A[k++] = B[i++];
+    while(j <= high)
+        A[k++] = B[j++];
+}
+
+void merge_sort(int A[], int low, int high)
+{
+    if(low < high)
+    {
+        int mid = low + (high-low)/2;
+        merge_sort(A, low, mid);
+        merge_sort(A, mid+1, high);
+        merge(A, low, mid, high);
+    }
+}
+#+END_SRC
+
+* 不借助辅助数组的递归实现（原地归并排序）
+#+BEGIN_SRC c
+// 逆序
+void reverse(int A[], int low, int high)
+{
+    while(low < high)
+    {
+        A[low] = A[low] + A[high] - (A[high] = A[low]);
+        ++low;
+        --high;
+    }
+}
+
+// 对序列 A 中下标从 low 到 high 的元素循环左移 offset
+void loop_shift_left(int A[], int low, int high, int offset)
+{
+    reverse(A, low, low+offset-1);
+    reverse(A, low+offset, high);
+    reverse(A, low, high);
+}
+
+void merge(int A[], int low, int mid, int high)
+{
+    int i = low, j = mid+1;
+    while(i < j && j <= high)
+    {
+        int step = 0;
+        // i 从左向右移动，找到一个 A[i] > A[j] 的索引 i，该索引左边的元素不大于 A[j]
+        while(i < j && A[i] <= A[j])
+            ++i;
+        // j 从左向右移动，找到一个 A[j] >= A[i] 的索引 j，该索引左边的元素都小于 A[i]
+        while(j <= high && A[j] < A[i])
+        {
+            ++j;
+            ++step;
+        }
+        // 将索引 j 左边的元素放到索引 i 的右边。即循环左移 j-i-step 个元素
+        loop_shift_left(A, i, j-1, j-i-step);
+        i += step;
+    }
+}
+
+void merge_sort(int A[], int low, int high)
+{
+    if(low < high)
+    {
+        int mid = low + (high-low)/2;
+        merge_sort(A, low, mid);
+        merge_sort(A, mid+1, high);
+        merge(A, low, mid, high);
+    }
+}
+#+END_SRC
+
+* 算法题
+** 合并二个排好序的链表
+#+BEGIN_SRC c
+struct node
+{
+    int data;
+    struct node *next;
+};
+
+struct node* merge(struct node* L1, struct node* L2)
+{
+    if(NULL == L1)
+        return L2;
+    if(NULL == L2)
+        return L1;
+    struct node* H;
+
+    if(L1->data <= L2->data)
+    {
+        H = L1;
+        L1 = L1->next;
+    }
+    else
+    {
+        H = L2;
+        L2 = L2->next;
+    }
+
+    struct node* pcur = H;
+    while(L1 && L2)
+    {
+        if(L1->data <= L2->data)
+        {
+            pcur->next = L1;
+            pcur = pcur->next;
+            L1 = L1->next;
+        }
+        else
+        {
+            pcur->next = L2;
+            pcur = pcur->next;
+            L2 = L2->next;
+        }
+    }
+
+    if(L1)
+        pcur->next = L1;
+    if(L2)
+        pcur->next = L2;
+
+    return H;
+}
+#+END_SRC
+
+** 合并两个排好序的数组
+
+问题描述：已知两个 int 型有序数组 A 和 B，数组 A 的末尾有足够空间容纳 B，写一个函数将 B 合并到 A
+思路：可以先计算出元素总数，然后从数组末尾开始合并
+
+#+BEGIN_SRC c
+void merge(int A[], int B[], int na, int nb)
+{
+    int i = na - 1;
+    int j = nb - 1;
+    int k = na + nb - 1;
+    while(i >= 0 && j >= 0)
+    {
+        if(B[j] >= A[i])
+            A[k--] = B[j--];
+        else
+            A[k--] = A[i--];
+    }
+    while(j >= 0)
+        A[k--] = B[j--];
+}
+#+END_SRC
+

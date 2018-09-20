@@ -1,0 +1,145 @@
+#+TITLE: 搭建我的笔记系统
+
+本站点就是这样构建的
+
+* 为什么选用 org-mode 构建？
+之前一直使用 evernote + gitbook 等工具记笔记。然而每个都有各自很大的缺点
+- evernote 其它的都好，就是文本编辑器太过垃圾，用的越久越无法忍受。
+- gitbook 是基于 markdown 的，它的每篇文档都是一个 markdown 文件。但 markdown 过于轻量，不支持复杂格式。
+而 org-mode 可以满足我的要求
+
+- 表格功能强大
+- 支持 latex
+- 基于大纲，清晰明了
+- 支持导出各种格式。例如：配置后可以导出成一个网站，能在各种终端上用浏览器直接访问。
+- 可以根据自己的想法编写 CSS 和 HTML 定制笔记系统的外观，想要什么样的就要什么样的
+- 导出成网页后，只需一个链接就可以共享给别人
+
+搭建笔记系统的目标：
+- 要有一个导航栏
+- 主页存放经常访问的笔记。如 shell 命令、快捷键等
+- 对笔记进行分类。比如：shell 笔记、算法笔记
+- 采用 google 搜索
+- 目录浮于右上角，点击隐藏，再点击显示
+- 简单美观
+
+* 笔记系统目录结构
+#+BEGIN_SRC shell
+$ tree -N -I "algorithm|libevent|test" notes
+notes                       # 搭建的笔记系统目录
+├── html                    # 导出成 h5 的笔记本
+└── org                     # org 目录
+    ├── css                 # 存放 css 样式
+    │   └── style.css
+    ├── gallery.org         # 画廊
+    ├── images              # 所有的图片都保存在这里
+    ├── index.org           # 主页，可以保存一些经常需要参考的笔记的链接，从而能快速访问
+    ├── links.org           # 优秀的博客链接
+    ├── notebooks.org       # 创建的所有笔记本都在这里
+    ├── emacs notebook      # 存放 emacs 笔记的笔记本
+    │   └── emacs.org       # 笔记目录
+    ├── libevent notebook   # 笔记本
+    │   └── libevent.org    # 笔记目录
+    ├── shell notebook
+    │   └── shell.org
+    └── templates           # html 模版目录。导出 html 时会根据相关配置把这些模版放到 html 的合适位置
+        ├── html-head.html  # html head
+        ├── postamble.html  # 放到 html 的尾部
+        └── preamble.html   # 放到 html 的开始部分
+#+END_SRC
+
+* org-mode 导出成网站的配置
+
+我的 emacs org-mode 的配置文件是 =init-org.el= ，向该文件添加如下配置
+
+#+BEGIN_SRC emacs-lisp
+(require 'org)
+(require 'ox-html)
+(require 'ox-publish)
+(require 'htmlize)
+
+(setq org-export-with-entities t)   ;; 导出时是否进行转义。查看转义字符命令：M-x org-entities-help。例如：将 org 文档中的 \vbar 转义成 html 中的 |
+
+;; HTML模板目录
+(defvar *site-template-directory* "~/notes/org/templates")
+
+(defun read-html-template (template-file)
+  (with-temp-buffer
+    (insert-file-contents (concat *site-template-directory* "/" template-file))
+    (buffer-string)))
+
+(setq org-publish-project-alist
+      '(
+	("org-notes"  ;; org 组件。主要是把 org 根据下列的配置规则转换成 h5 放到目标文件夹内
+         :base-directory "~/notes/org"
+         :base-extension "org"
+         :publishing-directory "~/notes/html"
+         :recursive t
+         :publishing-function org-html-publish-to-html    ;; 发布的方式。这里是 org 转换成 html
+         :headline-levels 4
+	 :language "zh-CN"              ;; 设置为 zh-CN 会影响一些东西。比如：目录会显示为汉字
+	 :section-numbers t             ;; 是否为标题编号
+	 :with-toc t                    ;; 是否创建 table of contents
+	 :with-latex t                  ;; 是否可以使用 latex
+	 :html-doctype "html5"          ;; 导出 h5
+	 :with-sub-superscript {}       ;; 禁用 _ 转义成下标，^转义成上标。但加 {} 就可以转义了
+	 :author "XXX"
+	 :email "XXX"
+	 :preserve-breaks t             ;; 是否保留换行符。如果设置为 nil，导出后就会多行文本显示在一行
+	 :html-head-include-default-style nil  ;; 取消默认的 css
+	 :html-head-include-scripts nil        ;; 取消默认的 javascript 代码
+	 :exclude "test*\\|.*\.test\.org"      ;; test 为前缀的文件和文件夹都不导出 html
+	 :include ("./test/math.org" "./test/worg.org" "./test/o-blog.org")          ;; 虽然 math.org 在 test 文件夹里，但依然会导出到 html，显然 include 比 exclude 优先
+	 )
+        ("static"   ;; 静态组件，表示这些文件原封不动的拷贝到目标文件夹
+         :base-directory "~/notes/org"
+         :base-extension "css\\|js\\|png\\|jpg\\|gif\\|pdf\\|mp3\\|ogg\\|swf\\|txt\\|asc"
+         :publishing-directory "~/notes/html"
+         :recursive t
+         :publishing-function org-publish-attachment) ;; 发布方式。原封不动的拷贝
+        ("notes" :components ("org-notes" "static"))  ;; 笔记本发布组件
+	))
+
+;; html-head.html 文件中设置了 CSS 样式
+;; css 文件如果修改了，就需要重新加载该 el 文件，这样才能看到 html 样式的变化
+;; preamble.html 文件包含导航栏 html、点击目录的 js 代码、google 搜索等代码
+;; postamble.html 文件包含了网站声明
+(setq org-html-head (read-html-template "html-head.html"))
+(setq org-html-preamble (read-html-template "preamble.html"))
+(setq org-html-postamble (read-html-template "postamble.html"))
+
+;;; 设置Mathjax库的路径
+(add-to-list 'org-html-mathjax-options '(path "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_HTML"))
+
+(provide 'init-org)
+#+END_SRC
+
+
+我的 emacs 自定义函数的配置文件是 =init-func.el= ，向其中添加导出笔记本系统的函数
+
+#+BEGIN_SRC emacs-lisp
+;; 该函数会强制导出所有文件，即使该文件没有修改过。否则，可能出现有些文件修改了，但是导出的还是旧文件
+(defun export-my-notes()
+  (interactive)
+  ;; 配色问题。需要设置为 256 色。否则，在终端下的 emacs 中执行该函数，导出的代码块颜色混乱
+  (setq solarized-termcolors 256)
+  (load-theme 'solarized t)
+
+  ;; 导出 notes 到 html
+  (load-file "~/.emacs.d/lisp/init-org.el")  ;; 为什么要再次加载配置文件呢？因为修改 CSS 风格后，emacs 中保存 CSS 内容的变量还是旧的 CSS
+  (org-publish-project "notes" t)  ;; t 表示强制导出
+
+  ;; 导出完毕后，配色再改回来，防止 solarized 在终端中颜色混乱
+  (setq solarized-termcolors 16)
+  (load-theme 'solarized t)
+  )
+#+END_SRC
+
+我的 emacs 快捷键配置文件是 =init-keybindings.el= ，向其中添加快捷键
+
+#+BEGIN_SRC emacs-lisp
+(global-set-key (kbd "C-c e n") 'export-my-notes)
+#+END_SRC
+
+写完笔记后，就可以使用快捷键 =C-c en= 直接把笔记发布到 =notes/html= 目录。
+再通过 git 命令进行版本控制，在网站主机上拉取网站仓库就可以在网上访问笔记了。

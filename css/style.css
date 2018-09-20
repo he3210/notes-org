@@ -1,0 +1,489 @@
+body {
+    color: #111; /*#557575;*/
+    font: 15px/1.7 Consolas, monaco, monospace, "Helvetica Neue", Helvetica, Arial, "Hiragino Sans GB", STHeiti, "WenQuanYi Micro Hei", sans-serif;
+    /*
+    font: 14px/1.7 sans-serif;
+    font: 14px/1.7 "Open Sans", Helvetica, Arial, sans;
+     */
+    line-height: 1.6em;
+    margin: 5% 15% 8%;
+    min-width: 240px;
+    background: none repeat scroll 0 0 #F5F5F5; /*#FDF6E3;*/
+    text-shadow: 0px 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+a {
+    color: Green;
+    text-decoration:none;               /* 链接默认不要下划线 */
+}
+
+a:hover {
+    color: #3c3c3c;
+    text-decoration:none;
+    border-bottom: 1px #0099CC dotted;  /* 链接默认底部加虚线 */
+    font-weight: bold;
+}
+
+#org-div-home-and-up {
+    float: right;
+}
+
+#navbar {
+    z-index: 10;      /* 堆叠属性，数值越大越置于顶部 */
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 46px;
+    background: #F5F5F5;
+    border-bottom: 1px solid #D2D2D2;
+    opacity: 0.9;     /* 不透明度 */
+}
+
+#site-master {
+    margin: 0;
+    padding: 0 21vw 0 10vw;
+    display: inline-block;
+    line-height: 46px;
+    font-weight: bold;
+}
+
+#navbar ul {
+    list-style: none;      /* 表示列表元素前面没有圆圈、方形等 */
+    min-width: 960px;      /* 当窗口宽度大于 960px 时，当窗口缩小时，该行会压缩；小于 960px 时该行不会压缩了 */
+    margin: 0;
+}
+#navbar ul li {
+    display: inline-block;
+    margin: 0;
+}
+#navbar ul li a {
+    line-height: 46px;
+    display: inline-block;
+    color: #000000;
+    padding: 0 1vw;
+    border-radius: 0;
+    border-bottom: 0;
+}
+#navbar ul li a:hover {
+    color: white;
+    background: #D3D3D3;
+}
+
+/* */
+#navbar ul .search {
+    line-height: 46px;
+    display: inline-block;
+    padding: 0 0vw 0 5vw;
+}
+#navbar ul .search input {
+    width: 120px;
+    box-sizing: border-box;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 16px;
+    background-color: white;
+    background-image: url('http://127.0.0.1:8080/images/searchicon.png');
+    background-position: 10px 10px;
+    background-repeat: no-repeat;
+    padding: 13px 0px 13px 40px;
+    -webkit-transition: width 0.4s ease-in-out;
+    transition: width 0.4s ease-in-out;
+}
+
+#navbar ul .search input:focus {
+    width: 17vw;
+}
+
+/* 文档 title */
+h1 {
+    font-size: 1.7em;
+    font-weight: bold;
+    color: #878992;
+    padding: 1em 0 12px;
+    text-align: left;
+    text-shadow: 0 0 0 rgba(0, 0, 0, 0.2);
+}
+
+/* 一级标题 */
+h2 {
+    font-size: 1.5em;
+    padding: 1em 0 10px;
+    border-bottom: 1px solid #e5e5e5;
+    color: #F08080;
+    text-shadow: 0 0 0 rgba(0, 0, 0, 0.2);
+}
+
+h3 {
+    font-size: 1.3em;
+    font-style: italic;
+    color: #FF8A65;
+    padding: 0.5em 0 10px;
+    border-bottom: 1px solid #eee;
+    text-shadow: 0 0 0 rgba(0, 0, 0, 0.2);
+    margin-left: 2em;
+}
+
+h4 {
+    font-size: 1.2em;
+    font-weight: lighter;
+    color: #FF8A65;
+    padding: 0.5em 0 10px;
+    border-bottom: 1px solid #eee;
+    text-shadow: 0 0 0 rgba(0, 0, 0, 0.2);
+    margin-left: 4em;
+}
+
+h1, h2, h3, h4 {
+    line-height: 1.4;
+}
+
+h2 span.section-number-2,
+h3 span.section-number-3,
+h4 span.section-number-4 {
+    display: inline-block;
+    width: 38px;
+    height: 38px;
+    line-height: 38px;
+    color: #999;
+    border: 1px solid #999;
+    border-radius: 50%;
+    text-align: center;
+    margin-right: 5px;
+}
+
+h3 span.section-number-3 {
+    font-style: normal;
+    font-weight: lighter;
+    font-size: 16px;
+}
+
+h4 span.section-number-4 {
+    font-weight: lighter;
+    font-size: 10px;
+}
+
+.center{
+    text-align: center;
+}
+
+.deadline {
+    color: red;
+}
+
+.todo,
+.done {
+    padding: 0 5px 0 5px;
+    border-radius: 3px;
+    color: #fff;
+    font-weight: bold;
+}
+
+.todo {
+    background-color: #e14344;
+}
+.done {
+    background-color: #009d6f;
+}
+
+h2 .todo,
+h2 .done,
+h3 .todo,
+h3 .done,
+h4 .todo,
+h4 .done {
+    font-style: normal;
+    font-size: 0.8em;
+}
+
+.tag {
+    float: right;
+    border: 0;
+    width: auto;
+    font-size: 14px;
+    font-weight: lighter;
+}
+
+.tag span {
+    padding: 0 5px;
+    border-radius: 3px;
+    background-color: #ccc;
+    color: #000;
+    width: auto;
+    height: auto;
+}
+
+.timestamp {
+    padding-left: 2px;
+    padding-right: 2px;
+    color: #789;
+    font-style: oblique;
+    font-size: smaller;
+}
+
+.timestamp:before{
+    font-style: normal;
+    content: "\01F4C5 ";
+}
+
+.content {
+    background-color: #fff;
+}
+
+.target {
+    background-color: lavender;
+}
+
+.menu {
+    color: #666;
+}
+
+.menu a:link {
+    color: #888;
+}
+.menu a:active {
+    color: #888;
+}
+.menu a:visited {
+    color: #888;
+}
+
+img { align: center; }
+
+pre {
+    background-color: #fff;
+    border: #ddd solid 1px;
+    border-radius: 12px;
+    color: Black;
+    font: 14px/1.5 monospace;
+    padding: 10px;
+    overflow-x: auto;  /* 当该行内容过长时，在 x 轴添加一个滑块，使可以滑动显示该行内容 */
+}
+
+table {
+    border: none;
+    margin-left: 0;      /* 表格左对齐 */
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+}
+
+table caption {
+    caption-side:bottom;  /* caption 位置 */
+}
+
+th {  /* 表头 */
+    border: none;
+    background-color: #D7BDE2;
+    padding: 0.4em 1em;
+    text-align: left;
+}
+
+td {
+    border: none;
+    padding: 0.2em 1em;
+}
+
+/* 根据表格 tbody 的奇偶对 tbody 进行变色 */
+tbody:nth-child(2n+1) {
+    background-color: #e8efff;
+}
+
+tbody:nth-child(2n+2) {
+    background-color: #e8e7ff;
+}
+
+tr:hover td {
+    color: #FF5733;
+    background: #d0dafd;
+}
+
+#postamble {
+    font-size: 12px;
+    color: #666;
+    text-align: right;
+    border-top: #ccc solid 1px;
+    margin-top: 2em;
+    padding-top: 1em;
+}
+#postamble p {
+    margin: 0 1em;
+}
+
+#table-of-contents {
+    font-size: 14px;
+    text-shadow: 0 0 0 rgba(0, 0, 0, 0.2);
+    position: fixed;       /* fixed 表示出现在页面的固定位置，不会随屏幕滚动而改变位置 */
+    right: 0em;
+    top: 0px;
+    background: rgba(248, 245, 236, 0.6);
+    /* ensure doesn't flow off the screen when expanded */
+    max-height: 80%;
+    overflow-y: auto;
+    z-index: 200;
+    white-space: nowrap;
+    box-shadow: 0 0 1em #777777;
+    -webkit-box-shadow: 0 0 1em #777777;
+    -moz-box-shadow: 0 0 1em #777777;
+    -webkit-border-bottom-left-radius: 6px;
+    -moz-border-radius-bottomleft: 6px;
+}
+
+/* 目录 2 个字的样式 */
+#table-of-contents h2 {
+    color: #303030;
+    border: 0;
+    font-size: 15px;
+    font-weight: bold;
+    padding: 0 1.2em 0 1.2em;
+}
+
+#table-of-contents ul {
+    margin-left: 14px;
+    margin-bottom: 2px;
+    padding: 0
+}
+
+#table-of-contents li {
+    padding: 0;
+    margin: 1px;
+    list-style: none;    /* 列表的样式风格 */
+}
+
+#table-of-contents code {
+    color: #FFFFFF;
+    background: #303030;
+}
+
+#table-of-contents ul>:first-child {
+    color: blue;
+}
+
+/* 目录正文 */
+#table-of-contents #text-table-of-contents {
+    display: inline;      /* 打开目录。关闭目录使用 none */
+    text-align: left;
+}
+
+#table-of-contents:hover #text-table-of-contents {
+    display: block;
+    padding: 0.5em;
+    margin-top: -1.5em;
+}
+
+#table-of-contents .todo,
+#table-of-contents .done {
+    font-size: 12px;
+}
+
+#table-of-contents .tag {
+    display: none;
+}
+
+/* 行内代码，在 org 中使用 =行内代码= 或 ~行内代码~ 括起来的部分导出到 html 就是 <code>行内代码</code> */
+code {
+    display: inline-block;
+    background-color: #ffffff;
+    padding: 1px 5px;
+    border: 1px solid #DEDEDE;
+    border-radius: 3px;
+    line-height: normal;
+}
+
+.underline {
+    text-decoration: underline;
+}
+
+sup a {
+    color: #FF5733;  /* 角注编码的颜色 */
+}
+
+.footdef sup {
+    float: left;
+    vertical-align: baseline;
+    font-size: inherit;
+}
+
+.footdef p {
+    margin: 7px;
+    display: inline;
+}
+
+/* 引用 */
+/*
+blockquote {
+    background: #fff;
+    padding: 0px 13px;
+    border: #ddd solid 1px;
+    border-radius: 12px;
+    font: 14px/1.5 monospace;
+}
+*/
+
+blockquote {
+    background: #fff;
+    border-left: 3px solid #CCCCCC;
+    border-radius: 12px;
+    padding: 0.2em 1.1em;
+    font-style: italic;
+    margin: 5px 20px;
+}
+
+center.image-container {
+    margin: 16px 0;
+}
+
+.moment {
+    padding: -1px 13px;
+    border-bottom: solid 1px lightgray;
+}
+
+.moment:before
+{
+    content: "\01F399";
+    padding-right: 6px;
+}
+
+.comment {
+    color: #152269;
+    background: rgb(217, 228, 246);
+    padding: 3px 6px;
+    border: dotted 1px;
+    border-color: #e93030;
+}
+
+.comment:before
+{
+    content: "\01F58B";
+    padding-right: 6px;
+}
+
+dl dt {
+    color: #AF7AC5;
+}
+
+@media only screen and (max-width: 1200px ){
+    #site-master {
+        padding: 0 9vw 0 5vw;
+    }
+    #navbar ul li a {
+        padding: 0 10px;
+    }
+    #navbar ul .search {
+        padding: 0 0 0 5vw;
+    }
+}
+
+@media only screen and (max-width: 700px ){
+    #site-master {
+        padding: 0 3vw 0 0;
+    }
+    #navbar ul li a {
+        padding: 0 1vw 0 1vw;
+    }
+    #navbar ul .search {
+        padding: 0 0 0 3vw;
+    }
+    #table-of-contents {
+        display: none;
+    }
+}

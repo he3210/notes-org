@@ -1,0 +1,45 @@
+#+TITLE: Gallery
+
+
+#+BEGIN_CENTER
+
+#+NAME: fig:双枪小黄人
+#+CAPTION: 
+[[file:./images/100001.jpg][file:./images/200001.jpg]]
+
+
+#+NAME: fig:小黄人
+#+CAPTION: 
+#+ATTR_ORG: :width 45%
+#+ATTR_HTML: :width 45%
+[[file:./images/100003.jpg]]
+
+
+#+NAME: 蒲公英
+#+CAPTION: 
+#+ATTR_ORG: :width 45%
+#+ATTR_HTML: :width 45%
+file:./images/100002.jpg
+
+
+#+NAME: fig:双叶
+#+CAPTION: 
+#+ATTR_ORG: :width 45%
+#+ATTR_HTML: :width 45%
+[[file:./images/100004.jpg]]
+
+
+#+NAME: fig:乡间小路
+#+CAPTION: 
+#+ATTR_ORG: :width 45%
+#+ATTR_HTML: :width 45%
+[[file:./images/100005.jpg]]
+
+
+#+NAME: fig:听螺少女
+#+CAPTION: 
+#+ATTR_ORG: :width 45%
+#+ATTR_HTML: :width 45%
+[[file:./images/100006.jpg]]
+#+END_CENTER
+
