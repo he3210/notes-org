@@ -1,4 +1,4 @@
-#+TITLE: He's notes
+#+TITLE: 浪的不轻的笔记
 #+OPTIONS: toc:nil num:nil ^:nil
 
 # 首页不标题显示，这里实现虽然不优雅
@@ -11,12 +11,12 @@ display: none
 #+END_EXPORT
 
 
-- [[file:./test/math.org][数学公式]]
+- [[file:./test/math.org][数学公式 (test latex)]]
 
 - [[file:./libevent notebook/common-timeout.org][超时队列]]
 
 - [[file:./test/remember.org][remember]]
 
-- [[file:./test/worg.org][worg]]
+- [[file:./test/worg.org][worg (for test)]]
 
-- [[file:./test/o-blog.org][o-blog]]
+- [[file:./test/o-blog.org][o-blog (for test)]]
