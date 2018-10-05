@@ -1,0 +1,201 @@
+#+TITLE: ac 自动机
+
+* 参考
+- [[https://zh.wikipedia.org/wiki/AC%E8%87%AA%E5%8A%A8%E6%9C%BA%E7%AE%97%E6%B3%95][wiki-AC自动机算法]]
+- [[http://www.yoonper.com/post.php?id=76][YoonPer]]
+
+* 问题
+给一个很长的文本，长度为 n，然后再给 m 个模式串。求这 m 个模式串中有多少个是这个文本的子串。
+
+* 解题思路
+
+1. =暴力破解=  时间复杂度为 O(n*m*len(m))，显然时间复杂度太高
+2. =kmp=  使用 kmp 让每一个模式串与文本匹配。时间复杂度为 O((n + len(m))*m)
+3. =trie 树=  使用 m 个模式串构造一个 trie 树，然后用文本和 trie 树进行匹配，匹配完后文本自增一，继续从 trie 树的根结点开始匹配。时间复杂度为 O(n*len(m))
+ trie 树结点的数据结构如下
+ #+BEGIN_SRC C
+  struct node
+  {
+      struct node *next[26];
+      bool is_end;  // 模式串结尾标志
+  }
+ #+END_SRC
+4. =Aho–Corasick algorithm=  ac 自动机算法简单来说就类似于 kmp + trie 的组合算法。它的 trie 树结点的数据结构如下
+ #+BEGIN_SRC C
+  struct node
+  {
+      struct node *next[26];
+      struct node *fail;
+      bool is_end;
+  };
+ #+END_SRC
+ 在 kmp 算法中是如何避免母串在匹配过程中指针回溯的呢？它使用 next 数组记录了失配时指针应该跳转的位置，避免了不必要的前移、浪费时间。
+ 同理，ac 自动机中 trie 树结点多了一个 fail 指针，fail指针指向当前匹配失败时的跳转结点
+ ac 自动机算法时间复杂度为 O(n+len(m)*m)
+
+* Aho–Corasick algorithm
+
+在[[https://zh.wikipedia.org/wiki/AC%E8%87%AA%E5%8A%A8%E6%9C%BA%E7%AE%97%E6%B3%95][维基百科]]中 AC 自动机的简介如下
+#+BEGIN_EXAMPLE
+在计算机科学中，Aho–Corasick算法是由Alfred V. Aho和Margaret J.Corasick 发明的字符串搜索算法，[1]用于在输入的一串字符串中匹配有限组“字典”中的子串。它与普通字符串匹配的不同点在于同时与所有字典串进行匹配。算法均摊情况下具有近似于线性的时间复杂度，约为字符串的长度加所有匹配的数量。然而由于需要找到所有匹配数，如果每个子串互相匹配（如字典为a，aa，aaa，aaaa，输入的字符串为aaaa），算法的时间复杂度会近似于匹配的二次函数。
+
+该算法主要依靠构造一个有限状态机（类似于在一个trie树中添加失配指针）来实现。这些额外的失配指针允许在查找字符串失败时进行回退（例如设Trie树的单词cat匹配失败，但是在Trie树中存在另一个单词cart，失配指针就会指向前缀ca），转向某前缀的其他分支，免于重复匹配前缀，提高算法效率。
+
+当一个字典串集合是已知的(例如一个计算机病毒库), 就可以以离线方式先将自动机求出并储存以供日后使用，在这种情况下，算法的时间复杂度为输入字符串长度和匹配数量之和。
+
+UNIX系统中的一个命令fgrep就是以AC自动机算法作为基础实现的。
+#+END_EXAMPLE
+* 算法
+hihocoder #1036
+输入：第一行为模式串数量 m，然后输入 m 行模式串，然后输入一行文本
+输出：模式串中有多少个文本的子串
+#+BEGIN_SRC c
+#include <cstdio>
+#include <cstring>
+#include <queue>
+#define N 1000010
+
+struct node
+{
+    node *fail;    // 失配指针。指向匹配失败时的回退位置
+    node *next[26];
+    // 值域。它可以是
+    // 1.类型是 bool，模式串结束标志；
+    // 2.类型是 int，模式串编号；
+    // 3.类型是 char*，当该结点是模式串的尾结点时，它指向模式串。
+    // 在这里它是第1种情况
+    int count;
+    node()
+    {
+        fail = NULL;
+        count = 0;
+        memset(next, 0, sizeof(next));
+    }
+}*root;
+
+// 插入模式串，构建 trie 树
+void insert(char *word)
+{
+    int t;
+    struct node *p = root;
+    while(*word)
+    {
+        t = *word - 'a';
+        if(p->next[t] == NULL)
+            p->next[t] = new node();
+        p = p->next[t];
+        ++word;
+    }
+    ++p->count;
+}
+
+// 在 trie 树基础上构造 fail 指针，构建 ac 自动机
+void build_ac()
+{
+    std::queue<node*> q;    // 借助队列进行 BFS
+    // 第一层结点的 fail 指针指向根结点
+    for(int i = 0; i < 26; ++i)
+    {
+        if(root->next[i])
+        {
+            root->next[i]->fail = root;
+            q.push(root->next[i]);
+        }
+    }
+
+    struct node *p;
+    struct node *fail;
+    while(!q.empty())
+    {
+        p=q.front();
+        q.pop();
+        // 遍历当前分支可能存在的 26 个孩子
+        for(int i = 0; i < 26; ++i)
+        {
+            if(!p->next[i])
+                continue;
+            fail = p->fail;
+            // 遍历和当前分支 p 具有相同后缀的其它分支，直到找到一个具有相同孩子结点的分支 b
+            while(fail)
+            {
+                if(fail->next[i])
+                {
+                    // 找到分支 b 后，设置 p 的孩子的 fail 指针指向 b 的孩子
+                    p->next[i]->fail=fail->next[i];
+                    break;
+                }
+                fail=fail->fail;
+            }
+            // 如果没有找到分支 b，设置 p 的孩子的 fail 指针指向 root
+            if(p->next[i]->fail==NULL)
+                p->next[i]->fail=root;
+            q.push(p->next[i]);
+        }
+    }
+}
+
+// 匹配文本，返回符合的模式串数量
+int find(char *text)
+{
+    int count = 0;
+    int t;
+    node *p = root;
+    // 对于文本 abcde，
+    // 1.第一次 while 循环：在 trie 树上从根结点向前匹配 a。如果匹配成功就向前走一步；失配就根据 fail  指针回退到和当前分支有相同后缀的其它分支（且该分支具有孩子结点 a），然后向前走一步。匹配之后，当前所在的分支位置是 p。最后统计当前分支 p 和与 p 具有相同后缀的所有其它分支上的模式串数量。
+    // 2.第二次 while 循环：根据上一步的 p 的位置，继续向前匹配 b。... 同步骤1
+    // 3.第三次 while 循环：根据上一步的 p 的位置，继续向前匹配 c。... 同步骤1
+    // ...
+    // 最后得到匹配的模式串数量
+    while(*text)
+    {
+        t = *text - 'a';
+        while(p->next[t] == NULL && p != root)
+            p = p->fail;
+        p = p->next[t];
+        if(!p)
+            p = root;
+
+        node *fail = p;
+        while(fail != root && fail->count != -1)
+        {
+            count += fail->count;
+            fail->count = -1;    // 设置为 -1，避免重复统计命中的模式串
+            fail = fail->fail;
+        }
+        ++text;
+    }
+    return count;
+}
+
+int main()
+{
+    int n;
+    char word[N], text[N];
+    root = new node();
+    scanf("%d", &n);
+    for(int i = 0; i < n; ++i)
+    {
+        scanf("%s", word);
+        insert(word);
+    }
+    build_ac();
+    scanf("%s", text);
+    printf("Found %d pattern strings\n", find(text));
+    return 0;
+}
+#+END_SRC
+
+执行结果如下
+#+BEGIN_SRC shell
+$ g++ main.cpp -o main
+$ ./main
+6
+aaabc
+aaac
+abcc
+ac
+bcd
+cd
+aaaaaaaaaaabaaadaaac
+Found 2 pattern strings
+#+END_SRC
