@@ -1,5 +1,6 @@
 #+TITLE: Links
 
+- [[https://dirtysalt.github.io/html/index.html][dirtysalt]]
 
 - [[http://www.shellcodes.org/][LU5NX]]
 
@@ -14,3 +15,5 @@
 - [[https://xuexb.com/][前端小武的博客]]
 
 - [[http://www.zmonster.me/categories.html][ZMonster's Blog]]
+
+- [[http://lujun9972.github.io/emacs-document/][lujun9972]]

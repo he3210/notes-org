@@ -1,10 +1,6 @@
 body {
     color: #111; /*#557575;*/
     font: 15px/1.7 Consolas, monaco, monospace, "Helvetica Neue", Helvetica, Arial, "Hiragino Sans GB", STHeiti, "WenQuanYi Micro Hei", sans-serif;
-    /*
-    font: 14px/1.7 sans-serif;
-    font: 14px/1.7 "Open Sans", Helvetica, Arial, sans;
-     */
     line-height: 1.6em;
     margin: 5% 15% 8%;
     min-width: 240px;
@@ -256,7 +252,8 @@ pre {
     border-radius: 10px;
     box-shadow: 3px 3px 3px #eee;
     color: Black;
-    font: 14px/1.5 monospace;
+    font: 13px/1.4 Menlo, Monaco, Consolas, "Courier New", monospace;;
+    text-shadow: 0 0 0 #ffffff;
     padding: 10px;
 }
 
@@ -272,7 +269,7 @@ pre.src {
 pre.src:before {
     display: inline;
     position: absolute;
-    font-size: 17px;
+    font-size: 18px;
     font-weight: bold;
     text-shadow: 0 0 0 rgba(0, 0, 0, 0.2);
     color: #bfbfbf;
@@ -446,7 +443,7 @@ tr:hover td {
 #table-of-contents h2 {
     color: #303030;
     border: 0;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: bold;
     padding: 0 1.2em 0 1.2em;
 }
@@ -458,30 +455,15 @@ tr:hover td {
 }
 
 #table-of-contents li {
-    padding: 0;
+    padding: 0 1.4em 0 0;
     margin: 1px;
     list-style: none;    /* 列表的样式风格 */
 }
 
-#table-of-contents code {
-    color: #FFFFFF;
-    background: #303030;
-}
-
-#table-of-contents ul>:first-child {
-    color: blue;
-}
-
 /* 目录正文 */
 #table-of-contents #text-table-of-contents {
-    display: inline;      /* 打开目录。关闭目录使用 none */
+    display: none;      /* 打开目录。关闭目录使用 none */
     text-align: left;
-}
-
-#table-of-contents:hover #text-table-of-contents {
-    display: block;
-    padding: 0.5em;
-    margin-top: -1.5em;
 }
 
 #table-of-contents .todo,
@@ -523,22 +505,13 @@ sup a {
 }
 
 /* 引用 */
-/*
-blockquote {
-    background: #fff;
-    padding: 0px 13px;
-    border: #ddd solid 1px;
-    border-radius: 12px;
-    font: 14px/1.5 monospace;
-}
-*/
-
 blockquote {
     background: #fff;
     border-left: 3px solid #CCCCCC;
     border-radius: 12px;
     padding: 0.2em 1.1em;
-    font-style: italic;
+    font: italic 13px/1.4 Menlo, Monaco, Consolas, "Courier New", monospace;
+    text-shadow: 0 0 0 rgba(0, 0, 0, 0.2);
     margin: 5px 20px;
 }
 
