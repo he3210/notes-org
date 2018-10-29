@@ -1,8 +1,6 @@
 #+TITLE: Gallery
 
-
 #+BEGIN_CENTER
-
 #+NAME: fig:双枪小黄人
 #+CAPTION: 
 [[file:./images/100001.jpg][file:./images/200001.jpg]]

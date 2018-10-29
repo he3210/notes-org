@@ -1,0 +1,92 @@
+#+TITLE: 0-1背包
+
+* 问题
+
+总共有3件物品，背包可容纳5磅的东西。物品1重1磅，物品2重2磅，价值100元，物品3重3磅，价值120元，怎么才能最大化背包所装物品的价值
+
+* 分析
+
+设 i 为第 i 件物品，j 为背包容量
+c[i] 为第 i 件物品的重量，w[i] 为第 i 件物品的价值
+j < c[i] 表示物品重量大于背包容量，此时显然不放第 i 件物品
+当 j >= c[i] 时，分两种情况：
+1. 不放第 i 件物品，此时问题转化为"将前 i-1 件物品放入容量为 j-c[i] 的背包中"
+2. 放第 i 件物品，此时问题转化为"将前 i-1 件物品放入容量为 j 的背包中"
+
+* 状态转移方程
+
+$$
+f[i][j]=\left\{
+\begin{array}{lcl}
+0                                        &      & {i = 0\ or\ j = 0}\\
+f[i-1][j]                                &      & {i, j > 0\ and\ j < c[i]}\\
+max\{f[i-1][j], f[i-1][j-c[i]] + w[i]\}  &      & {i, j > 0\ and\ j \ge c[i]}
+\end{array} \right.
+$$
+
+其中，i 为第 i 件物品，j 为背包容量
+c[i] 为第 i 件物品的重量，w[i] 为第 i 件物品的价值
+f[i][j] 为问题的解
+
+* 动态规划
+
+#+BEGIN_SRC C
+    int m[128][128];
+    // c 保存各个物品的重量，w 保存各个物品价值，n 物品数量，v 背包容量
+    int fun(int c[], int w[], int n, int v)
+    {
+        for(int i = 0; i <= n; ++i)
+            m[i][0] = 0;
+        for(int j = 1; j <= v; ++j)
+            m[0][j] = 0;
+        for(int i = 1; i <= n; ++i)
+            for(int j = 1; j <= v; ++j)
+                if(j < c[i])
+                    m[i][j] = m[i-1][j];
+                else
+                    m[i][j] = m[i-1][j] > m[i-1][j-c[i]] + w[i] ? m[i-1][j] : m[i-1][j-c[i]] + w[i];
+        return m[n][v];
+    }
+
+    int max_value()
+    {
+        int n = 3, v = 5;
+        int c[4] = {0, 1, 2, 3};
+        int w[4] = {0, 60, 100, 120};
+        return fun(c, w, n, v);
+    }
+#+END_SRC
+
+* 备忘录
+
+#+BEGIN_SRC C
+    #define INF -1
+    int m[128][128];
+    // c 保存各个物品的重量，w 保存各个物品价值，n 物品数量，v 背包容量
+    int fun2(int c[], int w[], int i, int j)
+    {
+        if(m[i][j] != INF)
+            return m[i][j];
+        if(i == 0 || j == 0)
+            m[i][j] = 0;
+        else if(j < c[i])
+            m[i][j] = fun2(c, w, i-1, j);
+        else
+        {
+            int a = fun2(c, w, i-1, j);
+            int b = fun2(c, w, i-1, j-c[i]) + w[i];
+            m[i][j] = a > b ? a : b;
+        }
+        return m[i][j];
+    }
+
+    int max_value() 
+    {
+        int n = 3, v = 5;
+        int c[4] = {0, 1, 2, 3};
+        int w[4] = {0, 60, 100, 120};
+
+        memset(m, INF, sizeof(m));
+        return fun2(c, w, n, v);
+    }
+#+END_SRC

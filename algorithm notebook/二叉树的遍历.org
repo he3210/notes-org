@@ -1,0 +1,321 @@
+#+TITLE: 二叉树的遍历
+
+先序+中序、后序+中序、层序+中序 都可唯一确定一棵二叉树
+
+* 代码目录结构
+
+#+BEGIN_EXAMPLE
+    ├── queue.h
+    ├── stack.h
+    ├── tree.cpp
+    └── tree.h
+#+END_EXAMPLE
+
+其中，stack.h 是顺序栈一节的代码内容。queue.h 是循环队列一节的代码内容
+
+* tree.h
+
+#+BEGIN_SRC c
+#ifndef TREE_H
+#define TREE_H
+typedef struct node
+{
+    int data;
+    struct node *lchild;
+    struct node *rchild;
+}node, *BiTree;
+#endif
+#+END_SRC
+
+* tree.cpp
+
+#+BEGIN_SRC c
+#include <stdio.h>
+#include "tree.h"
+#include "stack.h"
+#include "queue.h"
+
+void visit(BiTree t)
+{
+    if(t)
+        printf("node is %d\n", t->data);
+    else
+        printf("node is null");
+}
+
+// 先序遍历二叉树
+void PreOrder(BiTree T)
+{
+    if(T)
+    {
+        visit(T);
+        PreOrder(T->lchild);
+        PreOrder(T->rchild);
+    }
+}
+
+// 中序遍历二叉树
+void InOrder(BiTree T)
+{
+    if(T)
+    {
+        InOrder(T->lchild);
+        visit(T);
+        InOrder(T->rchild);
+    }
+}
+
+// 后续遍历二叉树
+void PostOrder(BiTree T)
+{
+    if(T)
+    {
+        PostOrder(T->lchild);
+        PostOrder(T->rchild);
+        visit(T);
+    }
+}
+
+// 从左向右层次遍历二叉树（需要借助一个队列）
+void LevelOrder(BiTree T)
+{
+    if(!T)
+        return;
+    queue Q;
+    init_queue(Q);
+    enqueue(Q, T);
+    BiTree t;
+    while(!is_empty(Q))
+    {
+        dequeue(Q, t);
+        visit(t);
+        if(t->lchild)
+            enqueue(Q, t->lchild);
+        if(t->rchild)
+            enqueue(Q, t->rchild);
+    }
+}
+
+// 非递归先序遍历（借助栈）
+void PreOrder2(BiTree T)
+{
+    stack S;
+    init_stack(S);
+    BiTree t = T;
+    while(t || !is_empty(S))
+    {
+        if(t)
+        {
+            visit(t);
+            push(S, t);
+            t = t->lchild;
+        }
+        else
+        {
+            pop(S, t);
+            t = t->rchild;
+        }
+    }
+}
+
+// 非递归中序遍历（借助栈）
+void InOrder2(BiTree T)
+{
+    stack S;
+    init_stack(S);
+    BiTree t = T;
+    while(t || !is_empty(S))
+    {
+        if(t) // 不断把左孩子压栈
+        {
+            push(S, t);
+            t = t->lchild;
+        }
+        else // 访问栈顶元素，转向右孩子
+        {
+            pop(S, t);
+            visit(t);
+            t = t->rchild;
+        }
+    }
+}
+
+// 非递归后序遍历（借助栈）
+// 非递归后序遍历和先序、中序遍历不同的是需要记录最近一次访问的结点
+void PostOrder2(BiTree T)
+{
+    stack S;
+    init_stack(S);
+    BiTree t = T;
+    BiTree tmp = NULL; // 表示最近一次访问的结点，用于防止从右子树返回时再次访问右子树
+    while(t || !is_empty(S))
+    {
+        if(t) // 不断进入左子树
+        {
+            push(S, t);
+            t = t->lchild;
+        }
+        else
+        {
+            get_top(S, t);
+            // 如果右子树存在且首次访问右子树，就进入右子树
+            if(t->rchild && t->rchild != tmp)
+            {
+                t = t->rchild;
+                push(S, t);
+                t = t->lchild;
+            }
+            else // 访问当前子树的根结点
+            {
+                pop(S, t);
+                visit(t);
+                tmp = t; // 记录最近一次访问的结点（如果该结点是其父结点的右孩子，防止返回到父结点时再次进入该结点）
+                t = NULL;
+            }
+        }
+    }
+}
+
+int main(int argc, char** argv)
+{
+    node a, b, c, d, e;
+    a.data = 1;
+    b.data = 2;
+    c.data = 3;
+    d.data = 4;
+    e.data = 5;
+    a.lchild = &b;
+    a.rchild = &c;
+    b.lchild = &d;
+    b.rchild = &e;
+    c.lchild = NULL;
+    c.rchild = NULL;
+    d.lchild = NULL;
+    d.rchild = NULL;
+    e.lchild = NULL;
+    e.rchild = NULL;
+
+    PreOrder(&a);
+    putchar(10);
+    InOrder(&a);
+    putchar(10);
+    PostOrder(&a);
+    putchar(10);
+
+    LevelOrder(&a);
+    putchar(10);
+
+    PreOrder2(&a);
+    putchar(10);
+    InOrder2(&a);
+    putchar(10);
+    PostOrder2(&a);
+
+    return 0;
+}
+#+END_SRC
+
+* queue.h
+
+#+BEGIN_SRC c
+#include "tree.h"
+#define N 1024
+#define elem_type BiTree
+
+typedef struct queue
+{
+    elem_type data[N];
+    int front, rear;
+}queue;
+
+void init_queue(queue &q)
+{
+    q.rear = q.front = 0;
+}
+
+bool is_empty(queue &q)
+{
+    if(q.rear == q.front)
+        return true;
+    else
+        return false;
+}
+
+bool enqueue(queue &q, elem_type &x)
+{
+    if((q.rear+1) % N == q.front)
+        return false;
+    q.data[q.rear] = x;
+    q.rear = (q.rear+1) % N;
+    return true;
+}
+
+bool dequeue(queue &q, elem_type &x)
+{
+    if(q.rear == q.front)
+        return false;
+    x = q.data[q.front];
+    q.front = (q.front+1) % N;
+    return true;
+}
+
+int queue_length(queue &q)
+{
+    return (N+q.rear-q.front)%N;
+}
+#+END_SRC
+
+* stack.h
+
+#+BEGIN_SRC c
+#include "tree.h"
+#define N 1024
+#define elem_type BiTree
+typedef struct
+{
+    elem_type data[N];
+    int top;
+}stack;
+
+void init_stack(stack &s)
+{
+    s.top = -1;
+}
+
+bool is_empty(stack &s)
+{
+    if(s.top == -1)
+        return true;
+    else
+        return false;
+}
+
+bool push(stack &s, elem_type &x)
+{
+    if(s.top == N-1)
+        return false;
+    s.data[++s.top] = x;
+    return true;
+}
+
+bool pop(stack &s, elem_type &x)
+{
+    if(s.top == -1)
+        return false;
+    x = s.data[s.top--];
+    return true;
+}
+
+bool get_top(stack &s, elem_type &x)
+{
+    if(s.top == -1)
+        return false;
+    x = s.data[s.top];
+    return true;
+}
+
+int stack_length(stack &s)
+{
+    return s.top+1;
+}
+#+END_SRC

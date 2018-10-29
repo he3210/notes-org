@@ -1,0 +1,61 @@
+#+TITLE: 链式队列
+
+* 数据结构
+
+#+BEGIN_SRC C
+    typedef struct node
+    {
+        elem_type data;
+        struct node *next;
+    }node;
+    typedef struct queue
+    {
+        node *front, *rear;
+    }queue;
+    queue q;
+#+END_SRC
+
+通常把链式队列设计成一个带头结点的单链表
+front 指向头结点（q.data = NULL 的结点），rear 指向尾结点
+判空条件：q.front = q.rear
+
+* 操作
+
+#+BEGIN_SRC C
+  void init_queue(queue &q)
+  {
+      q.front = q.rear = (node*)malloc(sizeof(node));
+      q.front->next = NULL;
+  }
+
+  bool is_empty(queue &q)
+  {
+      if(q.front == q.rear)
+          return true;
+      else
+          return false;
+  }
+
+  void enqueue(queue &q, elem_type &x)
+  {
+      s = (node*)malloc(sizeof(node));
+      s->data = x;
+      s->next = NULL;
+      q.rear->next = s;
+      q.rear = s;
+  }
+
+  bool dequeue(queue &q, elem_type &x)
+  {
+      if(q.front == q.rear)
+          return false;
+      p = q.front->next;
+      x = p->data;
+      q.front->next = p->next;
+      // 处理队列中只有一个结点时出队列的情况
+      if(q.rear == p)
+          q.rear= q.front;
+      free(q);
+      return true;
+  }
+#+END_SRC

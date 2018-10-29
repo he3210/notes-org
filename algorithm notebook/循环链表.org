@@ -1,0 +1,223 @@
+#+TITLE: 循环链表
+
+* 判断单链表是否有环
+#+BEGIN_SRC c
+  // 快慢指针判断单链表中是否有环
+  int isloop(node *p)
+  {
+      node *n1 = p;
+      node *n2 = p;
+      while(NULL != n2 && NULL != n2->next)
+      {
+          n1 = n1->next;
+          n2 = n2->next->next;
+          if(n1 == n2)
+              return 1;
+      }
+      return 0;
+  }
+#+END_SRC
+
+* 寻找循环链表的入口
+** 问题
+假设一链表存在环，如何找到环的入口
+
+** 分析
+设链表起始点到环入口长度为 a，环长度为 r
+快慢指针相遇前，慢指针在环内走了 x 步，快指针走了 n 圈加 x 步
+
+相遇前慢指针共走了 a + x 步
+相遇前快指针共走了 a + x  + nr 步
+所以有 2*(a+x) = a+x+nr，可得 a+x = nr
+即得 a=(n-1)r+r-x
+上式的含义是：慢指针从头开始单步走，快指针从相遇点开始单步走，再次相遇即是环的入口
+
+#+BEGIN_SRC c
+  // 一个链表存在环，寻找环的入口
+  node* find_entrance(node *h)
+  {
+      node *n1 = h;
+      node *n2 = h;
+      // 查找快慢指针在环中的相遇点
+      while(NULL != n2 && NULL != n2->next)
+      {
+          n1 = n1->next;
+          n2 = n2->next->next;
+          if(n1 == n2)
+              break;
+      }
+      if(NULL == n2 || NULL == n2->next)
+          return NULL;
+
+      // 慢指针从头开始单步走，快指针从相遇点开始单步走，再次相遇即是环的入口
+      n1 = h;
+      while(n1 != n2)
+      {
+          n1 = n1->next;
+          n2 = n2->next;
+      }
+      return n2;
+  }
+#+END_SRC
+
+* 找出两个单链表的第一个公共结点
+** 问题
+两个单向链表，判断它们是否相交。若相交，找出它们的第一个公共结点
+
+** 分析
+首先判断2个单链表是否有环，分为三种情况
+- 都没有环。如果相交，必定从第一个公共结点开始，之后的所有结点都重合
+- 一个存在环，另一个不存在环。必定不会相交
+- 都存在环。需判断任意一个链表上快慢指针相遇的那个结点，在不在另外一个链表上。若在，则相交；否则不相交。若相交，又分两种情况：
+ - 两个链表的入口点并不是环上的同一个结点，此时，可以定义任一入口点为相交的第一个结点；
+ - 两个链表的入口点是环上的同一点，此时，它们的第一个公共结点可能并不在环上
+
+** 代码
+#+BEGIN_SRC c
+  typedef struct node
+  {
+      int data;
+      struct node *next;
+  }node;
+
+  // 获取一段单链表长度
+  int get_length(node *h1, node *tail)
+  {
+      int len = 0;
+      while(h1 != tail)
+      {
+          h1 = h1->next;
+          ++len;
+      }
+      return len;
+  }
+
+  node* find_1st_common_node(node *h1, node *h2)
+  {
+      if(NULL == h1 || NULL == h2)
+          return NULL;
+      int a1 = isloop(h1);
+      int a2 = isloop(h2);
+      // 都不存在环
+      if(a1 == 0 && a2 == 0)
+      {
+          node *p1, *p2;
+          int len1 = get_length(h1, NULL);
+          int len2 = get_length(h2, NULL);
+          if(len1 < len2)
+          {
+              p1 = h2;
+              p2 = h1;
+          }
+          else
+          {
+              p1 = h1;
+              p2 = h2;
+          }
+
+          int offset = len1-len2;
+          for(int i = 0; i < offset; ++i)
+              p1 = p1->next;
+          while(p1 && p2 && p1 != p2)
+          {
+              p1 = p1->next;
+              p2 = p2->next;
+          }
+          if(p1 == p2)
+              return p1;
+          else
+              return NULL;
+      }
+      // 都存在环
+      else if(a1 == 1 && a2 == 1)
+      {
+          node *pentr1 = find_entrance(h1);
+          node *pentr2 = find_entrance(h2);
+          node *p1 = pentr1;
+          while(p1 && p1 != pentr1 && p1 != pentr2)
+              p1 = p1->next;
+          // 相交，入口点相同
+          if(pentr1 == pentr2)
+          {
+              node *pa, *pb;
+              // 计算单向链表从头结点到环入口结点的长度（包含入口结点）
+              int len1 = get_length(h1, pentr1) + 1;
+              int len2 = get_length(h2, pentr2) + 1;
+              if(len1 < len2)
+              {
+                  pa = h2;
+                  pb = h1;
+              }
+              else
+              {
+                  pa = h1;
+                  pb = h2;
+              }
+
+              int offset = len1-len2;
+              for(int i = 0; i < offset; ++i)
+                  pa = pa->next;
+              while(pa != pentr1->next && pb != pentr2->next && pa != pb)
+              {
+                  pa = pa->next;
+                  pb = pb->next;
+              }
+              if(pa == pb)
+                  return pa;
+              else
+                  return NULL;
+          }
+          // 相交，入口点不同。返回任一一个入口点
+          else if(p1 == pentr2)
+              return pentr2;
+          // 不相交
+          else
+              return NULL;
+      }
+      // 一个存在环一个不存在环
+      else
+          return NULL;
+  }
+#+END_SRC
+
+* 环状单向链表去重
+** 问题
+编码实现环状单向链表（尾指针直接指向头指针，中间没有空结点），去除连续的重复元素的操作
+例如： 1(头) -> 2 -> 2 -> 3 -> 3 -> 1 -> 1(头)
+去重后的结果是 1 -> 2 -> 3
+
+** 代码
+#+BEGIN_SRC c
+  // 分析：遍历每一个结点，边遍历边去除其后的重复元素
+  node *unique(node *h)
+  {
+      if(NULL == h || NULL == h->next)
+          return h;
+      node *pre = h;
+      node *cur = h->next;
+      // 遍历每一个结点
+      while(cur != h)
+      {
+          // 去除结点后面相同的元素
+          while(pre->data == cur->data && cur != h)
+          {
+              pre->next = cur->next;
+              free(q);
+              cur = pre->next;
+          }
+          if(cur == h)
+              break;
+          pre = cur;
+          cur = cur->next;
+      }
+      // 处理头结点和尾结点相同的特殊情况
+      if(cur->data == pre->data && pre != h)
+      {
+          pre->next = cur->next;
+          free(cur);
+          return pre;
+      }
+      return cur;
+  }
+#+END_SRC
+

@@ -1,0 +1,126 @@
+#+TITLE: 矩阵连乘
+
+* 问题
+
+设有矩阵 A_{1}(30*35)、A_{2}(35*15)、A_{3}(15*5)、A_{4}(5*10)，M = A_{1}*A_{2}*A_{3}*A_{4}，计算所需乘法次数的最小值
+
+* 分析
+
+A_{1}*A_{2} 的乘法次数为 30*35*15
+A_{2}*A_{3} 的乘法次数为 35*15*5
+...
+需要对矩阵进行组合，选取一组乘法次数最小的组合
+设 i 为第 i 个矩阵下标，j 为第 j 个矩阵下标
+m[i][j] 表示A_{i}*A_{i+1}*...*A_{j} 所需乘法次数最小值，所以 i > j 时无意义（即 m 构成的矩阵为三角矩阵）
+
+当 i < j，对于矩阵 A_{1}(p_{0}*p_{1})、A_{2}(p_{1}*p_{2})、A_{3}(p_{2}*p_{3})、A_{4}(p_{3}*p_{4})、A_{5}(p_{4}*p_{5})，M = A_{1}*A_{2}*A_{3}*A_{4}*A_{5}。
+计算到最后，还剩2个矩阵时，所需乘法次数必定为p_{0}*p_{k}*p_{5}，k 的取值范围为1、2、3、4
+这样，就把问题 m[1][5] 转化为子问题 m[1][k] + m[k+1][5] + p_{0}*p_{k}*p_{5}
+
+* 状态转移方程
+
+$$
+m[i][j]=\left\{
+\begin{array}{lcl}
+0                                                                              &      & {i = j}\\
+\displaystyle \min_{i \leq k < j} \{m[i][k] + m[k+1][j] + p_{i-1}p_{k}p_{j}\}  &      & {i < j}
+\end{array} \right.
+$$
+
+其中，i 为第 i 个矩阵下标，j 为第 j 个矩阵下标
+
+* 填表过程
+
+| 行/列 | 1 | 2         | 3                                     | 4                                     |
+|-------+---+-----------+---------------------------------------+---------------------------------------|
+|     4 | - | -         | -                                     | 0                                     |
+|     3 | - | -         | 0                                     | $A_{3}*A_{4}$                         |
+|     2 | - | 0         | $A_{2}*A_{3}$                         | $min\{(A_2*A_3)*A_4, A_2*(A_3*A_4)\}$ |
+|     1 | 0 | $A_1*A_2$ | $min\{(A_1*A_2)*A_3, A_1*(A_2*A_3)\}$ | ...                                   |
+
+* 动态规划
+
+#+BEGIN_SRC C
+    int m[1024][1024];    // 最优解
+    int s[1024][1024];    // 断开点的索引
+
+    // 列出矩阵的结合步骤
+    void traceback(int i, int j)
+    {
+        if(i == j)
+            return;
+        traceback(i, s[i][j]);
+        traceback(s[i][j] + 1, j);
+        printf("A[%d][%d] and A[%d][%d]]\n", i, s[i][j], s[i][j] + 1, j);
+    }
+
+    int fun(int p[], int n)
+    {
+        for(int i = 1; i <= n; ++i)
+            m[i][i] = 0;
+        // 每循环一次计算一条斜对角线
+        for(int t = 2; t <= n; ++t)
+        {
+            // 第一次循环计算斜对角线(1, 2), (2, 3), (3, 4)...
+            for(int i = 1, j = t; j <=n; ++i, ++j)
+            {
+                // 等同于 int min = m[i][i] + m[i+1][j] + p[i-1] * p[i] * p[j];
+                int min = m[i+1][j] + p[i-1] * p[i] * p[j];
+                s[i][j] = i;            // 记录断开点的索引（即取得最小解的 k 值）
+                // k在[i, j)范围内
+                for(int k = i+1; k < j; ++k)
+                {
+                    int value = m[i][k] + m[k+1][j] + p[i-1] * p[k] * p[j];
+                    if(min > value)
+                    {
+                        min = value;
+                        s[i][j] = k;    // 记录获得最小解的 k 值
+                    }
+                }
+                m[i][j] = min;
+            }
+        }
+        return m[1][n];
+    }
+
+    int main(int argc, char **argv)
+    {
+        int p[] = {30, 35, 15, 5, 10};
+        int len = sizeof(p)/4-1;
+        printf("%d\n", fun(p, len));
+        for(int i = len; i >= 1; --i)
+        {
+            for(int j = 1; j <= len; ++j)
+                printf("%d  ", s[i][j]);
+            putchar(10);
+        }
+        traceback(1, len);
+
+        return 0;
+    }
+#+END_SRC
+
+* 备忘录
+
+#+BEGIN_SRC C
+    int fun2(int p[], int i, int j)
+    {
+        if(m[i][j] > 0)
+            return m[i][j];
+        if(i == j)
+            return 0;
+        int min = fun2(p, i, i) + fun2(p, i+1, j) + p[i-1] * p[i] * p[j];
+        s[i][j] = i;
+        for(int k = i + 1; k < j; ++k)
+        {
+            int value = fun2(p, i, k) + fun2(p, k+1, j) + p[i-1] * p[k] * p[j];
+            if(min > value)
+            {
+                min = value;
+                s[i][j] = k;
+            }
+        }
+        m[i][j] = min;
+        return m[i][j];
+    }
+#+END_SRC

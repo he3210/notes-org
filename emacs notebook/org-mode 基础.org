@@ -88,6 +88,10 @@
 区别于 CSDN博客 和 evernote 的标签，org-mode 的标签支持为每个标题都设置标签。
 标签主要是用于分类和搜索的。但是标签是用户自己设置的，可能该打的标签没打，导致搜索不到。我更倾向于使用搜索命令或 google 搜索笔记。不做笔记
 
+* 插入 latex 公式
+- 使用 =$ $= 在行内插入。例如 =$\displaystyle \min_{x_1,\dots x_T}$= $\displaystyle \min_{x_1,\dots x_T}$
+- 使用 =$$ $$= 在行间插入。例如 =$$\displaystyle \min_{x_1,\dots x_T}$$= ：$$\displaystyle \min_{x_1,\dots x_T}$$
+
 * Footnotes
 
 [fn:1] This is a footnote for test.

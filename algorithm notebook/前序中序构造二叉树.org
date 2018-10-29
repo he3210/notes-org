@@ -1,0 +1,62 @@
+#+TITLE: 前序中序构造二叉树
+
+* 问题
+
+输入二叉树的前序遍历序列和中序遍历序列，重建该二叉树
+假设输入的前序遍历序列和中序遍历序列都不包含重复数字
+例如输入
+前序遍历序列 {1, 2, 4, 7, 3, 5, 6, 8, 9}
+中序遍历序列 {4, 7, 2, 1, 5, 3, 8, 6, 9}
+
+#+BEGIN_EXAMPLE
+                      1
+                  /       \
+              2               3
+           /               /     \
+          4               5       6
+           \                     / \
+            7                   8   9
+#+END_EXAMPLE
+
+* 递归实现
+
+#+BEGIN_SRC C
+    // 待改进：未释放内存
+    // 可以把动态分配得到的内存保存在一个队列里面，出现异常就可以释放内存
+    node *ConstructCore(int *StartPreOrder, int *EndPreOrder, int *StartInOrder, int *EndInOrder)
+    {
+        int RootVal = StartPreOrder[0];
+        node* root = (node*)malloc(sizeof(node));
+        root->data = RootVal;
+        root->lchild = root->rchild = NULL;
+        if(StartPreOrder == EndPreOrder)
+        {
+            if(StartInOrder == EndInOrder) // 边界条件
+                return root;
+            else    // 非法输入
+                throw std::exception();
+        }
+
+        // 在中序遍历中查找根结点的值
+        int *p = StartInOrder;
+        while(p <= EndInOrder && *p != RootVal)
+            ++p;
+        // 非法输入
+        if(p > EndInOrder)
+            throw std::exception();
+        int LeftLen = p - StartInOrder;    // 左子树的长度
+        int *LeftPreOrderEnd = StartPreOrder + LeftLen;  // 先序遍历序列中左子树的末尾下标
+        if(LeftLen > 0)
+            root->lchild = ConstructCore(StartPreOrder+1, LeftPreOrderEnd, StartInOrder, p-1);
+        if(LeftLen < EndPreOrder-StartPreOrder)
+            root->rchild = ConstructCore(LeftPreOrderEnd+1, EndPreOrder, p+1, EndInOrder);
+        return root;
+    }
+
+    node *Construct(int *PreOrder, int *InOrder, int length)
+    {
+        if(NULL == PreOrder || NULL == InOrder || length <= 0)
+            return NULL;
+        return ConstructCore(PreOrder, PreOrder+length-1, InOrder, InOrder+length-1);
+    }
+#+END_SRC

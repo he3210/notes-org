@@ -1,0 +1,89 @@
+#+TITLE: LCS
+
+LCS(Longest Common Subsequence) 问题即最长公共子序列问题。
+例如：字符串 ABCBDAB 和 BDCABA，字符串 BCBA 和 BDAB 都是它们的最长公共子序列
+
+* 问题
+
+请编写一个函数，输入两个字符串，求它们的最长公共子序列长度。
+
+* 状态转移方程
+
+$$
+c[i, j]=\left\{
+\begin{array}{lcl}
+0                                &      & {i = 0\ or\ j = 0}\\
+c[i - 1, j - 1] + 1              &      & {i, j > 0\ and\ x_i = y_j}\\
+max\{c[i, j - 1], c[i - 1, j]\}  &      & {i, j > 0\ and\ x_i \neq y_j}
+\end{array} \right.
+$$
+
+设两个字符串是 X 和 Y，
+i 为字符串 X 的下标，j 为字符串 Y 的下标
+x_{i} 是字符串 X 的第 i 个字符。同理，y_{j} 是字符串 Y 的第 j 个字符
+c[i, j] 是 X 的前 i 个字符和 Y 的前 j 个字符的最长公共子序列
+
+* 动态规划
+
+#+BEGIN_SRC C
+    int c[100][100];
+    int LCS_LENGTH(const char* X, const char* Y)
+    {
+        // 异常判断
+        if(X == NULL || Y == NULL)
+            return 0;
+        // 边界初始化
+        int len_x = strlen(X);
+        int len_y = strlen(Y);
+        for(int i = 0; i <= len_x; ++i)
+            c[i][0] = 0;
+        for(int j = 1; j <= len_y; ++j)
+            c[0][j] = 0;
+        // 填表
+        for(int i = 1; i <= len_x; ++i)
+            for(int j = 1; j <= len_y; ++j)
+            {
+                if(X[i] == Y[j])
+                    c[i][j] = c[i - 1][j - 1] + 1;
+                else
+                    c[i][j] = c[i - 1][j] > c[i][j - 1] ? c[i - 1][j] : c[i][j - 1];
+            }
+        return c[len_x][len_y];
+    }
+#+END_SRC
+
+* 备忘录
+
+#+BEGIN_SRC C
+    # define INF -1
+
+    int c[100][100];
+    int LCS_MEMO(const char* X, const char* Y, int i, int j)
+    {
+        // 查询子问题的解
+        if(c[i][j] != INF)
+            return c[i][j];
+        // 处理边界
+        if(i == 0 || j == 0)
+            c[i][j] = 0;
+        // 填表
+        else if(X[i] == Y[j])
+            return LCS_MEMO(X, Y, i - 1, j - 1) + 1;
+        else
+        {
+            int p = LCS_MEMO(X, Y, i - 1, j);
+            int q = LCS_MEMO(X, Y, i, j - 1);
+            c[i][j] = p > q ? p : q;
+        }
+        return c[i][j];
+    }
+
+    int LCS_LENGTH(const char* X, const char* Y)
+    {
+        int len_x = strlen(X);
+        int len_y = strlen(Y);
+        // 子问题的解初始化为一个特殊值
+        memset(c, INF, sizeof(c));
+        return LCS_MEMO(X, Y, len_x, len_y);
+    }
+#+END_SRC

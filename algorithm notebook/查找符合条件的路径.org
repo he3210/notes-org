@@ -1,0 +1,50 @@
+#+TITLE: 查找符合条件的路径
+
+* 问题
+
+一棵二叉树每个结点包含一个整数，请设计一个算法输出所有满足条件的路径。此路径上的所有结点之和等于给定值，该路径不要求必须从根结点开始
+
+* 分析
+
+先序遍历二叉树，遍历过程中会得到每一个路径上的结点值，存入 path。对 path 上的结点值从后向前遍历，判断该路径及其子路径是否符合要求
+
+* 先序遍历递归实现
+
+#+BEGIN_SRC C
+    // 打印路径
+    void PrintPath(std::vector<int> path, int level1, int level2)
+    {
+        for(int i = level1; i <= level2; ++i)
+            printf("%d\n", path[i]);
+    }
+
+    // sum   给定值
+    // path  存储从根结点开始，当前路径上的各个值（即存储先序遍历到的路径上的结点值）
+    // level 表示从根结点开始，当前路径的长度
+    void FindPath(BiTree T, int sum, std::vector<int> &path, int level)
+    {
+        if(NULL == T)
+            return;
+        int tmp = sum;
+        path.push_back(T->data);
+        // 从当前结点向根结点遍历当前路径上的结点，查找符合条件的子路径
+        for(int i = level; i >= 0; --i)
+        {
+            tmp -= path[i];
+            if(tmp == 0)
+                PrintPath(path, i, level);
+        }
+
+        if(T->lchild)
+        {
+            FindPath(T->lchild, sum, path, level+1);
+            // 在遍历左子树时，左子树根结点的值存进 path 中了，所以需要弹出这个值然后才能进行遍历右子树
+            path.pop_back();
+        }
+        if(T->rchild)
+        {
+            FindPath(T->rchild, sum, path, level+1);
+            path.pop_back();
+        }
+    }
+#+END_SRC

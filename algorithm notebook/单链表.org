@@ -1,0 +1,113 @@
+#+TITLE: 单链表
+
+* 内容清单
+- 头插法逆序
+- 递归法逆序
+- 删除结点
+- 快慢指针判断是否有环
+
+* 代码
+#+BEGIN_SRC c
+  typedef struct node
+  {
+      int data;
+      struct node *next;
+  }node;
+
+  // 头插法为单链表逆序
+  node *Reverse(node *p)
+  {
+      node *cur = p, *pre = NULL;
+      while(cur)
+      {
+          node *temp = cur;
+          cur = cur->next;
+          temp->next = pre;
+          pre = temp;
+      }
+      return pre;
+  }
+
+  // 递归法为单链表逆序
+  node *Reverse2(node *p)
+  {
+      if(!p || !p->next)
+          return p;
+      node *ret = Reverse2(p->next);
+      p->next->next = p;
+      p->next = NULL;
+      return ret;
+  }
+
+  // 删除单链表中间的的一个结点（不是第一个也不是最后一个结点）
+  // 将当前结点的内容于后续结点交换，再删除后续结点
+  int deleteNode(node *p)
+  {
+      if(NULL == p || NULL == p->next)
+          return 0;
+      node* temp = p->next;
+      p->next = temp->next;
+      p->data = temp->data;
+      free(temp);
+      return 1;
+  }
+
+  // 删除单链表中第一个值为 value 的结点
+  node *deleteNode2(node *p, int value)
+  {
+      node *cur = p, *pre = NULL;
+      while(cur && cur->data != value)
+      {
+          pre = cur;
+          cur = cur->next;
+      }
+      if(!cur)
+          return p;
+      if(!pre)
+      {
+          pre = cur;
+          cur = cur->next;
+          free(pre);
+          return cur;
+      }
+      pre->next = cur->next;
+      free(cur);
+      return p;
+  }
+
+  // 快慢指针判断单链表中是否有环
+  int isloop(node *p)
+  {
+      node *n1 = p;
+      node *n2 = p;
+      while(NULL != n2 && NULL != n2->next)
+      {
+          n1 = n1->next;
+          n2 = n2->next->next;
+          if(n1 == n2)
+              return 1;
+      }
+      return 0;
+  }
+
+  // 获取单链表的倒数第 k 个结点
+  node* find_kth_to_tail(node *h, int k)
+  {
+      if(NULL == h || k < 1)
+          return NULL;
+      node *pa = h, *pb = h;
+      for(int i = 0; i < k-1; ++i)
+      {
+          pa = pa->next;
+          if(NULL == pa)
+              return NULL;
+      }
+      while(pa->next != NULL)
+      {
+          pa = pa->next;
+          pb = pb->next;
+      }
+      return pb;
+  }
+#+END_SRC
+

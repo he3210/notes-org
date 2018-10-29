@@ -1,0 +1,95 @@
+#+TITLE: 数字三角形
+
+* 问题
+
+有一个非负整数组成的三角形，第一行只有一个数，除了最下行之外每个数的左下方和右下方各有一个数
+
+从第一行的数开始，每次可以往左下或右下走一格，知道走到最下行，把沿途经过的数全部加起来。如何走才能使这个和最大？
+
+#+BEGIN_EXAMPLE
+            1                                1,1
+          3    2                        2,1       2,2
+        4   10   1                  3,1      3,2       3,3
+     4    3    2   20           4,1     4,2       4,3      4,4
+         数字三角形                        格子编号
+#+END_EXAMPLE
+
+* 状态转移方程
+
+$$
+d(i, j)=\left\{
+\begin{array}{lcl}
+a(n, j)                                  &      & {i = n}\\
+a(i, j) + max\{d(i+1, j), d(i+1, j+1)\}  &      & {1 \leq i < n}
+\end{array} \right.
+$$
+
+把当前位置(i, j)看成一个状态， 定义状态的指标函数 d(i, j) 为从格子出发时能得到的最大和（包括位置(i, j)的值），在这个状态下原问题的解是 d(1, 1)
+a(i, j) 为位置 (i, j) 的值 n 为数字三角形的层数
+
+* 动态规划
+
+#+BEGIN_SRC C
+    #define N 4
+    int a[N+1][N+1] = {
+        0, 0, 0, 0, 0,
+        0, 1, 0, 0, 0,
+        0, 3, 2, 0, 0,
+        0, 4, 10,1, 0,
+        0, 4, 3, 2, 20
+    };
+    int d[N+1][N+1];
+    // n 是数字三角形的层数
+    int fun(int n)
+    {
+        for(int j = 1; j <= n; ++j)
+            d[n][j] = a[n][j];
+
+        for(int i = n-1; i >= 1; --i)
+            for(int j = 1; j <= i; ++j)
+            {
+                int max = d[i+1][j] > d[i+1][j+1] ? d[i+1][j] : d[i+1][j+1];
+                d[i][j] = a[i][j] + max;
+            }
+
+        return d[1][1];
+    }
+#+END_SRC
+
+* 备忘录
+
+#+BEGIN_SRC C
+    #define N 4
+    int a[N+1][N+1] = {
+        0, 0, 0, 0, 0,
+        0, 1, 0, 0, 0,
+        0, 3, 2, 0, 0,
+        0, 4, 10,1, 0,
+        0, 4, 3, 2, 20
+    };
+    int d[N+1][N+1];
+
+    #define INF -1
+    int fun2(int i, int j)
+    {
+        if(d[i][j] != INF)
+            return d[i][j];
+        if(i == N)
+            d[i][j] = a[i][j];
+        else if(i < N)
+        {
+            int value1 = fun2(i+1, j);
+            int value2 = fun2(i+1, j+1);
+            d[i][j] = a[i][j] + (value1 > value2 ? value1 : value2);
+        }
+        return d[i][j];
+    }
+
+    int main(int argc, char **argv)
+    {
+        memset(d, INF, sizeof(d));
+        printf("%d\n", fun2(1, 1));
+
+        return 0;
+    }
+#+END_SRC

@@ -1,0 +1,38 @@
+#+TITLE: 对栈内元素进行升序排序
+
+* 问题
+
+写一个算法将栈里的元素升序排序。栈的实现未知，算法只能借助栈完成，可使用的函数有 push、pop、top、empty
+
+#+BEGIN_EXAMPLE
+        3             3
+        5             5
+        8     ==>     5
+        7             6
+        5             7
+        6             8
+       栈s        排序后的栈s
+#+END_EXAMPLE
+
+* 分析
+
+需要借助一个辅助栈 t
+从栈 s 中依次弹出元素 x，如果元素 x 小于栈 t 的栈顶元素 y，把元素 y 先弹出然后再压入栈 s。
+然后继续比较元素 x 和栈 t 的栈顶元素，直到 x 大于栈 t 中的所有元素，此时，把 x 压入栈 t
+
+* 实现
+
+#+BEGIN_SRC C
+  stack sort(stack &s)
+  {
+      stack t;
+      while(!empty(s))
+      {
+          elem_type x = pop(s);
+          while(!empty(t) && top(t) > x)
+              push(s, pop(t))
+          push(t, x);
+      }
+      return t;
+  }
+#+END_SRC

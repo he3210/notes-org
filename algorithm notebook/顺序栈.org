@@ -1,0 +1,102 @@
+#+TITLE: 顺序栈
+
+* 存储结构
+
+#+BEGIN_SRC C
+  #define N 1024
+  typedef struct stack
+  {
+      elem_type data[N];
+      int top;
+  }stack;
+#+END_SRC
+
+栈顶指针：设栈为 s，初始化栈顶指针为 s.top = -1
+栈空条件：s.top = -1
+栈满条件：s.top = N-1
+栈的长度：s.top+1
+
+* 栈的操作
+
+#+BEGIN_SRC C
+  #define elem_type int
+  void init_stack(stack &s)
+  {
+      s.top = -1;
+  }
+
+  bool is_empty(stack &s)
+  {
+      if(s.top == -1)
+          return true;
+      else
+          return false;
+  }
+
+  bool push(stack &s, elem_type &x)
+  {
+      if(s.top == N-1)
+          return false;
+      s.data[++s.top] = x;
+      return true;
+  }
+
+  bool pop(stack &s, elem_type &x)
+  {
+      if(s.top == -1)
+          return false;
+      x = s.data[s.top--];
+      return true;
+  }
+
+  bool get_top(stack &s, elem_type &x)
+  {
+      if(s.top == -1)
+          return false;
+      x = s.data[s.top];
+      return true;
+  }
+
+  int stack_length(stack &s)
+  {
+      return s.top+1;
+  }
+#+END_SRC
+
+* 判断链表字符串是否中心对称
+
+** 问题
+
+设单链表无表头，第一个结点指针为 h，结点结构由 data 和 next 两个域构成。
+其中 data 域为 char 型。
+试设计算法判断该链表的前 n 个字符是否中心对称。
+例如 xyx、xyyx、都是中心对称
+
+** 代码
+
+#+BEGIN_SRC C
+    bool fun(node *h, int n)
+    {
+        int s[n/2], i;
+        for(i = 0; h && i < n/2; ++i)
+        {
+            s[i] = h->data;
+            h = h->next;
+        }
+        if(i != n/2)
+            return false;
+
+        --i;
+        if(n%2 == 1)
+            h = h->next;
+        while(h && i >= 0 && h->data == s[i])
+        {
+            h = h->next;
+            --i;
+        }
+        if(i == -1)
+            return true;
+        else
+            return false;
+    }
+#+END_SRC

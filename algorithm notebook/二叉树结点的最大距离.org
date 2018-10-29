@@ -1,0 +1,43 @@
+#+TITLE: 二叉树结点的最大距离
+
+* 问题
+
+如果我们把二叉树视为一个图，父子结点之间的连线视为双向的，我们定义"距离"为两结点之间边的个数。
+写一个程序求一棵二叉树中相距最远的两个结点之间的距离
+
+* 分析
+
+二叉树的最大距离存在两种情况，取其中距离最大的一种：
+- 路径经过左子树的最深结点，通过根结点，再到右子树的最深结点
+- 路径不穿过根结点，而是左子树或右子树的最大距离路径，取其大着
+
+* 递归实现（后序遍历）
+
+#+BEGIN_SRC C
+    // 求二叉树中结点的最大距离
+    struct RESULT
+    {
+        int maxDistance;
+        int maxDepth;
+    };
+
+    int max(int a, int b)
+    {
+        return a > b ? a : b;
+    }
+
+    RESULT GetMaxDistance(BiTree T)
+    {
+        if(!T)
+        {
+            RESULT empty = {0, -1};
+            return empty;
+        }
+        RESULT lmd = GetMaxDistance(T->lchild);
+        RESULT rmd = GetMaxDistance(T->rchild);
+        RESULT ret;
+        ret.maxDepth = max(lmd.maxDepth + 1, rmd.maxDepth + 1);
+        ret.maxDistance = max(max(lmd.maxDistance, rmd.maxDistance), lmd.maxDepth + rmd.maxDepth + 2);
+        return ret;
+    }
+#+END_SRC

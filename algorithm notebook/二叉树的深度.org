@@ -1,0 +1,97 @@
+#+TITLE: 二叉树的深度
+
+二叉树的深度就是从根结点到叶结点最长路径的长度
+
+* 递归后序遍历
+
+#+BEGIN_SRC C
+    // 二叉树的深度（递归）
+    // 分析：需要先求出左右子树的深度，才能求出根结点的深度，所以需要使用后序遍历
+    int TreeDepth(BiTree T)
+    {
+        if(NULL == T)
+            return -1;
+        int left = TreeDepth(T->lchild) + 1;
+        int right = TreeDepth(T->rchild) + 1;
+        return left > right ? left : right;
+    }
+#+END_SRC
+
+* 非递归后序遍历
+
+#+BEGIN_SRC C
+    // 二叉树的深度（非递归）
+    // 分析：借助栈，在后序遍历时记录栈的最大长度，栈的最大长度 = 二叉树的深度 + 1
+    int TreeDepth3(BiTree T)
+    {
+        stack S;
+        init_stack(S);
+        BiTree t = T;
+        BiTree tmp = NULL; // 表示最近一次访问的结点，用于防止从右子树返回时再次访问右子树
+        int len = 0;
+        int curLen;
+        while(t || !is_empty(S))
+        {
+            if(t) // 不断进入左子树
+            {
+                push(S, t);
+                t = t->lchild;
+            }
+            else
+            {
+                get_top(S, t);
+                // 如果右子树存在且首次访问右子树，就进入右子树
+                if(t->rchild && t->rchild != tmp)
+                {
+                    t = t->rchild;
+                    push(S, t);
+                    t = t->lchild;
+                }
+                else // 访问当前子树的根结点
+                {
+                    // 仅当当前结点是叶结点时，才记录栈的最大长度
+                    if(!t->lchild && !t->rchild)
+                    {
+                        curLen = stack_length(S);
+                        len = len > curLen ? len : curLen;
+                    }
+                    pop(S, t);
+                    visit(t);
+                    tmp = t;
+                    t = NULL;
+                }
+            }
+        }
+        return len-1;
+    }
+#+END_SRC
+
+* 非递归层次遍历
+
+#+BEGIN_SRC C
+    // 二叉树的深度（非递归）
+    // 分析：借助队列，在层序遍历时记录遍历的层数
+    int TreeDepth2(BiTree T)
+    {
+        queue Q;
+        init_queue(Q);
+        enqueue(Q, T);
+        BiTree t;
+        int depth = -1;
+        while(!is_empty(Q))
+        {
+            ++depth;
+            int curLevelQueueSize = queue_length(Q);
+            int i = 0;
+            for(int i = 0; i < curLevelQueueSize; ++i)
+            {
+                dequeue(Q, t);
+                if(t->lchild)
+                    enqueue(Q, t->lchild);
+                if(t->rchild)
+                    enqueue(Q, t->rchild);
+            }
+        }
+        return depth;
+    }
+#+END_SRC
