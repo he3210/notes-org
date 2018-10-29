@@ -98,7 +98,7 @@ h1 {
     color: #878992;
     padding: 1em 0 12px;
     text-align: left;
-    text-shadow: 0 0 0 rgba(0, 0, 0, 0.2);
+    text-shadow: none;
 }
 
 /* 一级标题 */
@@ -107,7 +107,7 @@ h2 {
     padding: 1em 0 10px;
     border-bottom: 1px solid #e5e5e5;
     color: #F08080;
-    text-shadow: 0 0 0 rgba(0, 0, 0, 0.2);
+    text-shadow: none;
 }
 
 h3 {
@@ -116,7 +116,7 @@ h3 {
     color: #FF8A65;
     padding: 0.5em 0 10px;
     border-bottom: 1px solid #eee;
-    text-shadow: 0 0 0 rgba(0, 0, 0, 0.2);
+    text-shadow: none;
     margin-left: 2em;
 }
 
@@ -126,7 +126,7 @@ h4 {
     color: #FF8A65;
     padding: 0.5em 0 10px;
     border-bottom: 1px solid #eee;
-    text-shadow: 0 0 0 rgba(0, 0, 0, 0.2);
+    text-shadow: none;
     margin-left: 4em;
 }
 
@@ -253,7 +253,7 @@ pre {
     box-shadow: 3px 3px 3px #eee;
     color: Black;
     font: 13px/1.4 Menlo, Monaco, Consolas, "Courier New", monospace;;
-    text-shadow: 0 0 0 #ffffff;
+    text-shadow: none;
     padding: 10px;
 }
 
@@ -271,7 +271,7 @@ pre.src:before {
     position: absolute;
     font-size: 18px;
     font-weight: bold;
-    text-shadow: 0 0 0 rgba(0, 0, 0, 0.2);
+    text-shadow: none;
     color: #bfbfbf;
     top: 5px;
     right: 10px;
@@ -422,7 +422,7 @@ tr:hover td {
 
 #table-of-contents {
     font-size: 14px;
-    text-shadow: 0 0 0 rgba(0, 0, 0, 0.2);
+    text-shadow: none;
     position: fixed;       /* fixed 表示出现在页面的固定位置，不会随屏幕滚动而改变位置 */
     right: 0em;
     top: 0px;
@@ -510,8 +510,8 @@ blockquote {
     border-left: 3px solid #CCCCCC;
     border-radius: 12px;
     padding: 0.2em 1.1em;
-    font: italic 13px/1.4 Menlo, Monaco, Consolas, "Courier New", monospace;
-    text-shadow: 0 0 0 rgba(0, 0, 0, 0.2);
+    font: 13px/1.4 Menlo, Monaco, Consolas, "Courier New", monospace;
+    text-shadow: none;
     margin: 5px 20px;
 }
 

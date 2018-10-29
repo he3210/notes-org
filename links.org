@@ -1,6 +1,8 @@
 #+TITLE: Links
 
-- [[https://dirtysalt.github.io/html/index.html][dirtysalt]]
+- [[https://dirtysalt.github.io/html/index.html][章炎的个人站点]]
+
+- [[http://forrestchang.com/index.html][Hack Notes]]
 
 - [[http://www.shellcodes.org/][LU5NX]]
 
@@ -9,8 +11,6 @@
 - [[http://kdr2.com/misc/categories.html][KDr2]]
 
 - [[http://zhowkev.in/][Kevin]]
-
-- [[https://dirtysalt.github.io/html/index.html][章炎的个人站点]]
 
 - [[https://xuexb.com/][前端小武的博客]]
 

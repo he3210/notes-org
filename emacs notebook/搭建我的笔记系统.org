@@ -2,52 +2,58 @@
 
 本站点就是这样构建的
 
+| 搭建完成后的快捷键 | 描述                                                                                                                   |
+|--------------------+------------------------------------------------------------------------------------------------------------------------|
+| =C-c en=           | 把 org 格式的笔记导出为 html 格式的笔记，从 =~/notes/org/= 导出到 =~/notes/html/= 。该命令导出的笔记在本地测试环境使用 |
+| =C-c eN=           | 该命令导出的笔记在生产环境使用。（en 为 export notes 的首字母）                                                        |
+
 * 为什么选用 org-mode 构建？
 之前一直使用 evernote + gitbook 等工具记笔记。然而每个都有各自很大的缺点
 - evernote 其它的都好，就是文本编辑器太过垃圾，用的越久越无法忍受。
 - gitbook 是基于 markdown 的，它的每篇文档都是一个 markdown 文件。但 markdown 过于轻量，不支持复杂格式。
 而 org-mode 可以满足我的要求
 
-- 表格功能强大
+- 表格功能、超链接功能强大
 - 支持 latex
 - 基于大纲，清晰明了
-- 支持导出各种格式。例如：配置后可以导出成一个网站，能在各种终端上用浏览器直接访问。
+- 支持导出各种格式。例如：配置后可以导出成一个博客网站，能在各种终端上用浏览器直接访问。
 - 可以根据自己的想法编写 CSS 和 HTML 定制笔记系统的外观，想要什么样的就要什么样的
 - 导出成网页后，只需一个链接就可以共享给别人
 
-搭建笔记系统的几个目标：
+搭建笔记系统的几个基本要求或目标：
 - 要有一个导航栏
 - 主页存放经常访问的笔记。如 shell 命令、快捷键等
 - 对笔记进行分类。比如：shell 笔记、算法笔记
 - 采用 google 搜索
 - 目录浮于右上角，点击隐藏，再点击显示;目录聚焦当前大纲。
-- 简单美观
-- 代码高亮
+- 简单美观。支持代码高亮
 
 * 笔记系统最终目录结构
 #+BEGIN_SRC shell
 $ tree -N -I "algorithm|libevent|test" notes
-notes                       # 搭建的笔记系统目录
-├── html                    # 导出成 h5 的笔记本
-└── org                     # org 目录
-    ├── css                 # 存放 css 样式
+notes                            # 搭建的笔记系统目录
+├── html                         # 导出成 h5 的笔记本
+└── org                          # org 目录
+    ├── css                      # 存放 css 样式，js 文件
+    │   ├── main.js              # 自定义的 js 文件
+    │   ├── jquery-2.1.3.min.js  # jquery
     │   └── style.css
-    ├── gallery.org         # 画廊
-    ├── images              # 所有的图片都保存在这里
-    ├── index.org           # 主页，可以保存一些经常需要参考的笔记的链接，从而能快速访问
-    ├── links.org           # 优秀的博客链接
-    ├── notebooks.org       # 创建的所有笔记本都在这里
-    ├── emacs notebook      # 存放 emacs 笔记的笔记本
-    │   └── emacs.org       # 笔记目录
-    ├── libevent notebook   # 笔记本
-    │   └── libevent.org    # 笔记目录
+    ├── gallery.org              # 画廊
+    ├── images                   # 所有的图片都保存在这里
+    ├── index.org                # 主页，可以保存一些经常需要参考的笔记的链接，从而能快速访问
+    ├── links.org                # 优秀的博客链接
+    ├── notebooks.org            # 创建的所有笔记本都在这里
+    ├── emacs notebook           # 存放 emacs 笔记的笔记本
+    │   └── emacs.org            # 笔记目录
+    ├── libevent notebook        # 笔记本
+    │   └── libevent.org         # 笔记目录
     ├── shell notebook
     │   └── shell.org
-    │── templates           # html 模版目录。导出 html 时会根据相关配置把这些模版放到 html 的合适位置。生产环境使用该目录n
-    │   ├── html-head.html  # html head
-    │   ├── postamble.html  # 放到 html 的尾部
-    │   └── preamble.html   # 放到 html 的开始部分
-    └── templates-test      # 测试环境使用这个目录而不用 templates
+    │── templates                # html 模版目录。导出 html 时会根据相关配置把这些模版放到 html 的合适位置。生产环境使用该目录n
+    │   ├── html-head.html       # html head
+    │   ├── postamble.html       # 放到 html 的尾部
+    │   └── preamble.html        # 放到 html 的开始部分
+    └── templates-test           # 测试环境使用这个目录而不用 templates
         ├── html-head.html
         ├── postamble.html
         └── preamble.html
@@ -126,7 +132,7 @@ notes                       # 搭建的笔记系统目录
 ;; 该函数会强制导出所有文件，即使该文件没有修改过。否则，可能出现有些文件修改了，但是导出的还是旧文件
 (defun export-my-notes()
   (interactive)
-  ;; 配色问题。需要设置为 256 色。否则，在终端下的 emacs 中执行该函数，导出的代码块颜色混乱
+  ;; solarized 配色问题。需要设置为 256 色。否则，在终端下的 emacs 中执行该函数，导出的代码块颜色混乱
   (setq solarized-termcolors 256)
   (load-theme 'solarized t)
 
@@ -148,8 +154,8 @@ notes                       # 搭建的笔记系统目录
 
 写完笔记后，就可以使用快捷键 =C-c en= 直接把笔记发布到 =notes/html= 目录。
 再通过 git 命令进行版本控制，在网站主机上拉取网站仓库就可以在网上访问笔记了。
-* 后续优化1--代码块右侧显示代码类型
-如果代码块是 shell 脚本，代码块右上角显示 shell；如果是 python 代码，右上角显示 python...
+* 后续优化1 —— 代码块右侧显示代码类型
+如果代码块是 shell 脚本，代码块右上角显示 shell；如果是 python 代码，右上角显示 python；...
 
 网页的 CSS 配置如下
 主要借助 :before 插入语言名称
@@ -193,12 +199,12 @@ pre.src-css:before { content: 'CSS'; }
 pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
 /* ... */
 #+END_SRC
-* 后续优化2--生产环境测试环境分离
+* 后续优化2 —— 生产环境测试环境分离
 
-init-func.el 中的笔记导出函数改为
+=init-func.el= 中的笔记导出函数改为
 #+BEGIN_SRC emacs-lisp
 (defun export-my-notes-internal()
-  ;; 配色问题。需要设置为 256 色。否则，在终端下的 emacs 中执行该函数，导出的代码块颜色混乱
+  ;; solarized 配色问题。导出 html 时设置为 256 色。否则，导出的 html 中的代码块颜色混乱难看
   (setq solarized-termcolors 256)
   (load-theme 'solarized t)
 
@@ -206,7 +212,7 @@ init-func.el 中的笔记导出函数改为
   (load-file "~/.emacs.d/lisp/init-org.el")  ;; 需要重新加载 init-org.el，否则 css 等文件修改后无法重新发布
   (org-publish-project "notes" t)
 
-  ;; 导出完毕后，配色再改回来，防止 solarized 在终端中颜色混乱
+  ;; 导出完毕后，配色再改回来，改为 16，防止 solarized 在终端 emacs 中颜色混乱难看
   (setq solarized-termcolors 16)
   (load-theme 'solarized t)
   )
@@ -224,15 +230,16 @@ init-func.el 中的笔记导出函数改为
   )
 #+END_SRC
 
-init-keybindings.el 中的快捷键改为
+=init-keybindings.el= 中的快捷键改为
 #+BEGIN_SRC emacs-lisp
 (global-set-key (kbd "C-c e n") 'export-my-notes-test)    ;; 导出 notes 笔记本到 html，测试环境
 (global-set-key (kbd "C-c e N") 'export-my-notes)         ;; 生产环境
 #+END_SRC
 
 最后，根目录下添加目录 template-test。向其中添加测试环境的内容
-* 后续优化3--目录聚焦当前大纲
-使用 jquery 来实现
+* 后续优化3 —— 目录聚焦当前大纲
+- 效果一：目录显示当前屏幕位置处的大纲，使用 jquery 来实现
+- 效果二：点击目录显示全部目录，再次点击隐藏
 
 postamble.html 中添加 2 行
 #+BEGIN_SRC html
@@ -242,7 +249,7 @@ postamble.html 中添加 2 行
 
 main.js 内容为：
 #+BEGIN_SRC js
-/* table-of-contents 定位当前所在目录 */
+/* 目录显示当前屏幕位置处的大纲 */
 window.ego_toc = $('#text-table-of-contents ul li');
 if(0 != window.ego_toc.length){
     window.ego_toc_h = $('#table-of-contents h2');
@@ -293,4 +300,16 @@ document.addEventListener('DOMContentLoaded',function() {
         elem.style.display = elem.style.display == "block" ? "none" : "block";
     }
 });
+#+END_SRC
+* 后续优化4 —— 添加 google 搜索
+实现思路：向 google 发送 http get 请求，搜索 =www.langdebuqing.com= 网站中的内容。
+需要在 =~/notes/org/templates/preamble.html= 文件中的导航栏的 =<ul>= 标签中添加：
+
+#+BEGIN_SRC html
+<li class="search">
+    <form action="http://google.com/search" method="get" accept-charset="utf-8">
+    <input type="search" id="search" name="q" autocomplete="off" maxlength="30" placeholder="Search..">
+    <input type="hidden" name="q" value="site:www.langdebuqing.com">
+    </form>
+</li>
 #+END_SRC

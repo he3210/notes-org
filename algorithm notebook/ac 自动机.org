@@ -7,6 +7,8 @@
 * 问题
 给一个很长的文本，长度为 n，然后再给 m 个模式串。求这 m 个模式串中有多少个是这个文本的子串。
 
+[[https://hihocoder.com/problemset/problem/1036][问题链接]]
+
 * 解题思路
 
 1. =暴力破解=  时间复杂度为 O(n*m*len(m))，显然时间复杂度太高
@@ -20,7 +22,7 @@
       bool is_end;  // 模式串结尾标志
   }
  #+END_SRC
-4. =Aho–Corasick algorithm=  ac 自动机算法简单来说就类似于 kmp + trie 的组合算法。它的 trie 树结点的数据结构如下
+4. =Aho–Corasick algorithm=  ac 自动机算法简单来说就类似于 kmp + trie 的组合算法。它的 trie 树结点的数据结构类似如下
  #+BEGIN_SRC C
   struct node
   {
@@ -45,72 +47,72 @@
 
 UNIX系统中的一个命令fgrep就是以AC自动机算法作为基础实现的。
 #+END_QUOTE
-* 算法
-hihocoder #1036
-输入：第一行为模式串数量 m，然后输入 m 行模式串，然后输入一行文本
-输出：模式串中有多少个文本的子串
-#+BEGIN_SRC c
+
+AC 自动机是一个 =确定有限状态自动机= ，确定有限状态自动机在[[https://zh.wikipedia.org/wiki/%25E7%25A1%25AE%25E5%25AE%259A%25E6%259C%2589%25E9%2599%2590%25E7%258A%25B6%25E6%2580%2581%25E8%2587%25AA%25E5%258A%25A8%25E6%259C%25BA][维基百科]]中的简介如下
+#+BEGIN_QUOTE
+在计算理论中，确定有限状态自动机或确定有限自动机（英语：deterministic finite automaton, DFA）是一个能实现状态转移的自动机。对于一个给定的属于该自动机的状态和一个属于该自动机字母表 {\displaystyle \Sigma } \Sigma 的字符，它都能根据事先给定的转移函数转移到下一个状态（这个状态可以是先前那个状态）。
+#+END_QUOTE
+
+* 解法一
+** trie + fail 指针的一般解法
+#+BEGIN_SRC c++
 #include <cstdio>
 #include <cstring>
 #include <queue>
-#define N 1000010
+#define M 26         // 字符集中字符数量。26 个小写字母
+#define LEN 1000010  // 最大文本长度
 
 struct node
 {
-    node *fail;    // 失配指针。指向匹配失败时的回退位置
-    node *next[26];
-    // 值域。它可以是
-    // 1.类型是 bool，模式串结束标志；
-    // 2.类型是 int，模式串编号；
-    // 3.类型是 char*，当该结点是模式串的尾结点时，它指向模式串。
-    // 在这里它是第1种情况
-    int count;
+    node *fail;    // 失配指针。匹配该结点的下一个结点时，失配时的回退位置
+    node *next[M];
+    int tag;       // 根据题目而不同。在这里它表示模式串结束标志
     node()
     {
         fail = NULL;
-        count = 0;
+        tag = 0;
         memset(next, 0, sizeof(next));
     }
 }*root;
 
 // 插入模式串，构建 trie 树
-void insert(char *word)
+void insert_pattern(char *s)
 {
     int t;
     struct node *p = root;
-    while(*word)
+    while(*s)
     {
-        t = *word - 'a';
+        t = *s - 'a';
         if(p->next[t] == NULL)
             p->next[t] = new node();
         p = p->next[t];
-        ++word;
+        ++s;
     }
-    ++p->count;
+    p->tag = 1;
 }
 
-// 在 trie 树基础上构造 fail 指针，构建 ac 自动机
-void build_ac()
+// 构建 ac 自动机。用 BFS 遍历 trie 树设置 fail 指针，也就是构造 trie 图
+void construct_ac()
 {
-    std::queue<node*> q;    // 借助队列进行 BFS
+    std::queue<node*> Q;    // 借助队列进行 BFS
     // 第一层结点的 fail 指针指向根结点
-    for(int i = 0; i < 26; ++i)
+    for(int i = 0; i < M; ++i)
     {
         if(root->next[i])
         {
             root->next[i]->fail = root;
-            q.push(root->next[i]);
+            Q.push(root->next[i]);
         }
     }
 
     struct node *p;
     struct node *fail;
-    while(!q.empty())
+    while(!Q.empty())
     {
-        p=q.front();
-        q.pop();
-        // 遍历当前分支可能存在的 26 个孩子
-        for(int i = 0; i < 26; ++i)
+        p=Q.front();
+        Q.pop();
+        // 遍历当前分支可能存在的 M 个孩子
+        for(int i = 0; i < M; ++i)
         {
             if(!p->next[i])
                 continue;
@@ -129,19 +131,20 @@ void build_ac()
             // 如果没有找到分支 b，设置 p 的孩子的 fail 指针指向 root
             if(p->next[i]->fail==NULL)
                 p->next[i]->fail=root;
-            q.push(p->next[i]);
+            Q.push(p->next[i]);
         }
     }
 }
 
 // 匹配文本，返回符合的模式串数量
-int find(char *text)
+int match(char *text)
 {
     int count = 0;
     int t;
     node *p = root;
     // 对于文本 abcde，
-    // 1.第一次 while 循环：在 trie 树上从根结点向前匹配 a。如果匹配成功就向前走一步；失配就根据 fail  指针回退到和当前分支有相同后缀的其它分支（且该分支具有孩子结点 a），然后向前走一步。匹配之后，当前所在的分支位置是 p。最后统计当前分支 p 和与 p 具有相同后缀的所有其它分支上的模式串数量。
+    // 1.第一次 while 循环：在 trie 树上从根结点向前匹配 a。如果匹配成功就向前走一步；失配就根据 fail 指针回退到和当前分支有相同后缀的其它分支（且该分支具有孩子结点 a），
+    //   然后向前走一步。匹配之后，当前所在的分支位置是 p。最后统计当前分支 p 和与 p 具有相同后缀的所有其它分支上的模式串数量。
     // 2.第二次 while 循环：根据上一步的 p 的位置，继续向前匹配 b。... 同步骤1
     // 3.第三次 while 循环：根据上一步的 p 的位置，继续向前匹配 c。... 同步骤1
     // ...
@@ -156,10 +159,13 @@ int find(char *text)
             p = root;
 
         node *fail = p;
-        while(fail != root && fail->count != -1)
+        // fail->tag != -1 为什么作为 while 循环中的一个条件？有 2 个原因：
+        // 1. 当 fail->tag == -1 时，说明 fail 结点统计过了
+        // 2. 当 fail->tag == -1 时，必定 fail->fail->tag、fail->fail->fail->tag... 都等于 -1。所以此时直接退出循环
+        while(fail != root && fail->tag != -1)
         {
-            count += fail->count;
-            fail->count = -1;    // 设置为 -1，避免重复统计命中的模式串
+            count += fail->tag;
+            fail->tag = -1;    // 设置为 -1，避免重复统计命中的模式串
             fail = fail->fail;
         }
         ++text;
@@ -170,17 +176,17 @@ int find(char *text)
 int main()
 {
     int n;
-    char word[N], text[N];
+    char word[LEN], text[LEN];
     root = new node();
     scanf("%d", &n);
     for(int i = 0; i < n; ++i)
     {
         scanf("%s", word);
-        insert(word);
+        insert_pattern(word);
     }
-    build_ac();
+    construct_ac();
     scanf("%s", text);
-    printf("Found %d pattern strings\n", find(text));
+    printf("Found %d pattern strings\n", match(text));
     return 0;
 }
 #+END_SRC
@@ -198,4 +204,217 @@ bcd
 cd
 aaaaaaaaaaabaaadaaac
 Found 2 pattern strings
+#+END_SRC
+
+** 进一步优化
+该解法并不符合 =确定有限状态自动机= 的定义。原因如下：
+在 match 函数中，
+1. 当文本与模式串能够匹配的时候，我们读取一个字符 c，然后是可以跳转到 p->next[c-'a'] 的，实现了状态转移；
+2. 但是当文本与模式串失配的时候，p->next[c-'a'] 为 NULL，并没有实现状态转移。只能借助 fail 指针向前回退才能解决问题。
+
+解决思路：
+当 p->next[c-'a'] 为 NULL 时，令其指向 p->fail->next[c-'a']。这样就直接回退到合适的位置了，就将情况 2 转化为 情况 1 了。
+
+需要替换 construct_ac() 和 match()，如下：
+#+BEGIN_SRC c++
+void construct_ac()
+{
+    std::queue<node*> Q;    // 借助队列进行 BFS
+    // 第一层结点的 fail 指针指向根结点（根结点的 fail 指针为空）
+    for(int i = 0; i < M; ++i)
+    {
+        if(root->next[i])
+        {
+            root->next[i]->fail = root;
+            Q.push(root->next[i]);
+        }
+        else
+            root->next[i] = root;
+    }
+
+    struct node *p;
+    while(!Q.empty())
+    {
+        p=Q.front();
+        Q.pop();
+
+        // 遍历当前分支可能存在的 M 个孩子
+        for(int i = 0; i < M; ++i)
+        {
+            if(!p->next[i])
+                p->next[i] = p->fail->next[i];
+            else
+            {
+                p->next[i]->fail = p->fail->next[i];
+                Q.push(p->next[i]);
+            }
+        }
+    }
+}
+
+int match(char *text)
+{
+    int count = 0;
+    int t;
+    node *p = root;
+    while(*text)
+    {
+        t = *text - 'a';
+        p = p->next[t];
+
+        // 统计匹配的模式串数量
+        node *fail = p;
+        while(fail != root && fail->tag != -1)
+        {
+            count += fail->tag;
+            fail->tag = -1;    // 设置为 -1，避免重复统计命中的模式串
+            fail = fail->fail;
+        }
+        ++text;
+    }
+    return count;
+}
+#+END_SRC
+另外，解法二也是优化后的版本
+
+* 解法二：使用数组存储 trie 图
+#+BEGIN_SRC c++
+#include <cstdio>
+#include <cstring>
+#include <queue>
+#define N 1000010    // 最大结点数
+#define M 26         // 字符集 Σ 的大小
+#define LEN 1000010  // 最大文本长度
+
+int trie[N][M];      // trie 树，也就是 goto 函数。trie[3][2] 表示从第 3 个结点通过字符 'c' 路径，到达的结点
+int fail[N];         // fail 指针。trie[3] 表示第 3 个结点的下一个结点失配时应该回退的结点
+int id['z'+1];       // 字母 x 对应的结点编号为 id[x]
+int n;               // trie 树当前结点总数
+int tag[N];          // 根据题目而不同。在这里 tag[3]表示是否有模式串在第 3 个结点结束
+
+// 重置自动机。使其还原成只有一个根结点的状态
+void reset_ac()
+{
+    memset(trie[0], -1, sizeof(trie[0]));
+    tag[0] = 0;
+    n = 1;
+}
+
+void init_ac()
+{
+    for (int i = 0; i < M; ++i)
+        id['a'+i] = i;
+    reset_ac();
+}
+
+// 插入模式串，构造 trie 树
+void insert_pattern(char *s)
+{
+    int p = 0;
+    while (*s)
+    {
+        int i = id[*s];
+        if ( -1 == trie[p][i] )
+        {
+            memset(trie[n], -1, sizeof(trie[n]));
+            tag[n] = 0;
+            trie[p][i] = n++;
+        }
+        p = trie[p][i];
+        ++s;
+    }
+    tag[p] = 1;         // 表示该结点是一个模式串的最后一个字符
+}
+
+void construct_ac()
+{
+    std::queue<int> Q;
+    // 先设置 root 的下一层结点的 fail 指针
+    for (int i = 0; i < M; ++i)
+    {
+        if (-1 != trie[0][i])     // 如果根结点到字符 'a'+i 路径存在
+        {
+            fail[trie[0][i]] = 0; // root 下的第一层结点的 fail 指针指向 root
+            Q.push(trie[0][i]);
+        }
+        else                      // 如果根结点到字符 'a'+i 路径不存在，就把该路径指向根结点自己
+        {
+            trie[0][i] = 0;
+        }
+    }
+
+    int p;
+    // 使用 BFS 来设置 fail 指针
+    while (!Q.empty())
+    {
+        p = Q.front();
+        Q.pop();
+        for (int i = 0; i < M; ++i)
+        {
+            if (-1 != trie[p][i])  // 如果结点 p 到字符 'a'+i 路径存在
+            {
+                fail[trie[p][i]] = trie[fail[p]][i];
+                Q.push(trie[p][i]);
+            }
+            else          // 如果路径不存在
+            {
+                trie[p][i] = trie[fail[p]][i];
+            }
+        }
+    }
+}
+
+// 在目标串 t 中匹配模式串
+int match(char *text)
+{
+    int p = 0, ret = 0;
+    while (*text)
+    {
+        p = trie[p][id[*text]];
+        int u = p;
+        while ( u != 0 && tag[u] != -1 )
+        {
+            ret += tag[u];
+            tag[u] = -1;
+            u = fail[u];
+        }
+        ++text;
+    }
+    return ret;
+}
+
+// 判断文本中是否存在模式串
+bool exist(char *text)
+{
+    int p = 0;
+    bool ret = false;
+    while(*text)
+    {
+        p = trie[p][id[*text]];
+        if(tag[p])
+        {
+            ret = true;
+            break;
+        }
+        ++text;
+    }
+    return ret;
+}
+
+int main()
+{
+    int n;
+    char word[LEN], text[LEN];
+    init_ac();
+    scanf("%d", &n);
+    for(int i = 0; i < n; ++i)
+    {
+        scanf("%s", word);
+        insert_pattern(word);
+    }
+    construct_ac();
+    scanf("%s", text);
+    printf("Found %d pattern strings\n", match(text));
+    return 0;
+}
 #+END_SRC

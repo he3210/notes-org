@@ -1,11 +1,11 @@
 #+TITLE: emacs 笔记
 
-[[./搭建我的笔记系统.org][搭建我的笔记系统]]
+- [[./搭建我的笔记系统.org][搭建我的笔记系统]]
 
-[[./emacs 多行编辑.org][emacs 多行编辑]]
+- [[./emacs 多行编辑.org][emacs 多行编辑]]
 
-[[./org-mode 基础.org][org-mode 基础]]
+- [[./org-mode 基础.org][org-mode 基础]]
 
-[[./org-mode 表格.org][org-mode 表格]]
+- [[./org-mode 表格.org][org-mode 表格]]
 
-[[file:org-mode gtd.org][我的 GTD 系统]]
+- [[file:org-mode gtd.org][我的 GTD 系统]]

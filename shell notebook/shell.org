@@ -1,3 +1,5 @@
 #+TITLE: shell
 
-- [[./ffmpeg 处理视频 & gif 生成.org][ffmpeg 处理视频 & gif 生成]]
+- ffmpeg
+ - [[./%E8%A7%86%E9%A2%91%E8%BD%AC%E6%8D%A2%E4%B8%BA%20gif.org][视频转换为 gif]]
+ - [[file:ffmpeg%20%E5%9F%BA%E6%9C%AC%E6%93%8D%E4%BD%9C.org][ffmpeg 基本操作]]

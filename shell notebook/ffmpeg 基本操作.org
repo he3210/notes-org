@@ -1,0 +1,26 @@
+#+TITLE: ffmpeg 基本操作
+
+* 获取不带音频的视频
+
+#+BEGIN_SRC shell
+$ ffmpeg -i bird.mov -vcodec copy -an bird.mp4
+#+END_SRC
+
+- =-an=  :: 禁止输出音频
+- =-vcodec copy= :: 复制视频编码
+
+* 提取音频
+
+#+BEGIN_SRC shell
+$ ffmpeg -i input.mov -write_xing 0 output.mp3
+#+END_SRC
+
+* 视频时长裁剪
+
+#+BEGIN_SRC shell
+$ ffmpeg -ss 00:00:01.000 -t 00:00:10.000 -i "input.mov" "output.mov"  # 从第一秒开始，获取10秒的视频
+$ ffmpeg -sseof -00:00:01.000 -i "bird.mov" "bird.mp4"  # 获取最后一秒的视频，并转为 mp4
+#+END_SRC
+
+- =-sseof=  ::  相对于文件末尾的开始时间
+
