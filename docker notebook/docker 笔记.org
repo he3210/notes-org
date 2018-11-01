@@ -1,0 +1,27 @@
+#+TITLE: docker 笔记
+
+* docker mac 上安装
+
+#+BEGIN_SRC shell
+$ brew install docker    # mac 安装 docker
+$ docker info            # 查看 docker 信息
+#+END_SRC
+
+* docker volume
+#+BEGIN_SRC shell
+$ docker volume ls                # 列出所有 volume
+$ docker volume rm f5f4ff5a9      # 删除指定 volume
+$ docker volume prune             # 删除所有没用的 volume
+$ docker volume inspect f5f4ff5a9 # 显示 volume 详情
+$ docker volume create my-vol     # 创建数据卷 my-vol（一般会将 /var/lib/docker/volumes/my_vol/_data 作为数据卷）
+$ docker run -d -p 80 --name website -v my_vol:/var/www/html/website:ro he3210/nginx:v1 nginx
+#+END_SRC
+
+- 数据卷可以在容器之间共享和重用
+- 对数据卷的修改会立马生效
+- 对数据卷的更新，不会影响镜像
+- 数据卷默认会一直存在，即使容器被删除
+
+[[./dockerfile 语法笔记.org::*关键字][Dockerfile 中使用关键字 VOLUME 创建匿名卷]]
+[[./docker 笔记 —— 容器.org::*其它常用命令示例][使用命令 =docker run -v= 创建数据卷]]
+数据卷的进阶使用的话可以用命令 =docker run --mount=

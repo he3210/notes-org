@@ -1,0 +1,22 @@
+#+TITLE: docker 网络笔记
+
+* 通过端口映射的方式。
+1. 创建 Dockerfile 时，通过 EXPOSE 指令告诉 docker 该容器内的应用程序将会使用的端口，创建镜像。
+2. 使用 docker run 命令和镜像创建容器时用 -p 或 -P 指定该端口映射的宿主机地址。
+例如：
+#+BEGIN_SRC shell
+$ docker run -d -p 127.0.0.1:5000:2000/udp -p 3000:80 training/webapp python app.py
+#+END_SRC
+把容器内的 2000 端口映射到宿主机的 127.0.0.1:5000:2000 地址，使用 udp。
+把 80 端口绑定到宿主机的 3000 端口，使用 tcp
+
+* 自定义 docker 网络
+#+BEGIN_SRC shell
+$ docker network create app          # 创建 Docker 网络
+$ docker network inspect app         # 查看 Docker 网络详情
+$ docker network ls                  # 列出当前系统中所有 Docker 网络
+$ docker network rm app              # 删除一个 Docker 网络
+$ docker network connect app db2     # 把容器 db2 添加到网络 app
+$ docker network disconnect app db2  # 从指定网络断开一个容器
+$ docker run -it --rm --name db --net=my-net he3210/redis sh  # 从镜像创建一个容器并把该容器连接到指定网络
+#+END_SRC

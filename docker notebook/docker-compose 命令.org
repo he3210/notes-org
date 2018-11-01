@@ -1,0 +1,54 @@
+#+TITLE: docker-compose 命令
+
+* 参考
+- [[https://yeasy.gitbooks.io/docker_practice/content/compose/commands.html][参考]]
+
+Docker Compose 简介：
+一个项目下可能有多个服务，每个服务运行在各自的容器里，而 Docker Compose 管理着这些容器。（简单来说，服务对应着容器，Docker Compose 对应着项目）
+
+* 运行 Compose 项目
+该命令会尝试构建镜像、创建服务容器、启动服务容器、并关联服务相关容器
+#+BEGIN_SRC shell
+$ docker-compose up       # 运行服务
+$ docker-compose up -d    # 以守护进程方式运行 Compose
+#+END_SRC
+
+* 查看 Compose 日志
+#+BEGIN_SRC shell
+$ docker-compose logs     # 查看日志
+$ docker-compose logs -f  # 跟踪服务日志
+#+END_SRC
+
+* 停止 Compose
+#+BEGIN_SRC shell
+$ docker-compose stop     # 停止正在运行状态的容器
+#+END_SRC
+
+* 启动 Compose
+#+BEGIN_SRC shell
+$ docker-compose start    # 启动已存在的服务容器
+$ docker-compose restart  # 重启服务容器
+#+END_SRC
+
+* 向 Compose 发送信号
+#+BEGIN_SRC shell
+$ docker-compose kill              # 默认发送 SIGKILL 信号
+$ docker-compose kill -s SIGINT    # 向 Compose 服务中的所有容器发送 SIGINT 信号
+#+END_SRC
+
+* 删除停止状态的容器或未用到的数据卷
+#+BEGIN_SRC shell
+$ docker-compose rm       # 删除所有 Compose 服务下没有运行的容器
+$ docker-compose rm -v    # 删除容器所挂载的数据卷
+#+END_SRC
+
+* 查看项目中的所有容器
+#+BEGIN_SRC shell
+$ docker-compose ps       # 展示服务名、容器中服务的启动命令、容器状态、服务端口
+$ docker-compose ps -q    # 只展示容器ID
+#+END_SRC
+
+* 列出 Compose 项目中的所有镜像
+#+BEGIN_SRC shell
+$ docker-compose images
+#+END_SRC

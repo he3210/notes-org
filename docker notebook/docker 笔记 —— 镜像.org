@@ -1,0 +1,31 @@
+#+TITLE: docker 笔记 —— 镜像
+
+* 镜像常用命令
+#+BEGIN_SRC shell
+$ docker images                        # 列出本地 docker 镜像
+$ docker rmi he3210/apache2:webserver  # 删除本地镜像
+$ docker history e78b7f1e4671          # 查看镜像构建过程
+#+END_SRC
+
+* Docker Hub 操作
+#+BEGIN_SRC shell
+$ docker login                # 登录
+$ docker logout               # 登出
+$ docker pull ubuntu:12.04    # 从 Docker Hub 拉取镜像
+$ docker search puppet        # 在 Docker Hub 搜索镜像
+#+END_SRC
+
+* 构建镜像
+** 使用 Dockerfile 构建镜像
+这部分内容在另一篇笔记中：[[file:./dockerfile 语法笔记.org::*构建镜像][dockerfile 语法笔记]]
+
+** 使用 commit 提交定制容器进行构建镜像
+#+BEGIN_SRC shell
+$ docker commit bdd311e829ad he3210/apache2
+$ docker commit -m"ubuntu apache2" -a"shizhonghe" bdd311e829ad he3210/apache2:webserver
+#+END_SRC
+- =-m= 指定新创建的镜像的提交信息
+- =-a= 新镜像作者
+- =bdd311e829ad= 指定想要制作成镜像的容器 ID
+- =he3210/apache2:webserver= 用户名/仓库名:标签
+

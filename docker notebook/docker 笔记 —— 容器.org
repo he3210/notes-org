@@ -1,0 +1,133 @@
+#+TITLE: docker 笔记 —— 容器
+
+* 根据镜像创建容器并在容器中执行命令
+
+** 基本命令
+#+BEGIN_SRC shell
+$ docker run -i -t ubuntu /bin/bash
+#+END_SRC
+
+- =-i= 保证新创建的容器中 STDIN 是开启的
+- =-t= 告诉docker为新创建的容器分配一个伪 tty 终端
+- =ubuntu= 镜像
+- =/bin/bash= 在新创建的容器中运行的命令
+
+执行过程：
+1. docker 先检查本地是否存在 ubuntu 镜像。若无，docker 会连接官方维护的 Docker Hub Registry，找到并下载该镜像。
+2. docker 在文件系统内部用该镜像创建一个新容器。该容器拥有自己的网络、IP 地址，以及一个用来和宿主机进行通信的桥接网络接口。
+3. 最后告诉 docker 在新容器中要运行的命令
+4. 创建完成后，容器的 ID 就是容器的主机名，可在容器内通过命令 =$ hostname= 查看；另外，docker 会在容器 hosts 文件中添加一条主机配置项：容器 IP 对应容器 ID
+
+** 其它常用命令示例
+#+BEGIN_SRC shell
+$ docker run --name bob_the_container -i -t ubuntu /bin/bash
+$ docker run --name bob_the_container -i -t ubuntu:12.04 /bin/bash
+$ docker run --name daemon_dave -d ubuntu /bin/bash "while true; do echo hello world; sleep 1; done"
+$ docker run --log-driver="json-file" --name daemon_dave -d ubuntu /bin/bash "while true; do echo hello world; sleep 1; done"
+$ docker run --restart=always --log-driver="json-file" --name daemon_dave -d ubuntu /bin/bash "while true; do echo hello world; sleep 1; done"
+$ docker run -d -p 80 --name static_web he3210/static_web:v1 nginx -g "daemon off;"
+$ docker run -ti -w /var/log ubuntu pwd
+$ docker run -d -p 80 --name website -v $PWD/website:/var/www/html/website he3210/nginx:v1 nginx    # 第一本Docker书 page102
+$ docker run -d -p 80 --name website -v $PWD/website:/var/www/html/website:ro he3210/nginx:v1 nginx
+$ docker run -d --net=app --name db he3210/redis    # 第一本Docker书 page121
+$ docker run -d -P --volumes-from he_blog --name server_blog he3210/apache
+#+END_SRC
+
+- =--name= 为容器指定一个容器名，容器名和容器 ID 均可唯一标识容器
+- =ubuntu:12.04= ubuntu 标识仓库名，12.04 标识标签（省略时默认使用标签 latest），合在一起唯一标识一个镜像
+- =-d= 告诉 Docker 在运行时以分离（detached）的方式在后台运行
+- =--log-driver= 日志驱动类型
+- =--restart=always= 容器停止运行时重启该容器
+- =--restart=on-failure:5= 如果容器停止运行，退出码非 0，docker会尝试重启该容器，最多尝试 5 次
+- =-p 80= 告诉 Docker ，容器的 80 端口需要映射到宿主机，Docker会在宿主机随机选择一个位于 32768～61000 的端口映射到容器
+- =-p 8080:80= 将容器的 80 端口映射到宿主机到 8080 端口
+- =-p 127.0.0.1:8080:80= 映射到宿主机这个 IP 127.0.0.1 的 8080 端口。这样就可以使用宿主机的 IP 地址连接到容器中的进程了
+- =-P= 将容器的端口映射到宿主机的随机端口
+- =-w /var/log= 将容器内的工作目录设置为 /var/log ，会覆盖掉 Dockerfile 中 WORKDIR 指令设置的工作目录
+- =-v $PWD/website:/var/www/html/website= 将宿主机下的目录 $PWD/website 作为卷挂载到容器中的 website 目录
+- =-v $PWD/website:/var/www/html/website:ro=   ro 和 rw 分别指定容器内目录只读和读写
+- =--net=app= 指定容器在哪个网络中运行
+- =--rm= 创建容器时，如果容器已存在，先删除该容器，在创建新容器。
+- =-h hostname= 设置容器主机名，该主机名可被本地 DNS 服务正确解析
+- =--volumes-from he_blog= 把容器 he_blog 的所有卷都加入到新创建的容器里
+
+* 列出 docker 容器
+#+BEGIN_SRC shell
+$ docker ps       # 列出正在运行的 docker 容器
+$ docker ps -a    # 列出所有容器，包括正在运行的和已经停止的
+$ docker ps -l    # 列出最后一个运行的容器，无论其正在运行与否
+$ docker ps -n 3  # 列出最后 3 个容器，不论其正在运行与否
+$ docker ps -q    # 列出正在运行的 docker 容器的 ID，-q 标志表示只需要返回容器 ID 而无需返回容器的其它信息
+#+END_SRC
+
+* 查看指定容器的端口被映射到哪了
+#+BEGIN_SRC shell
+$ docker port static_web 80
+0.0.0.0:32769
+#+END_SRC
+
+可看出，static_web 容器的 80 端口被映射到宿主机的 32769 端口了。当然，也可通过 =$ docker ps= 命令查看
+
+* 停止容器运行
+
+1. 交互式容器
+ #+BEGIN_SRC shell
+ # exit
+ #+END_SRC
+
+2. 守护式容器
+ #+BEGIN_SRC shell
+ $ docker stop daemon_dave    # docker stop 命令向指定容器进程发送 SIGTERM 信号
+ #+END_SRC
+
+* 启动已经停止的容器
+#+BEGIN_SRC shell
+$ docker start bob_the_container    # 启动
+$ docker restart bob_the_container  # 重启
+$ docker attach bob_the_container   # 直接进入容器中启动命令的终端
+#+END_SRC
+
+启动容器后，我们并没有进入该容器的会话，需要运行 =$ sudo docker attach= 命令
+
+* 列出容器日志
+#+BEGIN_SRC shell
+$ docker logs daemon_dave
+$ docker logs -f daemon_dave           # 列出容器日志，并动态跟踪（类似tail -f，按 Ctrl+C 退出日志跟踪）
+$ docker logs --tail 0 -f daemon_dave  # 跟踪指定容器的最新日志而不必列出整个日志文件（--tail 0表示列出容器的最后0条日志）
+$ docker logs --tail 0 -ft daemon_dave # -t 标志为每条日志加上日期时间
+#+END_SRC
+
+注意， =$ docker logs= 命令是容器指定的指令所属的进程输出到 stdout 产生的日志信息。如果进程日志输出到某个文件中，该命令就不会输出日志了。
+
+* 列出容器内进程
+#+BEGIN_SRC shell
+$ docker top daemon_dwayne
+#+END_SRC
+
+* 动态展示指定的一个或多个容器的统计信息
+#+BEGIN_SRC shell
+$ docker stats daemon_dave daemon_dwayne
+#+END_SRC
+
+* 在容器内部运行进程
+1. 后台进程
+ #+BEGIN_SRC shell
+ $ docker exec -d daemon_dave touch /etc/new_config_file  # 在容器 daemon_dave 内部创建一个后台进程执行 touch 命令
+ #+END_SRC
+
+2. 交互式进程
+ #+BEGIN_SRC shell
+ $ docker exec -it  daemon_dave /bin/bash     # 为容器 daemon_dave 中执行 /bin/bash 的进程创建 TTY 并捕捉 STDIN
+ #+END_SRC
+
+* 获取指定容器/镜像的元数据
+#+BEGIN_SRC shell
+$ docker inspect daemon_dave
+$ docker inspect he3210/apache2:webserver
+#+END_SRC
+
+* 删除容器
+#+BEGIN_SRC shell
+$ docker rm 9b8edf8426f1
+$ docker rm -f 9b8edf8426f1    # !!! 可删除运行中的容器
+#+END_SRC

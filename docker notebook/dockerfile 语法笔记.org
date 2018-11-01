@@ -1,0 +1,139 @@
+#+TITLE: dockerfile 语法笔记
+
+* 参考：
+- [[https://github.com/qianlei90/Blog/issues/35][深入Dockerfile]]
+- 《我的第一本 Docker 书》
+* 什么是构建环境？
+Dockerfile 所在目录就是构建环境（build environment），Docker 称其为上下文（context）或者构建上下文（build context）。Docker 会在构建镜像时将构建上下文和把该上下文中的文件与目录上传到 Docker 守护进程。这样 Docker 守护进程就能直接访问这些文件
+
+* Dockerfile执行流程
+从基础镜像运行一个容器；在容器中执行完一条指令，提交一个新的镜像层；基于新镜像运行一个新容器，执行下一条指令，直到所有指令执行完毕。
+
+* Dockerfile语法
+
+** 关键字
+1. 单行注释使用#
+2. 关键字必须大写
+3. FROM         指定基础镜像，第一条指令必须是 FROM
+4. MAINTAINER   指定作者、电子邮件。LABEL 更灵活，推荐使用 LABEL
+5. RUN          为了构建指定镜像而需要在当前容器中运行的命令
+6. CMD          当使用该 Dockerfile 构建的镜像启动一个容器时，会在该容器中运行的命令。Dockerfile 中只能指定一条 CMD 指令。在容器运行的时候执行，在构建镜像时不进行任何操作
+7. ENTRYPOINT   当使用该 Dockerfile 构建的镜像启动一个容器时，会在该容器中运行的命令。推荐使用 exec 格式。与关键字 CMD 是有区别的，详见下文该指令示例
+8. EXPOSE       告诉 docker 该容器内的应用程序将会使用容器的指定端口
+9. ENV          设置环境变量。这些环境变量会在后续 Dockerfile 指令中生效；也会在该镜像创建的所有容器中生效（可使用命令 =$ env= 查看)
+10. WORKDIR     设置工作目录，ENTRYPOINT 和 CMD 指定的命令会在这个目录下执行
+11. USER        基于该镜像启动的容器会以 USER 指定的用户身份来运行。如果不指定，则默认用户是 root
+12. VOLUME      向该镜像创建的容器添加匿名卷。 =$ docker run -v= 命令添加的卷如果和 VOLUME 添加的卷名称相同，VOLUME 指令添加的卷就会被覆盖掉。它会把宿主机上的默认目录（一般是 =/var/lib/docker/volumes/VOLUME NAME/_data= )作为卷挂载到容器中
+13. ADD         将 **URL 指定的文件或目录** 或者 **构建目录下的文件或目录** 作为文件源复制到镜像中的指定位置。ADD 可能会使构建缓存失效。ADD 会自动解压归档源文件（gzip、bzip2、xz、tar.gz 等）并拷贝到目的位置。目的位置不存在就会自动创建。复制的文件目录模式均为 0755，UID 和 GID 均为 0
+14. COPY        将构建环境下的文件或目录拷贝到镜像中的指定位置。（源文件只能为构建环境下的文件或目录，因为构建环境会上传到 Docker 守护进程，而 COPY 指令就是在守护进程中执行的。COPY 可能会使构建缓存失效。目的位置不存在就会自动创建。复制的文件 UID 和 GID均为 0
+15. LABEL       为 Docker 镜像打标签。会继承 base image 的标签，同名会覆盖
+16. STOPSIGNAL 用来设置停止容器时发送什么系统调用信号给容器
+17. ARG         指定了用户在 =$ docker build --build-arg <varname>=<value>= 时可以使用的参数。
+18. ONBUILD     为镜像添加一个触发器。当以该镜像为 base image 再次构建新的镜像时，会触发执行其中的指令行。这些指令行只能在子镜像中执行，不能在孙子镜像中执行
+19. HEALTHCHECK 心跳检测
+20. SHELL       更改后续的 Dockerfile 指令所使用的 shell。默认的 shell 是 ["bin/sh", "-c"]
+
+Dockerfile 关键字使用例子：
+#+BEGIN_EXAMPLE
+USER nginx                               # 以 nginx 用户的身份来运行容器
+VOLUME ["/opt/project", "/data"]         # 向容器中添加两个匿名卷，挂载到容器中的 /opt/project 和 /data
+ADD latest.tar.gz /var/www/wordpress/    # 不会解压以 URL 方式指定归档源文件
+ADD http://wordpress.org/latest.zip /root/wordpress.zip
+COPY conf.d/ /etc/apache2/
+LABEL location="New York" type="Data Center" role="Web Server"
+#+END_EXAMPLE
+
+** 注意点：
+1. 有两种指令格式：shell 格式的指令，exec 格式的指令。区别在于：
+ shell 格式指令默认 =/bin/sh -c= 运行可执行文件；exec 格式是直接执行可执行文件。例如：
+ #+BEGIN_EXAMPLE
+ RUN ["echo" "$HOME"]          # exec 格式指令（使用中括号包住指令参数）。会直接执行 echo 命令，直接输出字符串 =$HOME= ，而不是输出变量 =$HOME=
+ RUN ["sh" "-c" "echo $HOME"]  # exec 格式指令。使用 sh -c 执行命令，执行后会展开变量 =$HOME=
+ RUN apt-get -y update         # shell 格式指令。使用 =/bin/sh -c= 执行命令
+ #+END_EXAMPLE
+ Docker 推荐使用 exec 格式指令来设置要执行的命令。因为这样的话 Docker 会严格按照指令执行命令，而不会使用 /bin/sh -c 执行指令。
+2. ENV的 2 种使用格式
+ =ENV <key> <value>= 把第一个空格之后的所有内容都当做 <key> 的值，无法在一行内设定多个环境变量
+ =ENV <key>=<value> ...= 可以设置多个环境变量，如果 <value> 中存在空格，需要转义或用引号"括起来。
+3. LABEL 使用格式
+ =LABEL <key>=<value> <key>=<value> <key>=<value> ...=
+
+4. ENTRYPOINT 使用格式
+ - =ENTRYPOINT <command> <param1> <param2>= shell 格式，因为嵌套在 shell 中，PID 不再为 1，也接受不到 Unix 信号，即在 =$ docker stop <container>= 时收不到 SIGTERM 信号，需要手动写脚本使用 exec 或 gosu 命令处理
+ - =ENTRYPOINT ["<executable>", "<param1>", "<param2>"]= exec 格式，PID 为1
+ 推荐使用 exec 格式
+
+5. ARG 使用格式
+ =ARG <name>[=<default value>]=
+ 和 ENV 指令类似。但不同的是， **ARG 设置的是构建运行时的环境变量，在将来容器运行时是不会存在这些环境变量的。**
+ 注意：
+ ARG 指令可以定义参数名称，以及定义其默认值。该默认值可以在构建命令 docker build 中用 --build-arg <参数名>=<值> 来覆盖。
+ =$ docker build --build-arg <variable>=<value>= 命令指定的参数必须在 Dockerfile 中用 ARG 指令提前声明
+ 使用了 ARG 参数的指令中，如果该值发生变化，会导致该指令发生变化，所以之前的构建缓存会失效
+
+6. HEALTHCHECK 心跳检测
+ 增加自定义的心跳检测功能，多次使用只有最后一次有效。格式：
+ - =HEALTHCHECK [OPTION] CMD <command>= 通过在容器内运行 command 来检查心跳
+ - =HEALTHCHECK NONE= 取消从 base image 继承来的心跳检测
+ 可选的OPTION：
+ - ~--interval=DURATION~ 检测间隔，默认30秒
+ - ~--timeout=DURATION~ 命令超时时间，默认30秒
+ - ~--retries=N~ 连续N次失败后标记为不健康，默认3次
+ <command> 可以是 shell 脚本，也可以是 exec 格式的 json 数组。
+ docker 以 <command> 的退出状态码来区分容器是否健康，这一点同 shell 一致
+ - 0：命令返回成功，容器健康
+ - 1：命令返回失败，容器不健康
+ - 2：保留状态码，不要使用
+ 举例：每5分钟检测本地网页是否可访问，超时设为3秒：
+ #+BEGIN_EXAMPLE
+ HEALTHCHECK --interval=5m --timeout=3s CMD curl -f http://localhost/ || exit 1
+ #+END_EXAMPLE
+ 可以使用 =$ docker inspect= 命令来查看健康状态。
+7. =$ docker run= 命令中设置容器运行的命令会覆盖 CMD 指令
+
+* .dockerignore
+位于构建上下文的根目录下，类似于 .gitignore。可以防止指定文件被上传到 Docker 守护进程中去
+
+* 构建镜像
+#+BEGIN_SRC shell
+$ docker build -t="he3210/static_web:v1" .
+#+END_SRC
+- =-t=    为新镜像指定用户名、仓库名、标签
+- =.=     Dockerfile 所在目录
+
+#+BEGIN_SRC shell
+$ docker build -t="he3210/static_web:v1" -f ./Docker.build  # -f 指定 Dockerfile 文件位置（默认使用的是 Dockerfile）
+$ docker build -t="he3210/static_web:v1" git@github.com:he3210/docker-static_web  # 可使用 github 地址指定 Dockerfile 位置
+#+END_SRC
+
+* 构建缓存
+再次构建时，寻找缓存逻辑：
+再次构建镜像时，Docker 会从 Dockerfile 中被修改的指令开始进行构建。为什么可以这样？因为每一步构建过程都将结果提交一个新镜像，再次构建时会将之前的镜像层看作缓存。
+大部分指令会按照上述逻辑寻找缓存，除了 ADD 和 COPY
+这两个指令会复制文件到镜像。再次构建镜像时，虽然指令可能不会修改，但要拷贝的文件可能已经修改了。Docker 会检查每个文件内容校验和（不包括最后修改时间和最后访问时间），如果校验和不一致就不会使用缓存
+另外需要注意的是，Docker 并不会检查容器内的文件内容。例如指令： =RUN apt-get -y update= ,再次构建时如果指令不变就会使用缓存。
+
+禁用缓存功能可使用 =--no-cache= 标签，如下：
+#+BEGIN_SRC shell
+$ docker build --no-cache -t="he3210/static_web:v1" .
+#+END_SRC
+
+* Dockerfile ENTRYPOINT 指令示例
+当使用该 Dockerfile 构建的镜像启动一个容器时，会在该容器中运行的命令。 =docker run= 命令行中的命令会被当作参数传递给 ENTRYPOINT 指令指定的命令。
+
+例如：
+Dockerfile文件如下：
+#+BEGIN_EXAMPLE
+...
+ENTRYPOINT ["/usr/sbin/nginx"]
+CMD ["-h"]
+...
+#+END_EXAMPLE
+
+docker run 命令行如下：
+#+BEGIN_SRC shell
+$ docker run -it he3210/static_web -g "daemon off;"
+#+END_SRC
+
+其中， =docker run= 命令行中的命令参数是 =-g "daemon off;"=  ，该命令参数会覆盖 Dockerfile 中的 CMD 指令，使其失效；并会作为参数传递给 Dockerfile 中 ENTRYPOINT 指令指定的命令。所以会在新启动的容器中运行命令  =$ /usr/sbin/nginx -g "daemon off;"=
+当然，如果 =docker run= 命令行中没有命令参数的话，Dockerfile 中的CMD指令会生效，它会把 -h 作为参数传递给 ENTRYPOINT 指令指定的命令。所以会在新启动的容器中运行命令 =$ /usr/sbin/nginx -h=

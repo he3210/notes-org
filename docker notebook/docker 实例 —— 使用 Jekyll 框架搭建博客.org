@@ -1,0 +1,113 @@
+#+TITLE: docker 实例 —— 使用 Jekyll 框架搭建博客
+
+* 目录结构
+#+BEGIN_SRC shell
+$ tree -N /Users/he/test/
+├── apache
+│   └── Dockerfile
+├── james_blog
+└── jekyll
+    └── Dockerfile
+#+END_SRC
+
+[[file:../images/jekyll_blog.tar][项目jekyll_blog.tar]]
+
+* 文件 ./jekyll/Dockerfile
+#+BEGIN_EXAMPLE
+FROM ubuntu:16.04
+MAINTAINER he3210 shi_zhonghe@163.com
+ENV REFRESHED_AT 2018-01-01
+
+RUN apt-get -qq update
+RUN apt-get -qq install ruby ruby-dev build-essential nodejs
+RUN gem install --no-rdoc --no-ri jekyll -v 2.5.3
+
+VOLUME /data
+VOLUME /var/www/html
+WORKDIR /data
+
+ENTRYPOINT [ "jekyll", "build", "--destination=/var/www/html" ]
+#+END_EXAMPLE
+
+镜像安装了 Ruby 和 用于支持 Jekyll 的包
+目录 =/data/=            用来存放网站源码
+目录 =/var/www/html/=    用来存放编译后的 Jekyll 网站源码
+ENTRYPOINT 指令指定自动构建的命令，该命令会将工作目录 =/data/= 中的所有 jekyll 网站代码构建到 =/var/www/html/= 目录中
+
+* 文件 ./apache/Dockerfile
+#+BEGIN_EXAMPLE
+FROM ubuntu:16.04
+MAINTAINER he3210 shi_zhonghe@163.com
+ENV REFRESHED_AT 2018-01-01
+
+RUN apt-get -qq update
+RUN apt-get -qq install apache2
+
+VOLUME [ "/var/www/html" ]
+WORKDIR /var/www/html
+
+ENV APACHE_RUN_USER www-data
+ENV APACHE_RUN_GROUP www-data
+ENV APACHE_LOG_DIR /var/log/apache2
+ENV APACHE_PID_FILE /var/run/apache2.pid
+ENV APACHE_RUN_DIR /var/run/apache2
+ENV APACHE_LOCK_DIR /var/lock/apache2
+
+RUN mkdir -p $APACHE_RUN_DIR $APACHE_LOCK_DIR $APACHE_LOG_DIR
+
+EXPOSE 80
+
+ENTRYPOINT [ "/usr/sbin/apache2" ]
+CMD ["-D", "FOREGROUND"]
+#+END_EXAMPLE
+
+安装了 Apache
+创建一个匿名卷 =/var/www/html= ，用来存放编译后的 Jekyll 网站。（也可不写，因为 docker run 命令会指明必要的卷）
+设置一些必要的环境变量、创建目录
+ENTRYPOINT 和 CMD 指令在容器启动时默认运行 Apache
+
+* 下载 james_blog 网站
+#+BEGIN_SRC shell
+$ git clone https://github.com/jamtur01/james_blog.git
+#+END_SRC
+
+这是启用了 [[http://getbootstrap.com][Twitter Bootstrap]] 的最基础的 Jekyll 博客，可以修改 _config.yml 文件进行使用
+
+* 构建镜像
+#+BEGIN_SRC shell
+$ cd jekyll
+$ docker build -t he3210/jekyll .
+$ cd ../apache
+$ docker build -t he3210/apache .
+#+END_SRC
+
+* 启动 Jekyll 网站
+#+BEGIN_SRC shell
+$ docker run -v /Users/he/test/james_blog:/data/ --name he_blog he3210/jekyll
+#+END_SRC
+
+把网站 james_blog 挂载到容器目录 =/data/= ，容器会把它编译成 Jekyll 网站，然后放到容器中的 =/var/www/html/= 目录
+
+#+BEGIN_SRC shell
+$ docker run -d -P --volumes-from he_blog --name server_blog he3210/apache
+#+END_SRC
+
+- =--volumes-from= 把指定容器的所有挂载的卷挂载到新容器中
+该命令把 容器 he_blog 中的 =/var/www/html= 卷挂载到新容器 server_blog
+
+* 最后 & 总结
+查看下 Apache 在宿主机上的端口，在本地浏览器访问博客
+更新博客 =/Users/he/test/james_blog= 后，再次运行 =$ docker start he_blog= 即可更新 Jekyll 网站
+
+* 备份 Jekyll 卷
+备份 he_blog 容器中的 =/var/www/html= 卷到宿主机的当前目录
+#+BEGIN_SRC shell
+$ docker run --rm --volumes-from he_blog -v $(pwd):/backup ubuntu tar cvf /backup/he_blog_backup.tar /var/www/html
+#+END_SRC
+
+- =--rm=    容器的进程运行完毕后，会自动删除容器
+
+* 拓展
+web 集群：                运行多个 Apache 容器，在这些容器前加一个负载均衡器。
+一个可迁移的通用方案：       构建一个新镜像，这个镜像通过 git clone 把源数据 clone 到卷 =/data= 里
+自动构建和自动部署 web 前端：在上一个拓展的基础上构建一个 web 前端，用于从指定的数据源自动构建和部署网站
