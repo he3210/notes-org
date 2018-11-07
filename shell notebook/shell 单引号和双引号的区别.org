@@ -1,0 +1,95 @@
+#+TITLE: shell 单引号和双引号的区别
+
+* 参考
+- [[https://github.com/wzb56/13_questions_of_shell]]
+
+* shell command line 分解
+shell command line 处理流程：
+shell 会根据 IFS 把从 command line 输入的文字分解为每一个单词，然后对 meta 字符进行处理，最后按词重组 command line。
+
+command line 的每一个 charactor, 分为如下两种：
+- =literal= 也就是普通的纯文字，对 shell 来说没特殊功能；
+- =meta= 对 shell 来说，具有特定功能的特殊保留元字符。
+
+常用的 meta 还有：
+- ~=~    设定变量
+- =$=    作变量或运算替换命令
+- =>=    输出重定向(重定向 stdout)
+- =<=    输入重定向(重定向 stdin)
+- =|=    命令管道
+- =&=    重定向 file descriptor 或将命令至于后台(bg)运行
+- =()=   将其内部的命令置于 nested subshell 执行，或用于运算或变量替换
+- ={}=   将期内的命令置于 non-named function 中执行，或用在变量替换的界定范围
+- =;=    在前一个命令执行结束时，而忽略其返回值，继续执行下一个命令
+- =&&=   在前一个命令执行结束时，若返回值为 true ，继续执行下一个命令
+- =||=   在前一个命令执行结束时，若返回值为 false ，继续执行下一个命令
+- =!=    执行 histroy 列表中的命令
+- =IFS=  字段分隔符。由按键 space 或者 tab 或者 Enter 三者之一组成
+- =CR=   由 Enter 产生
+
+
+* quoting 处理
+假如我们需要在 command line 中将这些保留元字符的功能关闭的话，就需要 quoting 处理了
+在 bash 中，常用的quoting有以下三种方法：
+1. hard quote：''(单引号)，凡在 hard quote 中的所有 meta 均被关闭
+2. soft quote：""(双引号)，凡在 soft quote 中大部分 meta 都会被关闭，但某些会保留(如 $ 等)
+3. escape: \ (反斜杠)，只有在紧接在 escape 之后的单一 meta 才被关闭
+
+
+
+Enter 键的含义
+- =CR=    告诉 shell 命令可以执行了
+- =IFS=   字段分割符。
+- =NL=    new line。在 hard quote 中的 Enter 含义就是 NL
+- =FF=    Form Feed（换页）
+- =NULL=
+
+
+* shell meta 和 command meta 区别
+- =shell meta=      shell 处理的 meta
+- =command meta=    command 程序自己处理的 meta
+
+* 举例1
+命令 =$ awk '{print $0}' 1.txt= 为什么要使用 hard quote，而不写成 =$ awk {print $0} 1.txt= ?
+使用 hard meta 是为了将 {} <space> $ 这几个 shell meta 关闭，避免在 shell 中处理，而完整的成为 awk 中的 command meta
+也可以写成 =$ awk "{print \$0}" 1.txt= 和 =$ awk \{print \$0\} 1.txt=
+
+* 举例2
+下面4种 awk 命令等价：
+#+BEGIN_SRC shell
+  $ A=0
+  $ awk "{print \$$A}" 1.txt
+  $ awk  \{print\ \$$A\} 1.txt
+  $ awk '{print $'$A'}' 1.txt      # hard quote 中的 hard quote 中的 meta 处于开启状态
+  $ awk '{print $'"$A"'}' 1.txt    # $A 依然代表变量，meta 处于开启状态
+#+END_SRC
+
+* 举例3
+#+BEGIN_SRC shell
+$ read A
+      aaaa    # 输入的 aaaa 前有 n 个空格
+$ echo $A
+aaaa          # 输出的 $A 没有空格
+#+END_SRC
+
+原因：shell 会根据 IFS 把从 command line 输入的文字分解为每一个单词，然后对 meta 字符进行处理，最后按词重组 command line。而输入的空格就是一个 IFS
+改为：
+#+BEGIN_SRC shell
+$ read A
+\ \ \ \ \ \ aaaa
+$ echo $A
+      aaaa
+#+END_SRC
+
+* 举例4
+#+BEGIN_SRC shell
+$ cat aaaa | while read i; do; echo $i; done;
+#+END_SRC
+
+不能原汁原味的输出文件 aaaa，文件行首和行末的 IFS 字符会被忽略
+改为：
+#+BEGIN_SRC shell
+$ old_IFS=$IFS; IFS=; cat aaaa | while read i; do; echo $i; done; IFS=$old_IFS;
+#+END_SRC
+
+把 IFS 字符设为 null charactor，而不是使用 space、tab、enter

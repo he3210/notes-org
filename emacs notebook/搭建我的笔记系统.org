@@ -64,71 +64,70 @@ notes                            # 搭建的笔记系统目录
 我的 emacs org-mode 的配置文件是 =init-org.el= ，向该文件添加如下配置
 
 #+BEGIN_SRC emacs-lisp
-(require 'org)
-(require 'ox-html)
-(require 'ox-publish)
-(require 'htmlize)
+  (require 'org)
+  (require 'ox-html)
+  (require 'ox-publish)
+  (require 'htmlize)
 
-(setq org-export-with-entities t)   ;; 导出时是否进行转义。查看转义字符命令：M-x org-entities-help。例如：将 org 文档中的 \vbar 转义成 html 中的 |
+  (setq org-export-with-entities t)   ;; 导出时是否进行转义。查看转义字符命令：M-x org-entities-help。例如：将 org 文档中的 \vbar 转义成 html 中的 |
 
-;; HTML模板目录
-(defvar *site-template-directory* "~/notes/org/templates")
+  ;; HTML模板目录
+  (defvar *site-template-directory* "~/notes/org/templates")
 
+  (setq org-publish-project-alist
+        '(
+          ("org-notes"  ;; org 组件。主要是把 org 根据下列的配置规则转换成 h5 放到目标文件夹内
+           :base-directory "~/notes/org"
+           :base-extension "org"
+           :publishing-directory "~/notes/html"
+           :recursive t
+           :publishing-function org-html-publish-to-html    ;; 发布的方式。这里是 org 转换成 html
+           :headline-levels 4
+           :language "zh-CN"              ;; 设置为 zh-CN 会影响一些东西。比如：目录会显示为汉字
+           :section-numbers t             ;; 是否为标题编号
+           :with-toc t                    ;; 是否创建 table of contents
+           :with-latex t                  ;; 是否可以使用 latex
+           :html-doctype "html5"          ;; 导出 h5
+           :with-sub-superscript {}       ;; 禁用 _ 转义成下标，^转义成上标。但加 {} 就可以转义了
+           :author "XXX"
+           :email "XXX"
+           :preserve-breaks t             ;; 是否保留换行符。如果设置为 nil，导出后就会多行文本显示在一行
+           :html-head-include-default-style nil  ;; 取消默认的 css
+           :html-head-include-scripts nil        ;; 取消默认的 javascript 代码
+           :exclude "test*\\|.*\.test\.org"      ;; test 为前缀的文件和文件夹都不导出 html
+           :include ("./test/math.org" "./test/worg.org" "./test/o-blog.org")          ;; 虽然 math.org 在 test 文件夹里，但依然会导出到 html，显然 include 比 exclude 优先
+           )
+          ("static"   ;; 静态组件，表示这些文件原封不动的拷贝到目标文件夹
+           :base-directory "~/notes/org"
+           :base-extension "css\\|js\\|png\\|jpg\\|gif\\|pdf\\|mp3\\|ogg\\|swf\\|txt\\|asc\\|ico\\|tar"
+           :publishing-directory "~/notes/html"
+           :recursive t
+           :publishing-function org-publish-attachment) ;; 发布方式。原封不动的拷贝
+          ("notes" :components ("org-notes" "static"))  ;; 笔记本发布组件。注意：~/notes/org 目录中的文件或文件夹名称如果带有 "notes"，就不会发布该文件夹或 org 文件。暂未找到原因
+          ))
+
+  ;; css 文件如果修改了，就需要重新加载该 el 文件，这样才能看到 html 样式的变化
+  ;; html-head.html 文件用来设置 html 的 <head> 部分。该文件中引入了 CSS 文件
+  ;; preamble.html 文件包含导航栏 html、谷歌搜索
+  ;; postamble.html 文件包含了网站声明、引入了 js 文件
+  (setq org-html-head (read-html-template "html-head.html"))
+  (setq org-html-preamble (read-html-template "preamble.html"))
+  (setq org-html-postamble (read-html-template "postamble.html"))
+
+  ;;; 设置Mathjax库的路径
+  (add-to-list 'org-html-mathjax-options '(path "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_HTML"))
+
+  (provide 'init-org)
+#+END_SRC
+
+我的 emacs 自定义函数的配置文件是 =init-func.el= ，向其中添加用于读取 notes/templates/ 目录下的文件的函数和导出笔记本的函数。
+
+#+BEGIN_SRC emacs-lisp
 (defun read-html-template (template-file)
   (with-temp-buffer
     (insert-file-contents (concat *site-template-directory* "/" template-file))
     (buffer-string)))
 
-(setq org-publish-project-alist
-      '(
-	("org-notes"  ;; org 组件。主要是把 org 根据下列的配置规则转换成 h5 放到目标文件夹内
-         :base-directory "~/notes/org"
-         :base-extension "org"
-         :publishing-directory "~/notes/html"
-         :recursive t
-         :publishing-function org-html-publish-to-html    ;; 发布的方式。这里是 org 转换成 html
-         :headline-levels 4
-	 :language "zh-CN"              ;; 设置为 zh-CN 会影响一些东西。比如：目录会显示为汉字
-	 :section-numbers t             ;; 是否为标题编号
-	 :with-toc t                    ;; 是否创建 table of contents
-	 :with-latex t                  ;; 是否可以使用 latex
-	 :html-doctype "html5"          ;; 导出 h5
-	 :with-sub-superscript {}       ;; 禁用 _ 转义成下标，^转义成上标。但加 {} 就可以转义了
-	 :author "XXX"
-	 :email "XXX"
-	 :preserve-breaks t             ;; 是否保留换行符。如果设置为 nil，导出后就会多行文本显示在一行
-	 :html-head-include-default-style nil  ;; 取消默认的 css
-	 :html-head-include-scripts nil        ;; 取消默认的 javascript 代码
-	 :exclude "test*\\|.*\.test\.org"      ;; test 为前缀的文件和文件夹都不导出 html
-	 :include ("./test/math.org" "./test/worg.org" "./test/o-blog.org")          ;; 虽然 math.org 在 test 文件夹里，但依然会导出到 html，显然 include 比 exclude 优先
-	 )
-        ("static"   ;; 静态组件，表示这些文件原封不动的拷贝到目标文件夹
-         :base-directory "~/notes/org"
-         :base-extension "css\\|js\\|png\\|jpg\\|gif\\|pdf\\|mp3\\|ogg\\|swf\\|txt\\|asc\\|ico"
-         :publishing-directory "~/notes/html"
-         :recursive t
-         :publishing-function org-publish-attachment) ;; 发布方式。原封不动的拷贝
-        ("notes" :components ("org-notes" "static"))  ;; 笔记本发布组件
-	))
-
-;; css 文件如果修改了，就需要重新加载该 el 文件，这样才能看到 html 样式的变化
-;; html-head.html 文件用来设置 html 的 <head> 部分。该文件中引入了 CSS 文件
-;; preamble.html 文件包含导航栏 html、谷歌搜索
-;; postamble.html 文件包含了网站声明、引入了 js 文件
-(setq org-html-head (read-html-template "html-head.html"))
-(setq org-html-preamble (read-html-template "preamble.html"))
-(setq org-html-postamble (read-html-template "postamble.html"))
-
-;;; 设置Mathjax库的路径
-(add-to-list 'org-html-mathjax-options '(path "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_HTML"))
-
-(provide 'init-org)
-#+END_SRC
-
-
-我的 emacs 自定义函数的配置文件是 =init-func.el= ，向其中添加导出笔记本系统的函数
-
-#+BEGIN_SRC emacs-lisp
 ;; 该函数会强制导出所有文件，即使该文件没有修改过。否则，可能出现有些文件修改了，但是导出的还是旧文件
 (defun export-my-notes()
   (interactive)
@@ -136,9 +135,7 @@ notes                            # 搭建的笔记系统目录
   (setq solarized-termcolors 256)
   (load-theme 'solarized t)
 
-  ;; 导出 notes 到 html
-  (load-file "~/.emacs.d/lisp/init-org.el")  ;; 为什么要再次加载配置文件呢？因为修改 CSS 风格后，emacs 中保存 CSS 内容的变量还是旧的 CSS
-  (org-publish-project "notes" t)  ;; t 表示强制导出
+  (org-publish-project "notes" t)  ;; 导出 notes 到 html。t 表示强制导出
 
   ;; 导出完毕后，配色再改回来，防止 solarized 在终端中颜色混乱
   (setq solarized-termcolors 16)
@@ -200,33 +197,64 @@ pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
 /* ... */
 #+END_SRC
 * 后续优化2 —— 生产环境测试环境分离
+需要做到
+1. 生产环境和测试环境的环境变量的改变
+2. 优化导出速度。文件如果未修改，则使用缓存的文件，而不是强制重新导出
 
-=init-func.el= 中的笔记导出函数改为
+首先，notes/org/ 目录下添加目录 template-test。向其中添加测试环境的内容。
+然后，修改 =init-func.el= 中的笔记导出函数改为
 #+BEGIN_SRC emacs-lisp
-(defun export-my-notes-internal()
-  ;; solarized 配色问题。导出 html 时设置为 256 色。否则，导出的 html 中的代码块颜色混乱难看
-  (setq solarized-termcolors 256)
-  (load-theme 'solarized t)
-
-  ;; 导出 notes 到 html
-  (load-file "~/.emacs.d/lisp/init-org.el")  ;; 需要重新加载 init-org.el，否则 css 等文件修改后无法重新发布
-  (org-publish-project "notes" t)
-
-  ;; 导出完毕后，配色再改回来，改为 16，防止 solarized 在终端 emacs 中颜色混乱难看
-  (setq solarized-termcolors 16)
+;; 调整 solarized 配色
+(defun reload-solarized-termcolors(color)
+  (setq solarized-termcolors color)
   (load-theme 'solarized t)
   )
 
+(defun export-my-notes-internal(is-force)
+  ;; 配色问题。需要设置为 256 色。否则，在终端下的 emacs 中执行该函数，导出的代码块颜色混乱
+  (if(not window-system)
+      (reload-solarized-termcolors 256))
+
+    (org-publish-project "notes" is-force nil)  ;; 导出 notes 到 html
+
+  ;; 导出完毕后，配色再改回来，防止 solarized 在终端中颜色混乱
+  (if(not window-system)
+      (reload-solarized-termcolors 16))
+  )
+
+(defvar *call-export-my-notes-count* 0 "run export-my-notes-internal count")
 (defun export-my-notes-test()
   (interactive)
-  (setq *site-template-directory* "~/notes/org/templates-test")
-  (export-my-notes-internal)
+  (if (and (> *call-export-my-notes-count* 0) (equal *site-template-directory* "~/notes/org/templates-test"))
+      (progn  ;; 如果连续 2 次导出到测试环境，说明第二次导出时已经时测试环境了，所以就可以使用缓存文件而不必强制重新导出所有文件了
+        (export-my-notes-internal nil)
+        )
+    (progn  ;; 否则，修改环境变量，并强制重新导出所有文件
+      (setq *site-template-directory* "~/notes/org/templates-test")
+      (setq org-html-head (read-html-template "html-head.html"))
+      (setq org-html-preamble (read-html-template "preamble.html"))
+      (setq org-html-postamble (read-html-template "postamble.html"))
+      (export-my-notes-internal t)
+      )
+    )
+  (incf *call-export-my-notes-count*)  ;; 自增 1
   )
 
 (defun export-my-notes()
   (interactive)
-  (setq *site-template-directory* "~/notes/org/templates")
-  (export-my-notes-internal)
+  (if (and (> *call-export-my-notes-count* 0) (equal *site-template-directory* "~/notes/org/templates"))
+      (progn  ;; 如果连续 2 次导出到生产环境，说明第二次导出时已经时生产环境了，所以就可以使用缓存文件而不必强制重新导出所有文件了
+        (export-my-notes-internal nil)
+        )
+    (progn  ;; 否则修改环境变量，强制导出
+      (setq *site-template-directory* "~/notes/org/templates")
+      (setq org-html-head (read-html-template "html-head.html"))
+      (setq org-html-preamble (read-html-template "preamble.html"))
+      (setq org-html-postamble (read-html-template "postamble.html"))
+      (export-my-notes-internal t)
+      )
+    )
+  (incf *call-export-my-notes-count*)
   )
 #+END_SRC
 
@@ -236,7 +264,6 @@ pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
 (global-set-key (kbd "C-c e N") 'export-my-notes)         ;; 生产环境
 #+END_SRC
 
-最后，根目录下添加目录 template-test。向其中添加测试环境的内容
 * 后续优化3 —— 目录聚焦当前大纲
 - 效果一：目录显示当前屏幕位置处的大纲，使用 jquery 来实现
 - 效果二：点击目录显示全部目录，再次点击隐藏

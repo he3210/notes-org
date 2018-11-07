@@ -1,0 +1,75 @@
+#+TITLE: awk
+
+* 替换域
+
+#+BEGIN_SRC shell
+$ echo "My name is Rich" | awk '{$4="Christine"; print $0}'    # 替换第四域并打印
+My name is Christine
+#+END_SRC
+
+
+* awk 脚本写进文件
+
+#+BEGIN_SRC shell
+$ cat /etc/passwd
+nobody:*:-2:-2:Unprivileged User:/var/empty:/usr/bin/false
+root:*:0:0:System Administrator:/var/root:/bin/sh
+$ cat test.awk
+{
+    text = "'s home directory is "
+    print $1 text $6    # 各个域用空格隔开，输出时域之间就不会有分割符； 引用变量和 shell 脚本不同：不加 $
+}
+$ awk -F: -f test.awk /etc/passwd        # -F: 指定字段分割符。-f 指定 awk 脚本位置
+nobody's home directory is /var/empty
+root's home directory is /var/root
+#+END_SRC
+
+* 添加开始内容和结束内容
+
+#+BEGIN_SRC shell
+$ cat /etc/passwd
+nobody:*:-2:-2:Unprivileged User:/var/empty:/usr/bin/false
+root:*:0:0:System Administrator:/var/root:/bin/sh
+$ cat test.awk
+BEGIN {                       # 花括号不能另起一行写
+    print "User \t Shell"
+    FS=":"                    # 指定字段分割符的另外一种方法
+}
+
+{
+    print $1 "\t" $6    # 各个域用空格隔开； 引用变量和 shell 脚本不同：不加 $
+}
+
+END {
+    print "This is all users"
+}
+$ awk -f test.awk /etc/passwd
+User	Shell
+nobody	/var/empty
+root	/var/root
+This is all users
+#+END_SRC
+
+#+BEGIN_SRC c
+  int partitionV1(int arr[], int low, int high)
+  {
+      int pivot = arr[low]; // 选定第一个元素作为枢纽值对数组进行划分
+      while(low < high)
+      {
+          while(low < high && arr[high] >= pivot)
+              --high;
+          arr[low] = arr[high];
+          while(low < high && arr[low] <= pivot)
+              ++low;
+          arr[high] = arr[low];
+      }
+      arr[low] = pivot; // 此时low==high
+      return low;
+  }
+
+  int func()
+  {
+      int a;
+  }
+
+#+END_SRC

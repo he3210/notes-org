@@ -1,0 +1,96 @@
+#+TITLE: mysql 建库命令+授权命令
+
+* 参考
+
+- http://www.cnblogs.com/rmbteam/archive/2011/10/20/2219368.html
+
+* 显示数据库 使用数据库
+#+BEGIN_EXAMPLE
+mysql> show databases;
+mysql> use MovierDC;
+#+END_EXAMPLE
+
+* 建库 删库
+#+BEGIN_EXAMPLE
+mysql> create database MovierDC; # 使用 root 用户登录数据库
+mysql> drop database MovierDC;
+#+END_EXAMPLE
+
+* 创建用户
+#+BEGIN_EXAMPLE
+mysql> CREATE USER 'WangLi'@'%' IDENTIFIED BY 'WL123'; # 创建密码为 WL123 的用户 WangLi，该用户可以在任意地址登陆数据库
+#+END_EXAMPLE
+
+* 把权限授权给 movier 账户  数据的增删改查
+授权语法
+grant 权限 on 数据库对象 to 用户
+
+#+BEGIN_EXAMPLE
+mysql> grant select on MovierDC.* to movier@'10.0.0.137'; # @后面表示 IP 地址，% 表示所有 IP，该句表示授予数据库 MovierDC 的查权限给从 IP 地址 10.0.0.137 登陆的 movier 账户
+mysql> grant insert on MovierDC.* to movier@'%'; # 该句表示授予数据库 MovierDC 的插权限给从任意 IP 地址登陆的 movier 账户
+mysql> grant update on MovierDC.* to movier@'%';
+mysql> grant delete on MovierDC.* to movier@'%';
+#+END_EXAMPLE
+或
+#+BEGIN_EXAMPLE
+mysql> grant select, insert, update, delete on MovierDC.* to movier@'%';
+#+END_EXAMPLE
+
+* 把权限授权给movier账户  表的增删改
+#+BEGIN_EXAMPLE
+mysql> grant create on MovierDC.* to movier@'192.168.0.%'; # 授建表权给从 "192.168.0.%" 登陆数据库的 movier 账户，% 代表任意
+mysql> grant alter on MovierDC.* to movier@'%'; # 授修改表权给从 "192.168.0.%" 登陆数据库的 movier 账户
+mysql> grant drop  on MovierDC.* to movier@'%';
+#+END_EXAMPLE
+或
+#+BEGIN_EXAMPLE
+mysql> grant create, alter, drop  on MovierDC.* to movier@'%';
+#+END_EXAMPLE
+* 授权操作外键权限
+#+BEGIN_EXAMPLE
+mysql> grant references on MovierDC.* to movier@'%';
+#+END_EXAMPLE
+
+* 授权操作临时表权限
+#+BEGIN_EXAMPLE
+mysql> grant create temporary tables on MovierDC.* to movier@'192.168.0.%';
+#+END_EXAMPLE
+
+* 授权操作索引权限
+#+BEGIN_EXAMPLE
+mysql> grant index on MovierDC.* to movier@'%';
+#+END_EXAMPLE
+
+* 授权操作视图、查看视图源码权限
+#+BEGIN_EXAMPLE
+mysql> grant create view on MovierDC.* to movier@'%'; 
+mysql> grant show  view on MovierDC.* to movier@'%';
+#+END_EXAMPLE
+
+* 授权操作存储过程、函数权限
+#+BEGIN_EXAMPLE
+mysql> grant create routine on MovierDC.* to movier@'%'; -- now, can show procedure status;
+mysql> grant alter routine on MovierDC.* to movier@'%'; -- now, you can drop a procedure;
+mysql> grant execute on MovierDC.* to movier@'%';
+#+END_EXAMPLE
+
+* 授权普通DBA管理数据库
+#+BEGIN_EXAMPLE
+mysql> grant all privileges on MovierDC.* to movier@'localhost';
+#+END_EXAMPLE
+
+* 授权高级DBA管理所有数据库
+#+BEGIN_EXAMPLE
+mysql> grant all on *.* to movier@'localhost';
+#+END_EXAMPLE
+
+* 取消授权
+#+BEGIN_EXAMPLE
+mysql> revoke all privileges on MovierDC.* from movier@'%';
+#+END_EXAMPLE
+
+* 查看用户权限
+#+BEGIN_EXAMPLE
+mysql> show grants; # 查看当前用户权限
+mysql> show grants for movier@'%'; # 查看 movier 用户权限
+#+END_EXAMPLE

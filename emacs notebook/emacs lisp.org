@@ -1,0 +1,33 @@
+#+TITLE: emacs lisp
+
+* 检测 emacs 是在终端下启动还是 GUI 下启动
+
+我一般在终端下使用 emacs，有些配置需要区分 emacs 运行在终端下还是在 GUI 模式下，以便加载不通的配置
+可以借助变量 window-system 来实现，其值如下：
+- =nil= for a termcap frame (a character-only terminal),
+- =‘x’= for an Emacs frame that is really an X window,
+- =‘w32’= for an Emacs frame that is a window on MS-Windows display,
+- =‘ns’= for an Emacs frame on a GNUstep or Macintosh Cocoa display,
+- =‘pc’= for a direct-write MS-DOS frame.
+
+** 例：mac emacs 和系统共享剪切板
+问题：mac GUI 模式下已支持该功能。但是终端模式下并不能和系统共享剪切板
+思路：借助 shell 命令 =pbpaste= 和 =pbcopy= 来实现
+#+BEGIN_SRC emacs-lisp
+;; emacs 和系统共享剪切板
+(setq select-enable-clipboard t)     ;; 该行是 emacs 默认配置，它仅支持 emacs GUI 模式；emacs -nw 下并不管用，所以需要下面的一些配置
+(defun copy-from-osx ()
+  (shell-command-to-string "pbpaste"))
+(defun paste-to-osx (text &optional push)
+  (let ((process-connection-type nil))
+    (let ((proc (start-process "pbcopy" "*Messages*" "pbcopy")))
+      (process-send-string proc text)
+      (process-send-eof proc))))
+(cond ((not window-system)        ;; 终端 emacs 下需要使用 pbpaste 和 pbcopy 来和系统共享剪切板
+       (setq interprogram-cut-function 'paste-to-osx
+             interprogram-paste-function 'copy-from-osx))
+      ((equal window-system 'ns)  ;; GUI emacs 下使用如下 2 个默认值，无需改变即可共享剪切板
+       (setq interprogram-cut-function 'gui-select-text
+             interprogram-paste-function 'gui-selection-value)))
+#+END_SRC
+

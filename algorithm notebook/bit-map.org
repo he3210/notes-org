@@ -1,0 +1,38 @@
+#+TITLE: bit-map
+
+使用 bit-map 表示 0~10000000 内的整数
+#+BEGIN_EXAMPLE
+第 0 bit 表示 0
+第 1 bit 表示 1
+第 2 bit 表示 2
+...
+第 10000000 bit 表示 10000000
+#+END_EXAMPLE
+
+#+BEGIN_SRC c
+#include <stdio.h>
+
+#define BITWORD 32
+#define SHIFT 5
+#define MASK 0x1F
+#define N 10000000
+int a[1+N/BITWORD];
+
+// 将位图 a 中的第 i bit 设置为 1
+void set(int i)
+{
+    a[i>>SHIFT] |= (1<<(i & MASK));
+}
+
+// 将位图 a 中的第 i bit 设置为 0
+void clear(int i)
+{
+    a[i>>SHIFT] &= ~(1<<(i & MASK));
+}
+
+// 获取位图 a 中的第 i bit 的值，返回 int 类型
+int get(int i)
+{
+    return a[i>>SHIFT] & (1<<(i & MASK));
+}
+#+END_SRC

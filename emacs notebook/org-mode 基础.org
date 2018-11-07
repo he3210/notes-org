@@ -25,6 +25,9 @@
 |---------------+------------------------------------------------------------|
 | C-u C-u M-RET | 在当前标题内容的最后，另起一行创建一个同级标题             |
 
+* 输入控制字符
+使用快捷键 =C-q= ，例如输入 TAB，需要先按 =C-q= 再按 TAB 键
+
 * 列表
 
 如果在本级列表内换行，就需要在新行前面加个空格
@@ -69,6 +72,21 @@
 2. 如果1)不存在, 会跳转到 =#+NAME= 命名和链接相同的地方
 3. 前两步都失败, 会尝试寻找精确匹配的标题
 
+** 跳转到 CUSTOM_ID
+
+CUSTOM_ID 定义方法
+#+BEGIN_SRC org
+  ,* 这是章节名
+   :PROPERTIES:
+   :CUSTOM_ID: 这是章节名
+   :END:
+#+END_SRC
+
+跳转到指定 CUSTOM_ID 如下。当导出到 html 时，CUSTOM_ID 会转换成锚点，会替换原先自动生成的章节锚点
+#+BEGIN_SRC org
+[[file:org-file-path::#这是章节名][跳转到一个 CUSTOM_ID]]
+#+END_SRC
+
 ** 例子
 
 #+BEGIN_EXAMPLE
@@ -91,6 +109,42 @@
 * 插入 latex 公式
 - 使用 =$ $= 在行内插入。例如 =$\displaystyle \min_{x_1,\dots x_T}$= $\displaystyle \min_{x_1,\dots x_T}$
 - 使用 =$$ $$= 在行间插入。例如 =$$\displaystyle \min_{x_1,\dots x_T}$$= ：$$\displaystyle \min_{x_1,\dots x_T}$$
+
+* 快捷键 =< + 快捷码 + TAB=
+
+| 快捷码 | 补全内容                             | 描述                                      |
+|--------+--------------------------------------+-------------------------------------------|
+| s      | #+BEGIN_SRC\n\n#+END_SRC             | 插入代码块                                |
+| e      | #+BEGIN_EXAMPLE\n\n#+END_EXAMPLE     | 插入例子                                  |
+| q      | #+BEGIN_QUOTE\n\n#+END_QUOTE         | 插入引用                                  |
+| v      | #+BEGIN_VERSE\n\n#+END_VERSE         | 默认内容不换行，需要留出空行才能换行      |
+| c      | #+BEGIN_CENTER\n\n#+END_CENTER       | 内容居中                                  |
+| l      | #+BEGIN_EXPORT latex\n\n#+END_EXPORT | 直接导出 latex                            |
+| L      | #+LaTeX:                             |                                           |
+| h      | #+BEGIN_EXPORT html\n\n#+END_EXPORT  | 直接导出 html                             |
+| H      | #+HTML:                              |                                           |
+| a      | #+BEGIN_EXPORT ascii\n\n#+END_EXPORT |                                           |
+| A      | #+ASCII:                             |                                           |
+| i      | #+INDEX:                             | 包含文件到 org 中                         |
+| I      |                                      | 状态栏下面弹出一个 buffer，选择包含的文件 |
+
+当导出文档时，你可以包含其他文件中的内容。比如，想包含你的“.emacs”文件，你可以用：
+#+BEGIN_SRC org
+  ,#+INCLUDE: "~/.emacs.d/test.el" src emacs-lisp
+#+END_SRC
+
+可选的第二个第三个参数是组织方式（例如，“quote”，“example”，或者“src”），如果是 “src”，语言用来格式化内容。
+组织方式是可选的，如果不给出，文本会被当作 Org 模式的正常处理。用快捷键 =<C-c ,>= 可以访问包含的文件。
+
+* 添加 org 注释
+两种注释方式
+1. 注释一段内容：注释中的内容不会被导出
+ #+BEGIN_SRC org
+   ,#+BEGIN_COMMENT
+
+   ,#+END_COMMENT
+ #+END_SRC
+2. 注释整章内容：在一个章节上使用快捷键 =C-c ;= ，可在一个章节名上触发添加 COMMENT 关键字，该章节就会被注释不会被导出
 
 * Footnotes
 

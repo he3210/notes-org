@@ -1,0 +1,170 @@
+#+TITLE: shell 编程基础
+
+* 特殊变量
+#+BEGIN_SRC shell
+$ cat test.sh
+#!/bin/bash
+echo $1
+echo $2
+echo $3
+echo $#        # 命令行参数的个数
+echo $@        # 传入脚本的全部参数
+echo $*        # 显示脚本的全部参数
+echo $$        # 脚本进程号
+exit 999
+$ chmod +x test.sh
+$ ./test.sh 11 22 33
+11
+22
+33
+3
+11 22 33
+11 22 33
+14174
+$ echo $?      # 前一命令执行的返回值
+999
+#+END_SRC
+
+* 数组
+输出数组的所有元素
+#+BEGIN_SRC shell
+#!/bin/bash
+a=(22 33 44 55 66 77 88)
+index=0
+while [ ${index} -lt ${#a[*]} ] # # 号表示取大小，* 表示所有下标
+do
+	echo ${a[index]}
+	index=$[${index}+1] # $[] 表示进行算术运算
+done
+#+END_SRC
+
+* if 语句
+#+BEGIN_SRC shell
+#!/bin/bash
+if test -f $1 -a -r $1 -a -w $1    # 如果 $1 是可读可写的文件
+then
+	echo $1
+elif [ -d $1 ]	                 # 如果 $1 是文件夹。其中，[ 等价于 test
+then
+	cd $1
+	if ! test -e "ls.sh"             # 如果不存在 ls.sh 文件
+	then
+		touch ls.sh
+		echo "#!/bin/bash" >> ls.sh             # >> 表示本脚本进程运行期间只有第一次重定向到某个文件时会发生截断，再次重定向到该文件时会在文件末尾添加
+		echo "ls -li /etc > etc.list" >> ls.sh  # > 表示重定向到某个文件时会发生截断
+	fi
+	chmod +x "ls.sh"
+	./ls.sh
+fi
+#+END_SRC
+
+* case
+#+BEGIN_SRC shell
+#!/bin/bash
+echo "It's morning? Please answer yes or no"
+read answer
+case ${answer} in
+	[yY]|[yY][eE][sS])
+		echo "Good morning";;
+	[nN]|[nN][oO])
+		echo "Good afternoon";;
+	*)
+		echo "Error input";;
+esac
+#+END_SRC
+
+* for
+#+BEGIN_SRC shell
+#!/bin/bash
+for file in /etc/r*
+do
+	if [ -d ${file} ]
+	then
+		echo "${file}(dir)"
+	else
+		echo "${file}"
+	fi
+done
+#+END_SRC
+
+* 冒泡排序
+** $[] 讲解
+$[...] 表示中括号中的 ... 是一个算术表达式，可以用 $[] 把 ... 从字符串转换成数字
+比如
+#+BEGIN_SRC shell
+arr=(11 22 33)
+if [ ${arr[0]} -lt ${arr[1]} ] # 执行会出错，因为 ${} 是一个字符串变量
+then
+	echo "arr[0]<arr[1]"
+fi
+#+END_SRC
+
+第 2 行应替换为：
+#+BEGIN_SRC shell
+if [ $[arr[0] -lt $[arr[1]] ]
+#+END_SRC
+
+** (()) 讲解
+- 在双括号结构中，所有表达式可以像 c 语言一样，如：a++, b-- 等。
+- 在双括号结构中，所有变量可以不加入："$" 符号前缀。
+- 双括号可以进行逻辑运算，四则运算
+- 双括号结构 扩展了 for, while, if 条件测试运算
+- 支持多个表达式运算，各个表达式之间用 "," 分开
+
+** 冒泡排序
+#+BEGIN_SRC shell
+#!/bin/bash
+arr=(3 10 6 5 9 2 8 1 4 7)
+for((i=0; i<${#arr[*]-1}; ++i))
+do
+	for((j=${#arr[*]}-1; j>i; --j))
+	do
+		if [ $[arr[j]] -lt $[arr[j-1]] ]
+		then
+			arr[j]=$[arr[j]+arr[j-1]-(arr[j-1]=arr[j])]
+#			temp=${arr[j]}
+#			arr[j]=${arr[j-1]}
+#			arr[j-1]=${temp}
+		fi
+	done
+done
+echo ${arr[@]}
+#+END_SRC
+
+* while
+1+2+3+...+100=?
+#+BEGIN_SRC shell
+#!/bin/bash
+var=0
+sum=0
+while [ ${var} -lt 100 ]
+do
+	var=$[var+1]
+	sum=$[var+sum]
+done
+echo ${sum}
+#+END_SRC
+
+* until
+#+BEGIN_SRC shell
+#!/bin/bash
+var=0
+until [ ${var} -eq 10 ]
+do
+	echo ${var}
+	var=$((var+1))
+done
+#+END_SRC
+
+* 函数
+#+BEGIN_SRC shell
+#!/bin/bash
+function add()
+{
+	return $(($1+$2))
+}
+a=11
+b=22
+add a b
+echo $?
+#+END_SRC

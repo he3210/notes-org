@@ -1,0 +1,78 @@
+#+TITLE: socketpair API
+
+* socketpair
+socketpair 函数的原型如下：
+#+BEGIN_SRC c
+socketpair(int domain, int type, int protocol, int socket_vector[2]);
+#+END_SRC
+
+- =domain= 表示协议族，必须为 AF_UNIX;
+- =type= 表示类型，既可以是 SOCK_STREAM,又可以是 SOCK_DGRAM，当参数指定为 SOCK_STREAM 时，得到的结果称为流管道，它与一般管道的区别是流管道是全双工的，即两个描述符即可读有可写;
+- =protocol= 只能为0；
+- =socket_vector[2]= 用于保存创建的套接字对；
+
+socketpair 函数建立一对匿名的已连接的套接字，建立的两个套接字描述符会放在 socket_vector[0] 和 socket_vector[1] 中。既可以从 socket_vector[0] 写入 socket_vector[1] 读出，又可以从 socket_vector[1] 读入 socket_vector[0] 写出，如果没有写入就读出则会生阻塞。用途：用来创建全双工通道，不过只局限于父子进程之间。
+
+* 简单用法
+#+BEGIN_SRC c
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+
+int main()
+{
+    int sv[2] = {0, 0};
+    int sock = socketpair(AF_UNIX, SOCK_STREAM, 0, sv);
+
+    if(sock < 0)
+    {
+        perror("socketpair");
+        exit(0);
+    }
+
+    pid_t id = fork();
+    char buf[1024];
+    if(id < 0)
+    {
+        perror("fork");
+        exit(0);
+    }
+    else if(id == 0)
+    {
+        close(sv[0]);  //子进程关闭读端
+        while(1)
+        {
+            memset(buf, '\0', sizeof(buf));
+            strcpy(buf, "i am your child");
+            write(sv[1], buf, strlen(buf));//子进程写入
+            memset(buf, '\0', sizeof(buf));
+            ssize_t _s = read(sv[1], buf, sizeof(buf)-1);//子进程读取父进程的内容
+            buf[_s] = '\0';
+            printf("father-->child:%s\n", buf);
+            sleep(1);
+        }
+        close(sv[1]);//子进程关闭读端
+    }
+    else
+    {//父进程
+        close(sv[1]);
+        while(1)
+        {
+            memset(buf, '\0', sizeof(buf));
+            ssize_t _s = read(sv[0], buf, sizeof(buf)-1);
+            buf[_s] = '\0';
+            printf("child-->father:%s\n", buf);
+            memset(buf, '\0', sizeof(buf));
+            strcpy(buf, "i am your father");
+            write(sv[0], buf, strlen(buf));
+            sleep(1);
+        }
+        close(sv[0]);
+    }
+    return 0;
+}
+#+END_SRC

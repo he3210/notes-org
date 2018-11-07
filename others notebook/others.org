@@ -1,0 +1,10 @@
+#+TITLE: 未分类笔记
+
+- [[./线程安全单例模式.org][线程安全单例模式]]
+- [[./flexible array(柔性数组).org][flexible array(柔性数组)]]
+- [[./gcc __builtin_expect.org][gcc __builtin_expect]]
+- [[./socketpair API.org][socketpair API]]
+- [[./mac 安装 gdb 踩坑.org][mac 安装 gdb 踩坑]]
+- [[./ssh key 登陆远程.org][ssh key 登陆远程]]
+- [[./mysql 建库命令+授权命令.org][mysql 建库命令+授权命令]]
+- [[./gdb.org][gdb]]

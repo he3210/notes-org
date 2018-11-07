@@ -1,0 +1,68 @@
+#+TITLE: 一个守护进程
+
+* daemon.c
+#+BEGIN_SRC c
+  #include<stdio.h>
+  #include<stdlib.h>
+  #include<signal.h>
+  #include<unistd.h>
+  #include<sys/types.h>
+  #include<sys/stat.h>
+  #include<time.h>
+
+  void init_daemon()
+  {
+      pid_t pid = fork();
+      if(pid > 0)    // 结束父进程
+          exit(0);
+      else if(pid < 0)
+          exit(-1);
+      setsid();	   // 让进程摆脱原会话、原进程组、原控制终端的控制
+      pid = fork();
+      if(pid > 0)    // 第一子进程为无终端的会话组长，使第一子进程不再成为会话组长从而禁止进程重新打开控制终端 ，所以结束第一子进程
+          exit(0);
+      else if(pid < 0)
+          exit(-1);
+      // 保留第二子进程。关闭文件描述符，切换工作目录、重设文件访问权限掩码
+      for(int i = 0; i < 64; ++i)
+          close(i);
+      chdir("/");
+      umask(0);
+  }
+
+  int main(void)
+  {
+      signal(SIGCHLD, SIG_IGN);//父进程忽略SIGCHLD信号，子进程结束后交给init
+      init_daemon();
+      FILE *fp;
+      time_t tt;
+      for(int i = 0; i < 5; ++i)
+      {
+          sleep(3);
+          if((fp = fopen("/home/he/Desktop/daemon.log", "a")) != NULL)
+          {
+              time(&tt);
+              struct tm *ptm = gmtime(&tt);
+              fprintf(fp, "%04d-%02d-%02d %02d:%02d:%02d\n", \
+                      ptm -> tm_year + 1900, ptm -> tm_mon + 1, ptm -> tm_mday,\
+                      ptm -> tm_hour + 8, ptm -> tm_min, ptm -> tm_sec);
+              fclose(fp);
+          }
+      }
+      return 0;
+  }
+#+END_SRC
+
+* 编译与结果
+#+BEGIN_SRC shell
+$ gcc daemon.c -o daemon -std=c99
+$ ./daemon
+$ ps -ef | grep './daemon' | grep -v grep                                                                                                                                           16:32:51
+  501 43381     1   0  4:32PM ??         0:00.01 ./daemon
+$ cat daemon.log
+2015-06-21 10:17:32
+2015-06-21 10:17:35
+2015-06-21 10:17:38
+2015-06-21 10:17:41
+2015-06-21 10:17:44
+#+END_SRC

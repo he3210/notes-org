@@ -31,30 +31,30 @@ f[i][j] 为问题的解
 * 动态规划
 
 #+BEGIN_SRC C
-    int m[128][128];
-    // c 保存各个物品的重量，w 保存各个物品价值，n 物品数量，v 背包容量
-    int fun(int c[], int w[], int n, int v)
-    {
-        for(int i = 0; i <= n; ++i)
-            m[i][0] = 0;
-        for(int j = 1; j <= v; ++j)
-            m[0][j] = 0;
-        for(int i = 1; i <= n; ++i)
-            for(int j = 1; j <= v; ++j)
-                if(j < c[i])
-                    m[i][j] = m[i-1][j];
-                else
-                    m[i][j] = m[i-1][j] > m[i-1][j-c[i]] + w[i] ? m[i-1][j] : m[i-1][j-c[i]] + w[i];
-        return m[n][v];
-    }
+  int m[128][128];
+  // c 保存各个物品的重量，w 保存各个物品价值，n 物品数量，v 背包容量
+  int fun(int c[], int w[], int n, int v)
+  {
+      for(int i = 0; i <= n; ++i)
+          m[i][0] = 0;
+      for(int j = 1; j <= v; ++j)
+          m[0][j] = 0;
+      for(int i = 1; i <= n; ++i)
+          for(int j = 1; j <= v; ++j)
+              if(j < c[i])
+                  m[i][j] = m[i-1][j];
+              else
+                  m[i][j] = m[i-1][j] > m[i-1][j-c[i]] + w[i] ? m[i-1][j] : m[i-1][j-c[i]] + w[i];
+      return m[n][v];
+  }
 
-    int max_value()
-    {
-        int n = 3, v = 5;
-        int c[4] = {0, 1, 2, 3};
-        int w[4] = {0, 60, 100, 120};
-        return fun(c, w, n, v);
-    }
+  int max_value()
+  {
+      int n = 3, v = 5;
+      int c[4] = {0, 1, 2, 3};
+      int w[4] = {0, 60, 100, 120};
+      return fun(c, w, n, v);
+  }
 #+END_SRC
 
 * 备忘录

@@ -1,0 +1,609 @@
+#+TITLE: 红黑树
+
+* 参考
+- [[http://daoluan.net/%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84/%E7%AE%97%E6%B3%95/2013/09/25/rbtree-is-not-difficult.html][红黑树并没有我们想象的那么难]]
+- [[https://github.com/julycoding/The-Art-Of-Programming-By-July/blob/master/ebook/zh/03.01.md][教你透彻了解红黑树]]
+
+* 红黑树的 5 个性质
+1. 每个结点要么是红的，要么是黑的。
+2. 根结点是黑的。
+3. 每个叶结点（叶结点即指树尾端 NIL 指针或 NULL 结点）是黑的。
+4. 如果一个结点是红的，那么它的俩个儿子都是黑的。
+5. 对于任一结点而言，其到叶结点树尾端 NULL 指针的每一条路径都包含相同数目的黑结点。
+
+由此推断出红结点的父结点和子结点均为黑色
+
+* 算法
+#+BEGIN_SRC c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
+typedef int key_t;
+typedef int data_t;
+typedef enum color_t
+{
+    RED = 0,
+    BLACK = 1
+}color_t;
+typedef struct rb_node_t
+{
+    struct rb_node_t *left, *right, *parent;
+    key_t key;
+    data_t data;
+    color_t color;
+}rb_node_t;
+
+rb_node_t* rb_insert(key_t key, data_t data, rb_node_t *root);
+rb_node_t* rb_search(key_t key, rb_node_t *root);
+rb_node_t* rb_erase(key_t key, rb_node_t *root);
+
+int main()
+{
+    int i, count = 900000;
+    key_t key;
+    rb_node_t *root = NULL, *node = NULL;
+    srand(time(NULL));
+    for(i = 1; i < count; ++i)
+    {
+        key = rand()%count;
+        if((root = rb_insert(key, i, root)))
+        {
+            printf("[i = %8d] insertkey %10d success!\n", i, key);
+        }
+        else
+        {
+            printf("[i = %8d] insertkey %10d error!\n", i, key);
+            exit(-1);
+        }
+        if((node = rb_search(key,root)))
+        {
+            printf("[i = %8d] searchkey %10d success!\n", i, key);
+        }
+        else
+        {
+            printf("[i = %8d] searchkey %10d error!\n", i, key);
+            exit(-1);
+        }
+        if(!(i%10))
+        {
+            if((root = rb_erase(key, root)))
+            {
+                printf("[i = %8d] erasekey  %10d success!\n", i, key);
+            }
+            else
+            {
+                printf("[i = %8d] erasekey  %10d error\n", i, key);
+            }
+        }
+    }
+    return 0;
+}
+
+static rb_node_t* rb_new_node(key_t key, data_t data)
+{
+    rb_node_t *node = (rb_node_t*)malloc(sizeof(struct rb_node_t));
+    if(!node)
+    {
+        printf("malloc error!\n");
+        exit(-1);
+    }
+    node->key = key, node->data = data;
+    return node;
+}
+
+//一、左旋代码分析
+/*-----------------------------------------------------------
+  |   node             right
+  |   /  \    ==>      /  \
+  |   a  right       node  y
+  |      /  \         /  \
+  |      b   y       a    b    // 左旋
+  -----------------------------------------------------------
+ * @desc: 将 node 结点左旋
+ * @root: 根结点
+ * @retu: 如果把根结点左旋了，就返回新的根结点；否则，返回旧根结点
+ */
+static rb_node_t* rb_rotate_left(rb_node_t* node, rb_node_t* root)
+{
+    rb_node_t* right = node->right;    // right 指向 node 的右子树
+
+    if((node->right = right->left))    // 把 b 变成 node 的右孩子
+    {
+        right->left->parent = node;    // 把 node 变成 b 的父结点
+    }
+    right->left = node;    // node 成为 right 的左孩子
+
+    if((right->parent = node->parent)) // 修改 right 的父结点
+    {
+        if(node == node->parent->right)// 如果 node 子树原本是一个结点的右子树
+        {
+            node->parent->right = right; // right 成为原本 node 父结点的右孩子
+        }
+        else
+        {
+            node->parent->left = right; // right 成为原本 node 父结点的左孩子
+        }
+    }
+    else
+    {
+        root = right;
+    }
+    node->parent = right;    // right 成为 node 的父母
+
+    return root;
+}
+
+//二、右旋
+/*-----------------------------------------------------------
+  |       node             left
+  |       /  \             /  \
+  |     left  y   ==>     a   node
+  |     /  \                  /  \
+  |    a    b                b    y  // 右旋与左旋类似
+  -----------------------------------------------------------*/
+static rb_node_t* rb_rotate_right(rb_node_t* node, rb_node_t* root)
+{
+    rb_node_t* left = node->left;    // left 指向 node 的左子树
+
+    // #1 和 #2 表示把 b 变成 node 的左孩子
+    if ((node->left = left->right))  // #1
+    {
+        left->right->parent = node;  // #2
+    }
+    left->right = node;    // 把 left 的右孩子变成 node
+
+    if ((left->parent = node->parent))    // 把原 node 子树的父结点变成 left 的父结点，并且如果该父结点存在
+    {
+        if (node == node->parent->right)  // 如果原 node 子树是父结点的右子树
+        {
+            node->parent->right = left;
+        }
+        else
+        {
+            node->parent->left = left;
+        }
+    }
+    else
+    {
+        root = left;
+    }
+    node->parent = left;
+
+    return root;
+}
+
+/*
+ * @desc: 针对红黑树插入新结点后红黑树结构被破坏的3种情况，而进行的修复工作，使其重新变成红黑树。
+ * 当前结点和父结点都是红色，这就破坏了红黑树的结构。此时修复分两个部分：
+ * 一、祖父的左孩子 == 父母结点时； 二、祖父的右孩子 == 父母结点时
+ * 这两部分又各分 3 种修复情况
+ * 第一部分修复情况 1： 叔叔结点是红色
+ * 第一部分修复情况 2： 叔叔结点是黑色，当前结点是其父结点的右子
+ * 第一部分修复情况 3： 叔叔结点是黑色，当前结点是其父结点的左子。情况3是由情况2变化而来的
+ *
+ * 第二部分修复情况 1： 叔叔结点是红色
+ * 第二部分修复情况 1： 叔叔结点是黑色，当前结点是其父结点的左子
+ * 第二部分修复情况 1： 叔叔结点是黑色，当前结点是其父结点的右子。情况3是由情况2变化而来的
+ *
+ * @node: 新插入的结点
+ * @root: 根结点
+ * @retu: 红黑树修复后的根结点
+ */
+static rb_node_t* rb_insert_rebalance(rb_node_t *node, rb_node_t *root)
+{
+    rb_node_t *parent, *gparent, *uncle, *tmp;  // 父结点、祖父结点、叔叔结点、临时结点 *tmp
+
+    while ((parent = node->parent) && parent->color == RED) // parent 为 node 的父母，且当父母的颜色为红时
+    {
+        gparent = parent->parent;    // gparent 为祖父，且它一定存在，因为 parent 为红色
+
+        if (parent == gparent->left) // 当祖父的左孩子即为父母时。
+        {
+            uncle = gparent->right;
+
+            if (uncle && uncle->color == RED) // 情况 1
+            {
+                uncle->color = BLACK;
+                parent->color = BLACK;
+                gparent->color = RED;
+                node = gparent;     // 将祖父结点当作当前结点，继续进行修复
+            }
+            else // 叔叔结点是黑色。因为此时 uncle 可能为 NULL 或者 uncle 为黑色，又因为 NULL 也表示黑色，所以叔叔结点是黑色
+            {
+                if (parent->right == node)  // 情况 2。node 为右孩子
+                {
+                    root = rb_rotate_left(parent, root); // 将父亲结点左旋
+                    tmp = parent;
+                    parent = node;
+                    node = tmp;     // parent 与 node 互换角色，此时由情况 2 变成情况 3
+                }
+
+                // 情况 3
+                parent->color = BLACK;
+                gparent->color = RED;
+                root = rb_rotate_right(gparent, root); // 将祖父结点右旋
+            }
+        }
+        else // 当祖父的右孩子是父母结点时
+        {
+            // if (parent == gparent->right) 当祖父的右孩子即为父母时
+            uncle = gparent->left;
+            if (uncle && uncle->color == RED)  //情况 1
+            {
+                uncle->color = BLACK;
+                parent->color = BLACK;
+                gparent->color = RED;
+                node = gparent;
+            }
+            else
+            {
+                if (parent->left == node)  // 情况 2
+                {
+                    root = rb_rotate_right(parent, root);  // 将父结点右旋
+                    tmp = parent;
+                    parent = node;
+                    node = tmp;     // parent 与 node 互换角色，此时由情况 2 变成情况 3
+                }
+                // 情况 3
+                parent->color = BLACK;
+                gparent->color = RED;
+                root = rb_rotate_left(gparent, root);   // 将祖父结点左旋
+            }
+        }
+    }
+
+    root->color = BLACK; // 根结点置为黑色
+    return root;
+}
+
+/*
+ * @desc  : 红黑树删除一个黑色结点后，那么这个路径上就会少一个黑色结点，破坏了性质 5，而该函数是用来修复红黑树的
+ * @node  : node 为待删结点 X 的孩子结点,待删结点被删除后，此时 node 结点填补了待删结点的位置，node 成为当前结点
+ * @parent: parent 原本是待删结点 X 的父结点，X 被删除后，parent 成为 node 的父结点
+ * @root  : 红黑树根结点
+ */
+static rb_node_t* rb_erase_rebalance(rb_node_t *node, rb_node_t *parent, rb_node_t *root)
+{
+    rb_node_t *other, *o_left, *o_right;   // node的兄弟 *other，兄弟左孩子 *o_left, *o_right
+
+    // 删除的是黑结点，这条路径上就少了一个黑色结点。如果 node 又为黑，则需要进入 while 循环重新平衡红黑树；如果 node 为红，把 node 染黑红黑树就平衡了
+    while ((!node || node->color == BLACK) && node != root) // node 是黑色的且 node 非根结点
+    {
+        if (parent->left == node)
+        {
+            other = parent->right;
+
+            // 情况 1：node 的兄弟 other 是红色的
+            // 由于 parent 左子树少了一个黑结点，破坏了性质 5，所以通过下列 3 步操作使其满足性质 5
+            // 调整结束后，由于 other 改变了，node 子树和 other 子树可能不平衡，继续调整（此时 other 为黑色，通过另外 3 种情况进行调整）
+            if (other->color == RED)
+            {
+                other->color = BLACK;  // 第一步：兄弟 other 变黑
+                parent->color = RED;   // 第二步：父亲变红
+                root = rb_rotate_left(parent, root);  // 第三步：左旋
+                other = parent->right; // 由于左旋的结构调整，node 的兄弟结点变为：左旋前兄弟 other 的左孩子
+            }
+
+            // 情况 2：node 的兄弟 other 是黑色，且 other 的俩个孩子也都是黑色的
+            // 把 other 变红，这样 node 子树和 other 子树就平衡了。
+            // 情况 2 调整完毕后面临 2 种选择：node 是红色，node 是黑色
+            if ((!other->left || other->left->color == BLACK) &&
+                    (!other->right || other->right->color == BLACK))
+            {   // 由于 parent 左子树被删结点是黑色的，所以破坏了性质 5，通过下列 1 步操作使其满足性质 5
+                other->color = RED;    // 第一步：兄弟 other 变红
+                node = parent;         // 把 parent 变成当前结点，继续修复
+                parent = node->parent;
+            }
+            else
+            {
+                // 情况 3：兄弟 other 是黑色，other 的左孩子是红色，右孩子为黑色。
+                // 通过下列 3 步操作把情况 3 转换成情况 4
+                if (!other->right || other->right->color == BLACK)
+                {
+                    if ((o_left = other->left)) // 第一步：other 左孩子变黑
+                    {
+                        o_left->color = BLACK;
+                    }
+                    other->color = RED;         // 第二步：other 变红
+                    root = rb_rotate_right(other, root);  // 第三步：对 other 右旋
+                    other = parent->right;      // 右旋后，兄弟 other 变化了。把 other 置为右旋后的值
+                }
+
+                // 情况4：other 是黑色的，other 右子是红色的
+                // 通过下列3步操作使红黑树重新获得平衡
+                other->color = parent->color;  // 第一步：交换 other 和 parent 的颜色
+                parent->color = BLACK;
+                if (other->right)              // 第二步：other 右孩子染黑
+                {
+                    other->right->color = BLACK;
+                }
+                root = rb_rotate_left(parent, root);  // 第三步：左旋
+                node = root;   // 并把 node 置为根。
+                break;
+            }
+        }
+        // 下述情况与上述情况，原理一致。分析略。
+        else
+        {
+            other = parent->left;
+            if (other->color == RED)
+            {
+                other->color = BLACK;
+                parent->color = RED;
+                root = rb_rotate_right(parent, root);
+                other = parent->left;
+            }
+            if ((!other->left || other->left->color == BLACK) &&
+                    (!other->right || other->right->color == BLACK))
+            {
+                other->color = RED;
+                node = parent;
+                parent = node->parent;
+            }
+            else
+            {
+                if (!other->left || other->left->color == BLACK)
+                {
+                    if ((o_right = other->right))
+                    {
+                        o_right->color = BLACK;
+                    }
+                    other->color = RED;
+                    root = rb_rotate_left(other, root);
+                    other = parent->left;
+                }
+                other->color = parent->color;
+                parent->color = BLACK;
+                if (other->left)
+                {
+                    other->left->color = BLACK;
+                }
+                root = rb_rotate_right(parent, root);
+                node = root;
+                break;
+            }
+        }
+    }
+
+    if (node) // 染黑 node
+    {
+        node->color = BLACK;
+    }
+    return root;  //返回 root
+}
+
+/*
+ * @desc: 在红黑树中查找含有关键字 key 的结点
+ * @key:  关键字
+ * @root: 红黑树根结点
+ * @save: 如果没找到该结点，且 save 非空，则通过 save 返回要查找的结点的父结点
+ * @retu: 找到结点则返回该结点，否则返回 NULL
+ */
+static rb_node_t* rb_search_auxiliary(key_t key, rb_node_t* root, rb_node_t** save)
+{
+    rb_node_t *node = root, *parent = NULL;
+    int ret;
+
+    while (node)
+    {
+        parent = node;
+        ret = node->key - key;
+        if (0 < ret)
+        {
+            node = node->left;
+        }
+        else if (0 > ret)
+        {
+            node = node->right;
+        }
+        else
+        {
+            return node;
+        }
+    }
+
+    if (save)
+    {
+        *save = parent;
+    }
+
+    return NULL;
+}
+
+/* @desc: 红黑树中插入一个新结点
+ * @key : 键
+ * @data: 值
+ * @root: 红黑树根结点
+ * @retu: 返回插入新结点后的红黑树根结点
+ */
+
+rb_node_t* rb_insert(key_t key, data_t data, rb_node_t* root)
+{
+    rb_node_t *parent = NULL, *node;
+
+    parent = NULL;
+    if ((node = rb_search_auxiliary(key, root, &parent)))  // 调用 rb_search_auxiliary 找到要插入结点的父结点
+    {
+        return root;
+    }
+
+    node = rb_new_node(key, data);  // 分配结点
+    node->parent = parent;
+    node->left = node->right = NULL;
+    node->color = RED;    // 新结点默认为红色
+
+    if (parent)
+    {
+        if (parent->key > key)
+        {
+            parent->left = node;
+        }
+        else
+        {
+            parent->right = node;
+        }
+    }
+    else
+    {
+        root = node;
+    }
+
+    return rb_insert_rebalance(node, root);   // 插入结点后，调用 rb_insert_rebalance 修复红黑树的性质
+}
+
+/*
+ * @desc: 在红黑树中查找关键字 key 的结点
+ * @key : 关键字
+ * @root: 红黑树根结点
+ * @retu: 如果找到，返回该节点；否则返回 NULL
+ */
+rb_node_t* rb_search(key_t key, rb_node_t* root)
+{
+    return rb_search_auxiliary(key, root, NULL);
+}
+
+/*
+ * @desc: 红黑树删除结点 X
+ * @key : 待删除结点X的关键字
+ * @root: 红黑树根结点
+ * @retu: 返回红黑树根结点
+ */
+rb_node_t* rb_erase(key_t key, rb_node_t *root)
+{
+    rb_node_t *child, *parent, *old, *left, *node;
+    color_t color;
+
+    if (!(node = rb_search_auxiliary(key, root, NULL)))  // 找到待删 X
+    {
+        printf("key %d is not exist!/n");
+        return root;
+    }
+
+    old = node;
+
+    /*
+     * 删除操作分为 2 种情况：
+     *     一、待删结点 X 是叶结点或 X 有左子树或 X 有右子树
+     *     二、X 的左右子树均存在
+     */
+    /* 删除操作的第二种情况，解题思路：
+     *     1.X 的右子树中找到最小结点 M（或者在它的左子树中的最大结点 M），即右子树上中序遍历时找到的第一个结点。此时, M 结点必然至多只有一个孩子
+     *     2.把结点 M 移到结点 X 的位置，然后释放 X。此时原结点 M 所在位置出现空缺（把删除 X 结点转化成为删除 M 结点，而 M 结点又只有一个孩子，这样就把该问题转化成删除操作的第一种情况）
+     */
+    if (node->left && node->right) // 删除操作的第二种情况
+    {
+        node = node->right;
+        while ((left = node->left) != NULL) // 查找 M 结点
+        {
+            node = left;
+        }
+        // 找到 M 后，M 替代 X 成为待删结点。记录 M 结点的孩子、父亲、和颜色，为之后调整二叉排序树做准备
+        child = node->right;
+        parent = node->parent;
+        color = node->color;
+
+        if (child)
+        {
+            child->parent = parent;
+        }
+        if (parent)
+        {
+            if (parent->left == node)
+            {
+                parent->left = child;
+            }
+            else
+            {
+                parent->right = child;
+            }
+        }
+        else
+        {
+            root = child;
+        }
+
+        if (node->parent == old)
+        {
+            parent = node;
+        }
+
+        // 把结点 M 移到结点 X 的位置
+        node->parent = old->parent;
+        node->color = old->color;
+        node->right = old->right;
+        node->left = old->left;
+
+        if (old->parent)
+        {
+            if (old->parent->left == old)
+            {
+                old->parent->left = node;
+            }
+            else
+            {
+                old->parent->right = node;
+            }
+        }
+        else
+        {
+            root = node;
+        }
+
+        old->left->parent = node;
+        if(old->right)
+        {
+            old->right->parent = node;
+        }
+    }
+    /* 删除操作的第二种情况
+     * 解题思路：
+     *     1.如果待删结点 X 是叶结点，直接删除
+     *     2.如果 X 只有一颗左子树（右子树），则让 X 的左子树（右子树）成为 X 父结点的子树
+     */
+    else
+    {
+        if(!node->left)       // 处理左子树不存在的情况
+        {
+            child = node->right;
+        }
+        else if(!node->right) // 处理右子树不存在的情况
+        {
+            child = node->left;
+        }
+        parent = node->parent;// parent 为待删结点的父结点
+        color = node->color;  // color 为待删结点的颜色
+
+        if(child)    // child 为待删结点的孩子
+        {
+            child->parent = parent;
+        }
+        if(parent)
+        {
+            if(parent->left == node)
+            {
+                parent->left = child;
+            }
+            else
+            {
+                parent->right = child;
+            }
+        }
+        else
+        {
+            root = child;
+        }
+    }
+
+    free(old);
+
+    if(color == BLACK) // 如果删除的是黑结点，需要重新调整红黑树
+    {
+        // 此时待删结点已经被删除，二叉排序树的结构已经恢复。调用 rb_erase_rebalance 来恢复红黑树性质
+        root = rb_erase_rebalance(child, parent, root);
+    }
+
+    return root;
+}
+#+END_SRC

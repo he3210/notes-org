@@ -1,0 +1,90 @@
+#+TITLE: bloom filter
+
+* bloom filter
+布隆过滤器算法用不太严谨的话来说就是 hash + bit-map 的组合算法。
+- 插入一条数据 :: 首先通过 n 个 hash 函数计算出该数据的 n 个哈希值，然后在 bit-map 上将这些哈希值对应的 n 个位置置为 1。
+- 判断布隆过滤器上是否存在该条数据 :: 如果 bit-map 上该数据 n 个哈希值对应的位置全部为 1，则认为该条数据 **很可能** 存在；否则，认为不存在
+
+* bloom filter 特点
+- 不存在漏报。如果某个元素在某个集合中，肯定能检测出
+- 存在误报。如果某个元素不在某个集合中，可能也被认为在该集合中
+- 只能插入数据，不能删除数据（可以使用多个 bit 使用计数的方式存储一个哈希值，每次插入，计数加一，每次删除计数减一。如果使用 1 字节来存储一个值，最多只能冲突 255 次。再者，并不能完全确定该条数据一定在 bloom filter 中，如果删除的话可能会删错）
+- 区别于 bit-map，布隆过滤器并不直接存储数据，它存储的是哈希值。很适合用在对数据安全要求高的环境中
+
+* 参数调优
+参考 [[https://en.wikipedia.org/wiki/Bloom_filter][Wikipedia]]
+m 为 bit-map 共有 m bit
+n 为插入 bloom filter 中的元素数量
+k 为哈希函数的数量
+p 为误判率
+
+1. 如果给定 m 和 n，当 k 取以下值时，误判率 p 的值最小
+ $$k=\ln 2 \times \frac{m}{n} \approx 0.693 \times \frac{m}{n}$$
+ 此时误判率 p 等于
+ $$p_{min} \approx (1-e^{\frac{kn}{m}})^k = (1 - \frac{1}{2})^k \approx 0.6185^{\frac{m}{n}}$$
+2. 更常见的需求是，已知 n，并设定好误判率p，需要计算出该给 bit-map 分配多大内存合适，也就是要确认 m 的大小，可使用如下公式解决问题
+ $$m = - \frac{n \ln p}{(\ln 2)^2}$$
+* 一个简易的布隆过滤器
+#+BEGIN_SRC cpp
+#include <iostream>
+#include <bitset>
+#include <string>
+#define MAX (2<<24)  // 位图的大小为 4M
+
+std::bitset<MAX> bloomSet;                   // 位图
+int seeds[7] = {3, 7, 11, 13, 31, 37, 61};   // 使用 7 个 hash 函数 
+
+// 使用第 n 个函数计算 str 的哈希值
+int getHashValue(std::string str, int n)
+{
+    int result = 0;
+    for(int i = 0; i < str.size(); i++)
+    {
+        result = seeds[n]*result+(int)str[i];
+        if(result > MAX)
+            result %= MAX;
+    }
+    return result;
+}
+
+// 判断 str 是否在布隆过滤器中
+bool isInBloomSet(std::string str)
+{
+    for(int i=0; i<7; i++)
+    {
+        int hash = getHashValue(str, i);
+        if(bloomSet[hash] == 0)
+            return false;
+    }
+    return true;
+}
+
+// 添加 str 到布隆过滤器中
+void addToBloomSet(std::string str)
+{
+    for(int i=0; i < sizeof(seeds)/sizeof(int); i++)
+    {
+        int hash = getHashValue(str, i);
+        bloomSet.set(hash, 1);
+    }
+}
+
+void initBloomSet()
+{
+    addToBloomSet("http://www.baidu.com");
+    addToBloomSet("http://www.cnblogs.com");
+    addToBloomSet("http://www.google.com");
+}
+
+int main()
+{
+    std::string str;
+    initBloomSet();
+    std::cin>>str;
+    if(isInBloomSet(str))
+        std::cout<<"yes"<<std::endl;
+    else
+        std::cout<<"no"<<std::endl;
+    return 0;
+}
+#+END_SRC

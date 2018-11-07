@@ -1,0 +1,71 @@
+#+TITLE: flexible array(柔性数组)
+
+* main.c
+#+BEGIN_SRC c
+#include <stdio.h>
+#include <stdlib.h>
+struct stru         // 含柔性数组的结构体的实例大小可能不同
+{
+    int a;
+    struct Level    // flexible array(柔性数组)成员应该定义在结构体的最后
+    {
+        int b;
+    }level[];
+};
+
+int main(void)
+{
+    // sizeof得到的结果并不包括柔性数组的大小
+    printf("sizeof(struct stru) = %d\n", sizeof(struct stru));
+
+    // 为flexible array分配了8*sizeof(struct level)的空间
+    struct stru *struA = (struct stru*)malloc(sizeof(struct stru)+8*sizeof(struct Level));
+    for(int i = 0; i < 8; ++i)
+        struA->level[i].b = i;
+
+    // 从下面的代码可以看出：柔性数组分配的空间在结构体后面
+    printf("struA+1 = %0xd\n", struA+1);
+    for(int i = 0; i < 8; ++i)
+    {
+        printf("level[%d].b = %d,  %0xd\n", i, struA->level[i].b, &struA->level[i].b);
+    }
+    return 0;
+}
+#+END_SRC
+
+* 结果
+#+BEGIN_SRC bash
+$ gcc main.c -o main -std=99
+$ ./main
+sizeof(struct stru) = 4
+struA+1 = 2204014d
+level[0].b = 0,  2204014d
+level[1].b = 1,  2204018d
+level[2].b = 2,  220401cd
+level[3].b = 3,  2204020d
+level[4].b = 4,  2204024d
+level[5].b = 5,  2204028d
+level[6].b = 6,  220402cd
+level[7].b = 7,  2204030d
+#+END_SRC
+
+* 附
+
+如果结构体声明如下
+#+BEGIN_SRC c
+struct stru
+{
+    struct Level
+    {
+        int b;
+    }level[];
+    int a;
+};
+#+END_SRC
+
+就会编译出错
+#+BEGIN_SRC bash
+$ gcc main.c -o main -std=c99
+main.c:16:3: error: flexible array member not at end of struct
+  }level[];
+#+END_SRC

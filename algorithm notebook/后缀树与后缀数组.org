@@ -1,0 +1,87 @@
+#+TITLE: 后缀树与后缀数组
+
+* 后缀树
+后缀树就是把文本和该文本的所有后缀子串构建一个 trie 树。相关问题例如：
+#+BEGIN_QUOTE
+给你一个长字符串 s 与很多短字符串集合 ${T_1, T_2, ...}$ ，设计一个方法在 s 中查询 T_{1}, T_{2}, ...，要求找出 T_{i} 在 s 中出现的位置
+#+END_QUOTE
+
+解法参考 [[./trie.org][trie]]
+
+* 后缀数组
+最长重复子串问题
+#+BEGIN_QUOTE
+有串 abcdabcda，最长重复子串是 abcda。其中，母串中的的 a 在 2 个最长重复子串 abcda 中是重叠的，这是被允许的。给定一个母串，求其最长重复子串
+#+END_QUOTE
+
+** 分析
+对于母串 banana，使用数组 a 中的指针指向母串的后缀：
+a[0] 指向 banana
+a[1]: anana
+a[2]: nana
+a[3]: ana
+a[4]: na
+a[5]: a
+数组 a 就是后缀数组。然后对后缀数组进行快排，将后缀相近的后缀子串邻接在一起，排序后如下：
+a[0]: a
+a[1]: ana
+a[2]: anana
+a[3]: banana
+a[4]: na
+a[5]: nana
+最后使用 comlen 函数对后缀数组进行遍历比较邻接元素，找出文本的最长重复子串
+
+** 算法
+#+BEGIN_SRC c
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+#define MAXCHAR 5000  // 最长处理 5000 字符
+char c[MAXCHAR];      // 文本
+char *a[MAXCHAR];     // 文本的后缀数组
+
+int comlen(char *p, char *q)
+{
+    int i = 0;
+    while(*p && (*p++ == *q++))
+        ++i;
+    return i;
+}
+
+int pstrcmp(const void *p1, const void *p2)
+{
+    return strcmp(*(char**)p1, *(char**)p2);
+}
+
+int main()
+{
+    char ch;
+    int n = 0, i, temp, maxlen = 0, maxi = 0;
+    printf("Please input your string:\n");
+    n = 0;
+    while((ch = getchar()) != '\n')
+    {
+        a[n] = &c[n];  // 构造后缀数组
+        c[n++] = ch;
+    }
+    c[n] = '\0';
+
+    qsort(a, n, sizeof(char*), pstrcmp);  // 对后缀数组进行快排
+    // 使用 comlen 函数对后缀数组进行遍历比较邻接元素，找出文本的最长重复子串
+    for(i = 0; i < n-1; ++i)
+    {
+        temp = comlen(a[i], a[i+1]);
+        if(temp > maxlen)
+        {
+            maxlen = temp;
+            maxi = i;
+        }
+    }
+
+    printf("%d, %s\n",  maxlen, a[maxi] );
+}
+#+END_SRC
+** 总结
+生成后缀数组时间复杂度为 O(n)，排序时间复杂度为 O(nlogn * n)，最后，依次检测相邻 2 个后缀子串的时间复杂度为 O(n^{2})
+另外，该题也可使用常规的 trie 树解法，参考 [[./trie.org][trie]]。需要记录每个结点的深度，以及经过该结点的模式串数量。

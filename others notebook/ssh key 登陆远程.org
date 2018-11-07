@@ -1,0 +1,38 @@
+#+TITLE: ssh key 登陆远程
+
+* 生成 public_key 和 private_key
+#+BEGIN_SRC shell
+$ ssh-keygen -t rsa -C "shi_zhonghe@163.com”
+#+END_SRC
+
+会生成 2 个文件
+#+BEGIN_SRC shell
+$ tree ~/.ssh
+~/.ssh
+├── id_rsa
+└── id_rsa.pub
+#+END_SRC
+
+* 公钥拷贝到远程
+拷贝 id_ras.pub 到远程服务器，并重命名为 authorized_keys，然后拷贝到用户根目录下的 .ssh/ 目录
+#+BEGIN_SRC shell
+$ scp -P2207 id_rsa.pub root@www.langdebuqing:/root/.ssh/authorized_keys
+#+END_SRC
+
+* 修改本机的配置文件
+
+修改本地主机 ~/.ssh/config 文件，添加如下类似内容：
+#+BEGIN_EXAMPLE
+# server 2
+Host he
+    HostName www.langdebuqing.com
+    Port 2207
+    User root
+    IdentityFile ~/.ssh/id_rsa
+#+END_EXAMPLE
+
+* 登陆
+使用下面的命令即可登录（只有首次登陆时需要输入密码，以后则不需要）
+#+BEGIN_SRC shell
+$ ssh he
+#+END_SRC

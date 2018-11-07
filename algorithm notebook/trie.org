@@ -1,0 +1,174 @@
+#+TITLE: trie
+
+* 根据前缀查询匹配的模式串数量
+[[https://hihocoder.com/problemset/problem/1014][hihocoder 1014]]
+
+#+BEGIN_SRC cpp
+#include <cstdio>
+#include <cstring>
+#define N 1000010    // 最大结点数
+#define M 26         // 字符集 Σ 的大小。在这里表示 26 个小写字母
+
+int trie[N][M];      // trie 树，也就是 goto 函数
+int id[256];         // 建立字母和结点编号的映射关系。字母 x 对应的结点编号为 id[x]
+int n;               // trie 树当前结点总数
+int tag[N];          // 在该结点结束的模式串数量
+int cnt[N];          // cnt[3] 表示经过第三个结点的模式串数量
+
+// 重置 trie。使其还原成只有一个根结点的状态
+void reset_trie()
+{
+    memset(trie[0], -1, sizeof(trie[0]));
+    n = 1;
+}
+
+void init_trie()
+{
+    for (int i = 0; i < M; ++i)
+        id['a'+i] = i;
+    reset_trie();
+}
+
+// 插入模式串，构造 trie 树
+void insert_pattern(char *s)
+{
+    int p = 0;
+    while (*s)
+    {
+        int i = id[*s];
+        if ( -1 == trie[p][i] )
+        {
+            memset(trie[n], -1, sizeof(trie[n]));
+            tag[n] = 0;
+            cnt[n] = 0;
+            trie[p][i] = n++;
+        }
+        p = trie[p][i];
+        ++cnt[p];
+        ++s;
+    }
+    ++tag[p];
+}
+
+int get_ans(char *s)
+{
+    int p = 0;  // 结点 p 初始化为根结点 0
+    while(*s)
+    {
+        p = trie[p][id[*s]];
+        if(-1 == p)
+            return 0;
+        ++s;
+    }
+    return cnt[p];
+}
+
+int main()
+{
+    int total;
+    char text[100010][11];
+    init_trie();
+    scanf("%d", &total);
+    for(int i = 0; i < total; ++i)
+        scanf("%s", text[i]);
+    for(int i = 0; i < total; ++i)
+        insert_pattern(text[i]);
+        
+    scanf("%d", &total);
+    for(int i = 0; i < total; ++i)
+        scanf("%s", text[i]);
+    for(int i = 0; i < total; ++i)
+        printf("%d\n",  get_ans(text[i]) );
+    return 0;
+}
+
+#+END_SRC
+* Shortest Proper Prefix
+[[https://hihocoder.com/problemset/problem/1107][hihocoder 1107]]
+
+#+BEGIN_QUOTE
+We say a string s is a proper prefix if there are no more than 5 collected queries have s as a prefix. A string s is a shortest proper prefix if s is a proper prefix and all the prefixes of s(except for s itself) are not proper prefixes.
+#+END_QUOTE
+
+多用于浏览器候选词推荐、自动补全程序等。
+#+BEGIN_SRC cpp
+#include <cstdio>
+#include <cstring>
+#define N 1000010    // 最大结点数
+#define M 26         // 字符集 Σ 的大小。在这里表示 26 个小写字母
+#define LEN 1000010  // 最大文本长度
+
+int trie[N][M];      // trie 树，也就是 goto 函数
+int id[256];         // 建立字母和结点编号的映射关系。字母 x 对应的结点编号为 id[x]
+int n;               // trie 树当前结点总数
+int tag[N];          // 在该结点结束的模式串数量
+int cnt[N];          // cnt[3] 表示经过第三个结点的模式串数量
+int result;
+
+// 重置 trie。使其还原成只有一个根结点的状态
+void reset_trie()
+{
+    memset(trie[0], -1, sizeof(trie[0]));
+    n = 1;
+    result = 0;
+}
+
+void init_trie()
+{
+    for (int i = 0; i < M; ++i)
+        id['a'+i] = i;
+    reset_trie();
+}
+
+// 插入模式串，构造 trie 树
+void insert_pattern(char *s)
+{
+    int p = 0;
+    while (*s)
+    {
+        int i = id[*s];
+        if ( -1 == trie[p][i] )
+        {
+            memset(trie[n], -1, sizeof(trie[n]));
+            tag[n] = 0;
+            cnt[n] = 0;
+            trie[p][i] = n++;
+        }
+        p = trie[p][i];
+        ++cnt[p];
+        ++s;
+    }
+    ++tag[p];
+}
+
+// 递归遍历计算 trie 树模式串中 Shortest Proper Prefix 的数量
+void cal(int p)
+{
+    if(p > 0 && cnt[p] <= 5)
+        ++result;
+    else
+    {
+        for(int i = 0; i < M; ++i)
+        {
+            if(trie[p][i] != -1)
+                cal(trie[p][i]);
+        }
+    }
+}
+
+int main()
+{
+    int total;
+    char word[LEN];
+    init_trie();
+    scanf("%d", &total);
+    for(int i = 0; i < total; ++i)
+    {
+        scanf("%s", word);
+        insert_pattern(word);
+    }
+    cal(0);
+    printf("%d\n", result);
+    return 0;
+}
+#+END_SRC

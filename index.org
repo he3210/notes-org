@@ -12,11 +12,7 @@ display: none
 
 
 - [[file:./test/math.org][数学公式 (test latex)]]
-
 - [[file:./libevent notebook/common-timeout.org][超时队列]]
-
 - [[file:./test/remember.org][remember]]
-
 - [[file:./test/worg.org][worg (for test)]]
-
 - [[file:./test/o-blog.org][o-blog (for test)]]

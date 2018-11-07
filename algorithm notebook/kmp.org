@@ -1,0 +1,136 @@
+#+TITLE: KMP
+
+* 问题描述
+
+给定字符串 A 和其子串 B， 在 A 中查找 B，返回其下标
+
+* BF 解法
+
+#+BEGIN_SRC c
+#include<assert.h>
+int BF(const char *str, const char *substr)
+{
+    assert(str && substr);
+    int lenStr = strlen(str);
+    int lenSubstr = strlen(substr);
+    if(lenStr < lenSubstr)
+        return -1;
+
+    for(int i = 0; i != lenStr-lenSubstr+1; ++i)
+    {
+        int j;
+        for(j = 0; j != lenSubstr; ++j)
+            if(str[i+j] != substr[j])
+                break;
+        if(j == lenSubstr)
+            return i;
+    }
+    return -1;
+}
+#+END_SRC
+
+* KMP 解法
+#+BEGIN_SRC c
+  #include<stdio.h>
+  #include<string.h>
+  
+  // 获取指针数组 previous
+  void getPrevious(const char *pattern, int lenPattern, int *previous)
+  {
+      int curPos = 0;
+      previous[curPos] = -1;
+      int flagPos = -1;
+      while(curPos < lenPattern-1)
+      {
+          if(-1 == flagPos || pattern[curPos] == pattern[flagPos])
+          {
+              ++curPos;
+              ++flagPos;
+              previous[curPos] = flagPos;
+          }
+          else
+              flagPos = previous[flagPos];
+      }
+  }
+
+  int KMP(const char *str, int lenStr, const char *pattern, int lenPattern, const int *previous, int pos)
+  {
+      int strPos = pos;
+      int patternPos = 0;
+      while(strPos != lenStr && patternPos != lenPattern)
+      {
+          if(-1 == patternPos || str[strPos] == pattern[patternPos])
+          {
+              ++strPos;
+              ++patternPos;
+          }
+          else
+              patternPos = previous[patternPos];
+      }
+      if(patternPos == lenPattern)
+          return strPos-lenPattern;
+      else
+          return -1;
+  }
+
+  int main(void)
+  {
+      const char *str = "How are you";
+      const char *substr = "are";
+      printf("%d\n", BF(str, substr));
+
+      const char *str2 = "001012012301234";
+      const char *substr2 = "0120123";
+      int previous[1024];
+      getPrevious(substr2, strlen(substr2), previous);
+      printf("%d\n", KMP(str2, strlen(str2), substr2, strlen(substr2), previous, 0));
+
+      return 0;
+  }
+#+END_SRC
+
+* 优化
+
+#+BEGIN_SRC c
+void getPrevious(const char *pattern, int lenPattern, int *previous)
+{
+    int curPos = 0;
+    previous[curPos] = -1;
+    int flagPos = -1;
+    while(curPos < lenPattern-1)
+    {
+        if(-1 == flagPos || pattern[curPos] == pattern[flagPos])
+        {
+            ++curPos;
+            ++flagPos;
+            if(pattern[curPos] != pattern[flagPos])
+                previous[curPos] = flagPos;
+            else
+                /* 此时 pattern[curPos-1] 和 pattern[flagPos-1] 相等、
+                   pattern[curPos] 和 pattern[flagPos] 相等。
+                   这样的字符串形式为："...xy...xy...",
+                   而 previous 数组存在的意义是源串和模式串不匹配时模式串应该回溯的下标
+                   第一个 "xy" 和第二个 "xy" 相同，由于源串和第二个 "xy" 不匹配，所以肯定和第一个 "xy" 也不匹配
+                   故向前回溯时，应跳过第一个 "xy"，使用 previous[curPos] = previous[flagPos] 语句
+                   这样生成的 previous 数组可以使 KMP 函数中少一些不必要的比较
+                 */
+                previous[curPos] = previous[flagPos];
+        }
+        else
+            flagPos = previous[flagPos];
+    }
+}
+#+END_SRC
+
+* previous 数组
+
+对于模式串"xyxyyxxyx"，previous数组为
+| 下标  |  0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|-------+----+---+---+---+---+---+---+---+---|
+| value | -1 | 0 | 0 | 1 | 2 | 0 | 1 | 1 | 2 |
+
+改进的previous数组为：
+| 下标  |  0 | 1 |  2 | 3 | 4 |  5 | 6 | 7 |  8 |
+|-------+----+---+----+---+---+----+---+---+----|
+| value | -1 | 0 | -1 | 0 | 2 | -1 | 1 | 0 | -1 |
+

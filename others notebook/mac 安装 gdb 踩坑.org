@@ -1,0 +1,51 @@
+#+TITLE: mac 安装 gdb 踩坑
+
+* 参考
+- https://sourceware.org/gdb/wiki/BuildingOnDarwin
+- https://stackoverflow.com/questions/49222683/how-do-i-install-gdb-on-macos-10-13-3-high-sierra
+
+
+* 安装 gdb 并为其签名
+1. 安装gdb
+ #+BEGIN_SRC shell
+ $ brew install gdb
+ $ gdb --version
+ GNU gdb (GDB) 8.1
+ #+END_SRC
+
+2. 然后创建证书
+ 执行菜单 钥匙串访问->证书助理->创建证书
+ 填写信息
+ - 证书名称：gdb-cert
+ - 身份类型：自签名根证书
+ - 证书类型：代码签名
+ - 勾选：让我覆盖这些默认值
+ 然后一直点击继续，直到指定证书位置的步骤，选择钥匙串保存的位置是系统
+ 点击创建，输入系统密码，创建完成。（极有可能创建失败，这时可以选择钥匙串保存位置为登录，然后导出证书，再然后把证书导入到系统）
+ 打开证书简介界面，点击信任->代码签名，将其改为始终信任
+3. 重启系统刷新系统证书和代码签名数据
+4. 给 gdb 签名
+ #+BEGIN_SRC shell
+ $ codesign -fs gdb-cert /usr/local/bin/gdb    # -f 表示签名若已存在就覆盖
+ #+END_SRC
+5. 添加 ~/.gdbinit 文件
+ #+BEGIN_SRC shell
+ $ echo "set startup-with-shell off" >> ~/.gdbinit
+ #+END_SRC
+6. 最后会出现如下错误
+ #+BEGIN_SRC shell
+ $ sudo gdb main
+ (gdb) r
+ Starting program: /Users/he/test/algorithm/main
+ [New Thread 0x1103 of process 843]
+ [New Thread 0xe03 of process 843]
+ 
+ During startup program terminated with signal SIGTRAP, Trace/breakpoint trap.
+ #+END_SRC
+
+* 解决错误
+需要更换 gdb v8.1 到 gdb v8.0.1，用如下代码替换上述步骤1
+#+BEGIN_SRC shell
+$ brew uninstall gdb
+$ brew install https://raw.githubusercontent.com/Homebrew/homebrew-core/c3128a5c335bd2fa75ffba9d721e9910134e4644/Formula/gdb.rb
+#+END_SRC

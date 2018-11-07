@@ -1,19 +1,12 @@
 #+TITLE: Links
 
 - [[https://dirtysalt.github.io/html/index.html][章炎的个人站点]]
-
+- [[https://samrayleung.github.io/blog/][公子世无双，陌上人如玉]]
 - [[http://forrestchang.com/index.html][Hack Notes]]
-
 - [[http://www.shellcodes.org/][LU5NX]]
-
 - [[http://elvestar.com/][仲之地]]
-
 - [[http://kdr2.com/misc/categories.html][KDr2]]
-
 - [[http://zhowkev.in/][Kevin]]
-
 - [[https://xuexb.com/][前端小武的博客]]
-
 - [[http://www.zmonster.me/categories.html][ZMonster's Blog]]
-
 - [[http://lujun9972.github.io/emacs-document/][lujun9972]]

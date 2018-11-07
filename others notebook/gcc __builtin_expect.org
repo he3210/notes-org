@@ -1,0 +1,37 @@
+#+TITLE: gcc __builtin_expect
+
+将流水线引入 cpu，可以提高 cpu 的效率。更简单的说，让 cpu 可以预先取出下一条指令，可以提高 cpu 的效率。如下图所示：
+#+BEGIN_EXAMPLE
++--------------------------------
+|取指令 | 执行指令 | 输出结果
++--------------------------------
+|      | 取指令     | 执行
++--------------------------------
+#+END_EXAMPLE
+
+可见，cpu 流水钱可以减少 cpu 等待取指令的耗时，从而提高 cpu 的效率。
+如果存在跳转指令，那么预先取出的指令就无用了。cpu 在执行当前指令时，从内存中取出了当前指令的下一条指令。执行完当前指令后，cpu 发现不是要执行下一条指令,而是执行 offset 偏移处的指令。cpu 只能重新从内存中取出 offset 偏移处的指令。因此，跳转指令会降低流水线的效率，也就是降低 cpu 的效率。
+综上，在写程序时应该尽量避免跳转语句。那么如何避免跳转语句呢？答案就是使用 __builtin_expect。
+这个指令是 gcc 引入的，作用是"允许程序员将最有可能执行的分支告诉编译器"。这个指令的写法为：__builtin_expect(EXP, N)。意思是：EXP==N 的概率很大。一般的使用方法是将 __builtin_expect 指令封装为 LIKELY 和 UNLIKELY 宏。这两个宏的写法如下。
+#+BEGIN_SRC c
+#define LIKELY(x) __builtin_expect(!!(x), 1)     // x 很可能为真。两个 ! 是为了将 x 转化成 bool 型
+#define UNLIKELY(x) __builtin_expect(!!(x), 0)   // x 很可能为假
+#+END_SRC
+
+举例：
+对于
+~if(LIKELY(a == b))~
+~if(UNLIKELY(a == b))~
+它们在逻辑上都等价于 if(a == b)。但为什么这么做呢？
+因为使用了 LIKELY()，if 后面的语句执行的概率大，else 后面的代码执行的概率小；使用了 UNLIKELY 则相反。编译器就可以据此将执行概率大的代码紧跟着前面的代码，从而减少指令跳转时 cpu 等待取指令的耗时
+
+
+
+libevent 的 util-internal.h 文件中就有
+#+BEGIN_SRC c
+#if defined(__GNUC__) && __GNUC__ >= 3         /* gcc 3.0 or later */
+#define EVUTIL_UNLIKELY(p) __builtin_expect(!!(p),0)  // 表示告诉编译器：p 为假的概率很大。尽量避免 cpu 跳转指令，提高 cpu 效率
+#else
+#define EVUTIL_UNLIKELY(p) (p)
+#endif
+#+END_SRC
