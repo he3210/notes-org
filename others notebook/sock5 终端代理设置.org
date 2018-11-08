@@ -1,0 +1,53 @@
+#+TITLE: 终端设置 sock5 代理
+
+* 添加配置
+
+homebrew 国内使用速度有很大问题，所以就添加了如下配置让终端使用代理。
+我用的是 shadowsocks 代理，shadowsocks 的代理端口为 1080
+添加配置到 .zshrc 中
+
+#+BEGIN_SRC sh
+# proxy
+alias proxy='export all_proxy=socks5://127.0.0.1:1080'
+alias unproxy='unset all_proxy'
+alias ip='curl http://cip.cc'   # ip 别名用来查询本机外网 ip 用的
+#+END_SRC
+
+* 查看是否代理成功
+#+BEGIN_SRC shell
+$ source ~/.zshrc
+$ ip
+IP	: xxx.xx.xx.xxx
+地址	: 中国  北京
+运营商	: 鹏博士
+
+数据二	: 北京市 | 鹏博士长城宽带
+
+数据三	: 中国北京北京市 | 鹏博士
+
+URL	: http://www.cip.cc/xxx.xx.xx.xxx
+$ proxy
+$ ip
+IP	: xxx.xx.xx.xxx
+地址	: 美国  加利福尼亚州  洛杉矶
+运营商	: choopa.com
+
+数据二	: 美国
+
+数据三	: 美国加利福尼亚洛杉矶
+
+URL	: http://www.cip.cc/xxx.xx.xx.xxx
+$ unproxy
+$ ip
+IP	: xxx.xx.xx.xxx
+地址	: 中国  北京
+运营商	: 鹏博士
+
+数据二	: 北京市 | 鹏博士长城宽带
+
+数据三	: 中国北京北京市 | 鹏博士
+
+URL	: http://www.cip.cc/xxx.xx.xx.xxx
+#+END_SRC
+
+可以看出，使用代理后发现本机外网 ip 已经从北京变到洛杉矶了
