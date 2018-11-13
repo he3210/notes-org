@@ -9,4 +9,4 @@
 - [[./cut.org][cut]]
 - [[./shell 单引号和双引号的区别.org][shell 单引号和双引号的区别]]
 - [[./shell 编程基础.org][shell 编程基础]]
-- [[./一个守护进程.org][一个守护进程]]
+- [[./touch bar + bettertouchtool + shell 一键优化工作流程.org][touch bar + shell 一键优化工作流程]]

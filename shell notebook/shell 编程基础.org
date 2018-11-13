@@ -25,6 +25,8 @@ $ echo $?      # 前一命令执行的返回值
 999
 #+END_SRC
 
+- =$!= Shell 最后运行的后台 Process 的 PID
+
 * 数组
 输出数组的所有元素
 #+BEGIN_SRC shell

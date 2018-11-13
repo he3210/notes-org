@@ -1,0 +1,79 @@
+#+TITLE: touch bar + bettertouchtool + shell 一键优化工作流程
+
+* Macbook pro touch bar
+
+对我来说，Apple 的 Touch Bar 的设计毫无意义：
+- touch bar 与主屏幕上的当前上下文相关，即 touch bar 根据不同软件展示不同内容。
+- 使用 touch bar 作为键盘和触控板的扩展，而不是显示各种状态信息。
+- 无按键震动反馈
+如果 touch bar 根据上下文不断变化，则无法通过肌肉记忆来点击正确的按钮。此外，由于 touch bar 无法提供独特的功能（可能一些需要做图的设计师会比较有用），因此 Touch Bar 的优势非常低。
+
+所以 touch bar 仅仅是看起来比较漂亮。需要对 touch bar 做一些改进，改进的目标：
+- 增强 touch bar 对工作的帮助
+- 不分散注意力、美观
+- 尽可能低的功耗
+- 避免在 touch bar 上设置一些快捷键操作
+- touch bar 的按键震动反馈使用触控板的震动（在 bettertouchtool 中设置）
+为什么避免在 touch bar 上设置快捷键呢？
+touch bar 的优势在于它是一个条形触摸屏，而不是键盘。比如：打开 google（我设置的快捷键是 触控板左边缘双指右滑）、打开 iterm2（我设置的快捷键是 lterm，l 是快捷键前缀，term 是 terminal 的缩写) 等，这是快捷键做的事情而不是 touch bar 该做的，touch bar 应该做一些更高级的事情
+
+完成这些目标需要借助一款软件 bettertouchtool
+
+* bettertouchtool touch bar 基本配置
+
+借助 bettertouchtool 可定制 mac 的快捷键、触控板、touch bar、键盘改键、鼠标、siri、遥控器等。这里用到对 touch bar 的定制。
+参考博客 [[https://andrewchidden.com/long-live-the-macbook-pro-with-touch-bar/][andrewchidden]]，github 项目 [[https://github.com/andrewchidden/btt-controllers][btt-controllers]]，我添加的功能有待办事项提示功能，git 仓库状态功能，剩余电量，天气，时间展示，倒计时器功能，双指左右滑控制音量，三指左右滑控制亮度。我的 touch bar 主界面：
+#+ATTR_ORG: :width 90%
+#+ATTR_HTML: :width 90%
+[[../images/touch bar-1.png]]
+
+1. **待办事项控件** ，单击打开 mac 日历，无待办事项自动隐藏。它需要一个[[https://github.com/andrewchidden/btt-services][守护进程 eventkit-service]]，随 bettertouchtool 首次运行而启动，用于监控 mac 的日历，记录当前的待办事项到文本，如果待办事项发生变化就发送 http 请求通知本机 bettertouchtool 的 webserver。bettertouchtool 可以在设置中开启 webserver 服务，它收到 http 请求后更新待办事项控件状态。这种方式避免了轮询待办事项的状态
+2. **git 控件** 。显示关注的 git 仓库状态。图中表示仓库中有 3 个文件发生变动，增加了 11 行，删除了 2 行。需要设置一个 git 仓库的环境变量来指明哪一个 git 仓库 ~export BTT_GIT_WORKING_DIR="/git/repository/path/"~
+3. **电量控件** ，仅在未充电状态显示该控件
+4. **天气控件** ，显示现在的天气情况。单击后显示今天、明天、后天三天的天气情况：
+ #+ATTR_ORG: :width 90%
+ #+ATTR_HTML: :width 90%
+ [[../images/touch bar-2.png]]
+5. **时间控件** ，展示当前时间。
+ - 单击后展示详细时间:
+  #+ATTR_ORG: :width 90%
+  #+ATTR_HTML: :width 90%
+  [[../images/touch bar-3.png]]
+ - 长按后打开倒计时器，macOS 没有计时器应用程序，该计时器使用 shell 构建，计时结束后 shell 脚本使用 =osascript= 命令向本机发送一个计时结束的桌面通知：
+  #+ATTR_ORG: :width 90%
+  #+ATTR_HTML: :width 90%
+  [[../images/touch bar-4.png]]
+  - custom 为自定义倒计时器时间。使用 apple script 弹出一个窗口，输入计时时间。
+  - 5 minutes 等表示指定倒计时器时间
+  下图为正在计时的 30 minutes 倒计时器，点击红色按钮取消计时；点击时间控件，返回主界面
+  #+ATTR_ORG: :width 90%
+  #+ATTR_HTML: :width 90%
+  [[../images/touch bar-5.png]]
+
+还可以设置其它控件，比如显示音乐歌词、显示 docker 运行的容器等等
+
+* touch bar 简化工作流程
+
+在工作中碰到的一些事情，可以使用 shell 脚本优化工作流程。例如：为 IOS 客户端发包
+** 发包步骤
+
+IOS ipa 包：xxxx_xxxx_xxxx_1.0.81.1707171146.ipa
+build 号码：ipa 包名的末尾 1707171146 就是 build 号。其中，前 6 位是发包的年月日
+1. 使用 scp 命令上传 ipa 文件到服务器
+2. 在服务器上 md5sum 计算文件 MD5，与 IOS 开发人员提供的 MD5 对比，校验文件
+3. cp 备份旧 ipa 文件、旧配置文件
+4. mv 替换旧 ipa 文件，并改名
+5. sed 修改配置文件中的 build 号码
+
+** 优化发包步骤
+
+写 2 个 shell 脚本，1.sh 放在本地，2.sh 放在服务器
+- 1.sh 做的事情首先是 scp 命令上传 ipa 文件到服务器，然后使用 ssh 命令在服务器上执行 2.sh。最后根据执行结果，使用 =osascript= 命令向桌面推送一个通知
+- 2.sh 需要做的是 [[*发包步骤][发包步骤]] 中的 2~5 步
+
+然后使用 bettertouchtool touch bar 的 shell 脚本控件，在 touch bar 上添加一个一键发包的按钮，触发 1.sh 的执行。发包步骤变为：
+1. 点击 IOS 发包按钮，桌面弹出一个 MD5 窗口（使用 apple script）
+2. 输入 IOS 开发人员提供的 ipa 文件的 MD5
+然后桌面就会出现一个发包的结果通知。
+
+之前的发包步骤需要上传、校验文件、备份、替换、重命名、修改配置文件，至少需要 5~10 分钟，并且可能因马虎出现失误。而现在很难出现失误，可直接 touch bar 一键操作，是不是可以早下班几分钟了 ^_^

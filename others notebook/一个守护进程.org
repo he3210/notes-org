@@ -57,8 +57,9 @@
 #+BEGIN_SRC shell
 $ gcc daemon.c -o daemon -std=c99
 $ ./daemon
-$ ps -ef | grep './daemon' | grep -v grep                                                                                                                                           16:32:51
-  501 43381     1   0  4:32PM ??         0:00.01 ./daemon
+$ ps -xj
+ PPID   PID  PGID   SID TTY      TPGID STAT   UID   TIME COMMAND
+    1 29071 29069 29069 ?           -1 S        0   0:00 ./daemon
 $ cat daemon.log
 2015-06-21 10:17:32
 2015-06-21 10:17:35
@@ -66,3 +67,8 @@ $ cat daemon.log
 2015-06-21 10:17:41
 2015-06-21 10:17:44
 #+END_SRC
+
+- TTY 为 ? 说明该进程没有控制终端
+- 该进程 PPID 为 1，说明该进程的父进程为 init 进程
+- PID != SID 表明该进程不是会话的 leader 进程（因为第二个 fork() 的作用），所以该进程无法重新打开/控制一个TTY
+可以看出该进程是守护进程

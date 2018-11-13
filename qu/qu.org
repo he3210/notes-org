@@ -1,0 +1,3 @@
+#+TITLE: 私人笔记
+
+- [[./ShadowsocksR.org][ShadowsocksR 配置]]
