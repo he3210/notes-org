@@ -1,0 +1,60 @@
+#+TITLE: 正则表达式（RE：regular expression）
+
+* 正则表达式和通配符的区别
+- 在一个 command line 中 =$ command_name options arguments= ，wildcard 只作用于 command line 中 argument 的 path 上；
+- 而正则表达式是用于 "字符串处理" 的，它可以出现在 command line 中或脚本中。
+
+shell command line 上，字符分为 meta 与 literal 这两种不同的字符类型；
+正则表达式里字符也分为 meta 与 literal 这两种
+
+然而，不少正则表达式所使用的 meta 字符，跟 shell 的 meta 字符是冲突的。例如，字符 =*= ，在正则表达式中是一个 modifier(修饰符);而在 command line 上，却是 wildcard(通配符)。
+
+如何解决冲突呢？
+要知道，shell quoting 就是用来在 command line 上关闭 shell meta 的。所以，我们只需要用 shell quoting 关闭掉 shell meta 就是了，这样，一些冲突的字符就会被认为是正则表达式中的 modifier 了。
+
+例如
+若在 command line 的 path 中没有 quoting 处理的话，如 =abc*= 就会被作为 wildcard expression 来扩充及重组了。若将其置于 quoting 中，即 ="abc*"= ，则可以避免 wildcard expand 的处理。
+
+* character set
+字符集合(character set): 就是将多个连续的字符作为一个集合
+- =abc=       表示 abc 三个连续的字符，但彼此独立而非集合。(可简单视为三个 character set)
+- =(abc)=     表示 abc 这三个连续字符的集合。(可简单视为一个character set)
+- =abc|xyz=   表示 abc 或 xyz 这两个character set 之一
+- =[abc]=     表示单一字符，可为 a 或 b 或 c；与 wildcard 的 [abc] 原理相同。
+- =[^abc]=    表示单一字符，不为 a 或 b 或 c 即可。(与 wildcard [!abc] 原理相同)
+- =.=         表示除换行符之外的任意单个字符
+
+* anchor
+锚点(anchor): 用以标识 Regular Expression 在句子中的位置
+- =^=     表示句首。如， =^abc= 表示以 abc 开头的句子
+- =$=     表示句尾。如， =abc$= 表示以 abc 结尾的句子
+- =\<=    表示词首。如， =\\<abc= 表示以 abc 开头的词
+- =\>=    表示词尾。如， =abc\\>= 表示以 abc 结尾的词
+
+* modifier
+修饰符(modifier)：独立表示时本身不具意义，专门用以修饰前一个 character set 出现的次数
+- =*=         表示前一个 character set 出现 0 次或多次，即任意次。如 =ab*c= 表示 a 与 c 之间可以有 0 个或多个 b
+- =?=         表示前一个 character set 出现 0 次或 1 次，即至多出现 1 次。如 =ab?c= 表示 a 与 c 之间可以有 0 个或 1 个 b
+- =+=         表示前一个 character set 出现 1 次或多次，即至少出现 1 次。如 =ab+c= 表示 a 与 c 之间可以有 1 个或多个 b
+- ={n}=       表示前一个 character set 出现 n 次。如 =ab{n}c= 表示 a 与 c 之间可以有 n 个 b
+- ={n, }=     表示前一个 character set 至少出现 n 次。如 =ab{n}c= 表示 a 与 c 之间至少有 n 个 b
+- ={n, m}=    表示前一个 character set 至少出现 n 次，至多出现 m 次。如 =ab{n，m}c= 表示 a 与 c 之间至少有 n 个 b，至多有 m 个 b
+* 重视边界（boundary）字符的重要性
+
+对于字符串 "abbbbbbbbbbbbbc"
+=ab{3,5}c= 能匹配到吗？不能，因为 a 和 c 是它的边界字符，字符 c 匹配不上
+=ab{3,5}=  则可以匹配到。 =ab= 后面最多再匹配 5 个 =b= ，然而 5 个 b 后面，该正则表达式并没有规定要匹配什么字符，当然可以是任意字符了
+=b{3,5}c=  同理，该正则表达式也可以匹配到。
+* eval
+
+简单来讲，eval 就是在 command line 进行替换重组后再来一次替换重组
+
+例如
+#+BEGIN_SRC shell
+$ a=1
+$ A1=abc
+$ echo $A1
+abc
+$ eval echo \$A$a  # 第一次替换重组得到 echo $A1，然后对其再来一次替换重组就得到结果了
+abc
+#+END_SRC

@@ -1,0 +1,49 @@
+#+TITLE: test 用法
+
+* test
+shell 命令的退出状态有两种：
+- 0    true
+- 1    false
+
+test 表达式的两种写法：
+- =test expression=
+- =[ expression ]=
+
+bash 的 test 目前支持的测试对象只有三种：
+- string：字符串，也就是纯文字。
+- integer：整数( 0 或正整数、不含负数或小数)。[[./$() ${} $(()) 的用法.org::*$(()) 和 (())][在这里]] 比较和 =(())= 的区别
+- file: 文件
+
+* 常用 test 表达式
+- =-d file= 如果 file 是一个目录，返回 true
+- =-e file= 文件 file 存在返回 true
+- =-f file= 如果文件 file 是普通文件，返回 true
+- =-n string= 如果字符串 string 的长度非零，返回 true
+- =-z string= 如果字符串 string 的长度为零，返回 true
+- =-x file= file 如果是可执行文件，返回 true；file 如果是目录，且该目录可以被搜索到，返回 true
+- =-r file= =-w file= 文件可读/文件可写
+- =string= 字符串 string 非空（已定义 且 不为空字符串）
+- ~s1 = s2~ ~s1 != s2~ ~s1 < s2~ ~s1 > s2~ 字符串比较
+- ~n1 -eq n2~ ~n1 -ne n2~ ~n1 -gt n2~ ~n1 -ge n2~ ~n1 -lt n2~ ~n1 -le n2~ 整数比较
+- ~! expression~ ~expression1 -a expression2~ ~expression1 -o expression2~ 逻辑表达式
+- ~( expression )~ 如果 expression 为 true，返回 true
+
+* 举例一
+#+BEGIN_SRC shell
+$ [ "$A" = 123 ]       # 字符串测试。$A 最好加 soft quote，因为 $A 如果未定义的话，该 test 表达式就会出现语法错误，shell 就会报错
+$ [ "$A" -eq 123 ]     # 整数测试。测试 $A 是否等于整数123
+$ [ -e "$A" ]          # 判断文件 $A 是否存在
+$ file=aaa.log
+$ [ -d "$file"  -a  -x "$file" ]    # $file 是目录且 $file 同时具有 x 权限。-a 表示 and，-o 表示 or
+$ echo $?
+1
+#+END_SRC
+
+* 举例二
+给定一个变量，判断是否小于100。如果不小于100，输出 too big!
+
+#+BEGIN_SRC shell
+$ [ -n "$A" ] && [ "$A" -lt 100 ] || echo 'too big!'        # 错误的解法。因为如果 $A 未定义会输出 too big!
+$ [ -n "$A" ] && ( [ "$A" -lt 100 ] || echo 'too big!' )    # 方法一：在 () 中使用子进程。-n 表示字符串长度大于 0 时返回 0（true）
+$ [ -n "$A" ] && { [ "$A" -lt 100 ] || echo 'too big!'}     # 方法二：在 {} 中使用 command group
+#+END_SRC

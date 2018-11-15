@@ -1,0 +1,58 @@
+#+TITLE: 重定向
+
+重定向按照从左到右进行处理
+
+* 重定向输入 n< (input redirection)
+#+BEGIN_SRC shell
+$ cat < aa.log    # 输入重定向为 aa.log。< 默认值是 0<
+$ cat <<EOF       # 从键盘输入文本，直到读到字符串 "EOF"
+first line here
+second line here
+third line here
+EOF
+#+END_SRC
+
+* 重定向输出 n> (output redirection)
+- =1>file=        改变 stdout 的输出通道（> 默认值是 1>）
+- =2>file=        改变 stderr 的输出通道
+- =1>>file=       以追加的方式重定向1
+- =2>>file=       以追加的方式重定向2
+- =>&file descriptor=   重定向到文件描述符
+- =&>file= =>&file= 二者相同，它是一种特殊用法，等价于 =>file 2>&1= ，表示把 stdout、stderr 都重定向到 file。
+
+#+BEGIN_SRC shell
+$ ls my.file no.such.file 1>file.both 2>file.both  # 1 和 2 同时定向到同一个文件。文件内容会相互覆盖
+$ ls my.file no.such.file 1>file.both 2>&1         # 1 重定向到文件 file.both，然后把 2 重定向到文件描述符 1。解决了文件内容相互覆盖的问题。等价于下面一行命令
+$ ls my.file no.such.file >&file.both
+#+END_SRC
+
+* /dev/null
+将fd 1跟fd 2重定向到 /dev/null 去，就可忽略stdout, stderr的输出。
+将fd 0重定向到 /dev/null，那就是读进空(nothing).
+
+#+BEGIN_SRC shell
+$ ls my.file no.such.file 2>/dev/null       # 忽略 stderr
+$ ls my.file no.such.file >/dev/null 2>&1   # 忽略 stderr stdout
+$ ls my.file no.such.file &>/dev/null       # 把 1 和 2 都重定向到 /etc/null
+#+END_SRC
+
+* I/O Redirection的优先级
+#+BEGIN_SRC shell
+$ cat <aa.log >aa.log    # 在 IO Redirection 中, stdout 与 stderr 的管道会先准备好，才会从 stdin 读入数据。>aa.log 会先清空 aa.log，然后才读入 <aa.log，读入内容为空，输出为空，所以 aa.log 最后没有数据
+$ cat <aa.log >>aa.log   # stdin 重定向到 aa.log，stdout 重定向到 aa.log。会先读入 aa.log，然后输出内容到 aa.log，aa.log 继续读输出的内容，继续输出到 aa.log。循环往复
+$ cat <>aa.log           # 等价于 $ cat <aa.log（因为执行完后，aa.log 文件没有修改过）
+#+END_SRC
+
+为什么 =cat <>aa.log= 等价于 =cat <aa.log= 呢？
+=exec 5<>file; echo "abcd" >&5; cat <&5= 将 file 文件的输入、输出定向到文件描述符 5，从而描述符 5 可以接管 file 的输入输出； 因此， =cat <>file= 等价于 =cat < file= 。
+
+* 管道
+问题：用管道连接的多个命令，保存其中一个命令的输出
+=$ cmd1 | cmd2 | cmd3 | ...=
+保存 cmd2 的输出到 aa.log
+
+解决办法
+#+BEGIN_SRC shell
+$ cmd1 | cmd2 >aa.log; cmd3 <aa.log | ...    # 缺点：file I/O 会变成双倍，要尽力避免或降低 file I/O 的频度
+$ cmd1 | cmd2 | tee file | cmd3 | ...        # 使用 tee 命令，不影响原本效率
+#+END_SRC

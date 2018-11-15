@@ -89,6 +89,13 @@ do
 done
 #+END_SRC
 
+其它 for 句式
+#+BEGIN_SRC shell
+for var in one two three four five  # for 遍历这 5 个值
+for var                             # 如果不使用 in 来指定变量清单的话，其值会从$@（或 $*）中继承
+for ((i = 1; i <= 10; i++))         # 也能使用 (())
+#+END_SRC
+
 * 冒泡排序
 ** $[] 讲解
 $[...] 表示中括号中的 ... 是一个算术表达式，可以用 $[] 把 ... 从字符串转换成数字
@@ -110,7 +117,7 @@ if [ $[arr[0] -lt $[arr[1]] ]
 - 在双括号结构中，所有表达式可以像 c 语言一样，如：a++, b-- 等。
 - 在双括号结构中，所有变量可以不加入："$" 符号前缀。
 - 双括号可以进行逻辑运算，四则运算
-- 双括号结构 扩展了 for, while, if 条件测试运算
+- 双括号结构扩展了 for, while, if 条件测试运算
 - 支持多个表达式运算，各个表达式之间用 "," 分开
 
 ** 冒泡排序
@@ -147,11 +154,18 @@ done
 echo ${sum}
 #+END_SRC
 
+#+BEGIN_SRC shell
+while:; do
+	echo looping...
+done
+#+END_SRC
+这是一个死循环。其中， =:= 是 bash 的 null command，不做任何动作，除了返回 true 的 return value。因此这是一个死循环
+
 * until
 #+BEGIN_SRC shell
 #!/bin/bash
 var=0
-until [ ${var} -eq 10 ]
+until [ ! ${var} -le 10 ]
 do
 	echo ${var}
 	var=$((var+1))
@@ -170,3 +184,9 @@ b=22
 add a b
 echo $?
 #+END_SRC
+* break continue return exit
+
+- =break= 用来中断循环，也就是强迫结束循环。 若 break 后面指定一个数值 n 的话，则从里向外中断第 n 个循环，预设值为 break 1，也就是中断当前循环
+- =continue= 强迫进入下一次循环动作。continue 后面也可以指定一个数值 n， 以决定继续哪一层(从里往外计算)的循环，预设值为 continue 1，也就是继续当前的循环。
+- =return= 是结束function
+- =exit= 是结束script/shell

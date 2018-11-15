@@ -1,0 +1,25 @@
+#+TITLE: export 和 unset
+
+* export
+把一个已存在的局部变量声明为全局变量（即该进程的子进程中，该变量都是可见的）。但在子进程中对该变量进行操作（修改变量，删除变量）对父进程中的该变量无影响
+
+#+BEGIN_SRC shell
+  #!/bin/bash
+
+  aaa="How are you"
+  export aaa         # 变量 aaa 前不必加 $
+#+END_SRC
+
+
+* unset
+取消变量
+#+BEGIN_SRC shell
+$ unset aaa          # 变量 aaa 前不必加 $
+#+END_SRC
+
+* 什么时候变量前用 $ ，什么时候不用？
+如果要使用变量，就使用 $。如果要操作变量，就不使用 $。
+有个例外就是 printenv 命令。例如：
+#+BEGIN_SRC shell
+$ printenv PATH
+#+END_SRC

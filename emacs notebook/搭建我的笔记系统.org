@@ -200,62 +200,64 @@ pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
 需要做到
 1. 生产环境和测试环境的环境变量的改变
 2. 优化导出速度。文件如果未修改，则使用缓存的文件，而不是强制重新导出
+3. 另外，之前发现导出后光标位置发生改变，会移动到文档第一行首个字符处，使用 save-excursion 函数保存当前 buffer 和当前光标位置，执行完其包含的代码段后恢复 buffer 和光标位置
+4. 使用异步的方式导出笔记。未使用异步。在 org 文档中提到，org-publish-project 函数的最后一个参数改为非空即可创建一个新进程来导出项目。未使用异步是因为在新进程中做不到使用 htmlize 对代码进行高亮
 
 首先，notes/org/ 目录下添加目录 template-test。向其中添加测试环境的内容。
 然后，修改 =init-func.el= 中的笔记导出函数改为
 #+BEGIN_SRC emacs-lisp
-;; 调整 solarized 配色
-(defun reload-solarized-termcolors(color)
-  (setq solarized-termcolors color)
-  (load-theme 'solarized t)
-  )
-
-(defun export-my-notes-internal(is-force)
-  ;; 配色问题。需要设置为 256 色。否则，在终端下的 emacs 中执行该函数，导出的代码块颜色混乱
-  (if(not window-system)
-      (reload-solarized-termcolors 256))
-
-    (org-publish-project "notes" is-force nil)  ;; 导出 notes 到 html
-
-  ;; 导出完毕后，配色再改回来，防止 solarized 在终端中颜色混乱
-  (if(not window-system)
-      (reload-solarized-termcolors 16))
-  )
-
-(defvar *call-export-my-notes-count* 0 "run export-my-notes-internal count")
-(defun export-my-notes-test()
-  (interactive)
-  (if (and (> *call-export-my-notes-count* 0) (equal *site-template-directory* "~/notes/org/templates-test"))
-      (progn  ;; 如果连续 2 次导出到测试环境，说明第二次导出时已经时测试环境了，所以就可以使用缓存文件而不必强制重新导出所有文件了
-        (export-my-notes-internal nil)
-        )
-    (progn  ;; 否则，修改环境变量，并强制重新导出所有文件
-      (setq *site-template-directory* "~/notes/org/templates-test")
-      (setq org-html-head (read-html-template "html-head.html"))
-      (setq org-html-preamble (read-html-template "preamble.html"))
-      (setq org-html-postamble (read-html-template "postamble.html"))
-      (export-my-notes-internal t)
-      )
+  ;; 调整 solarized 配色
+  (defun reload-solarized-termcolors(color)
+    (setq solarized-termcolors color)
+    (load-theme 'solarized t)
     )
-  (incf *call-export-my-notes-count*)  ;; 自增 1
-  )
 
-(defun export-my-notes()
-  (interactive)
-  (if (and (> *call-export-my-notes-count* 0) (equal *site-template-directory* "~/notes/org/templates"))
-      (progn  ;; 如果连续 2 次导出到生产环境，说明第二次导出时已经时生产环境了，所以就可以使用缓存文件而不必强制重新导出所有文件了
-        (export-my-notes-internal nil)
-        )
-    (progn  ;; 否则修改环境变量，强制导出
-      (setq *site-template-directory* "~/notes/org/templates")
-      (setq org-html-head (read-html-template "html-head.html"))
-      (setq org-html-preamble (read-html-template "preamble.html"))
-      (setq org-html-postamble (read-html-template "postamble.html"))
-      (export-my-notes-internal t)
-      )
+  (defun export-my-notes-internal(is-force)
+    ;; 配色问题。需要设置为 256 色。否则，在终端下的 emacs 中执行该函数，导出的代码块颜色混乱
+    (if(not window-system)
+        (reload-solarized-termcolors 256))
+
+    (save-excursion (org-publish-project "notes" is-force nil))  ;; 导出 notes 到 html。is-force 表示是否强制导出
+
+    ;; 导出完毕后，配色再改回来，防止 solarized 在终端中颜色混乱
+    (if(not window-system)
+        (reload-solarized-termcolors 16))
     )
-  (incf *call-export-my-notes-count*)
-  )
+
+  (defvar *call-export-my-notes-count* 0 "run export-my-notes-internal count")
+  (defun export-my-notes-test()
+    (interactive)
+    (if (and (> *call-export-my-notes-count* 0) (equal *site-template-directory* "~/notes/org/templates-test"))
+        (progn  ;; 如果连续 2 次导出到测试环境，说明第二次导出时已经时测试环境了，所以就可以使用缓存文件而不必强制重新导出所有文件了
+          (export-my-notes-internal nil)
+          )
+      (progn  ;; 否则，修改环境变量，并强制重新导出所有文件
+        (setq *site-template-directory* "~/notes/org/templates-test")
+        (setq org-html-head (read-html-template "html-head.html"))
+        (setq org-html-preamble (read-html-template "preamble.html"))
+        (setq org-html-postamble (read-html-template "postamble.html"))
+        (export-my-notes-internal t)
+        )
+      )
+    (incf *call-export-my-notes-count*)  ;; 自增 1
+    )
+
+  (defun export-my-notes()
+    (interactive)
+    (if (and (> *call-export-my-notes-count* 0) (equal *site-template-directory* "~/notes/org/templates"))
+        (progn  ;; 如果连续 2 次导出到生产环境，说明第二次导出时已经时生产环境了，所以就可以使用缓存文件而不必强制重新导出所有文件了
+          (export-my-notes-internal nil)
+          )
+      (progn  ;; 否则修改环境变量，强制导出
+        (setq *site-template-directory* "~/notes/org/templates")
+        (setq org-html-head (read-html-template "html-head.html"))
+        (setq org-html-preamble (read-html-template "preamble.html"))
+        (setq org-html-postamble (read-html-template "postamble.html"))
+        (export-my-notes-internal t)
+        )
+      )
+    (incf *call-export-my-notes-count*)
+    )
 #+END_SRC
 
 =init-keybindings.el= 中的快捷键改为

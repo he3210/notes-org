@@ -1,0 +1,135 @@
+#+TITLE: $() ${} $(()) 的用法
+
+* $()
+=$()= 和 =``= 都是用作命令替换 (command substitution) 的。
+例如下面两个命令是等价的：
+#+BEGIN_SRC shell
+$ command1 $(command2 $(command3))
+$ command1 `command2 \`command3\` `
+#+END_SRC
+
+首先执行 command3，其结果替换 $(command3) 作为 command2 的参数；然后执行 command2，其结果替换 $(command2 $(command3)) 作为 command1 的参数
+其中第二种写法 `` 中的 `` 需要加 \ 进行转义
+
+#+BEGIN_SRC shell
+$ echo "$(ls -al "$(echo $PWD)")"
+$ echo "`ls -al "\`echo $PWD\`" `"
+#+END_SRC
+
+* ${}
+=${}= 用作变量替换。例如: ~$ A=B; echo ${A}B~
+
+** shell 字符串的非贪婪(最小匹配)左删除
+#+BEGIN_SRC shell
+$ file=/dir1/dir2/dir3/my.file.txt
+$ echo ${file#*/}             # 从变量 file 左边开始删除，一直删除到第一个 / 右面
+dir1/dir2/dir3/my.file.txt
+$ echo ${file#*.}             # 从变量 file 左边开始删除，一直删除到第一个 . 右面
+file.txt
+#+END_SRC
+
+** shell 字符串的贪婪(最大匹配)左删除
+#+BEGIN_SRC shell
+$ echo ${file##*/}            # 从变量 file 左边开始删除，一直删除到最后一个 / 右面
+my.file.txt
+$ echo ${file##*.}            # 从变量 file 左边开始删除，一直删除到最后一个 . 右面
+txt
+#+END_SRC
+
+** shell 字符串的非贪婪(最小匹配)右删除
+#+BEGIN_SRC shell
+$ echo ${file%/*}             # 从变量 file 右边开始删除，一直删除到第一个 / 左面
+/dir1/dir2/dir3
+$ echo ${file%.*}             # 从变量 file 右边开始删除，一直删除到第一个 . 左面
+/dir1/dir2/dir3/my.file
+#+END_SRC
+
+** shell 字符串的贪婪(最大匹配)右删除
+#+BEGIN_SRC shell
+$ echo ${file%%/*}            # 从变量 file 右边开始删除，一直删除到最后一个 / 左面
+
+$ echo ${file%%.*}            # 从变量 file 右边开始删除，一直删除到最后一个 . 左面
+/dir1/dir2/dir3/my
+#+END_SRC
+
+记忆方法：
+# 表示最小匹配从左边开始删除
+## 表示最大匹配从左边开始删除
+% 表示最小匹配从右边开始删除
+%% 表示最大匹配从右边开始删除
+
+** shell 根据下标提取字符串
+#+BEGIN_SRC shell
+$ echo ${file:1:4}               # 从变量 file 中提取字符串，开始下标为 1，提取字符数量为 4
+dir1
+$ echo ${file:6:4}               # 从变量 file 中提取字符串，开始下标为 6，提取字符数量为 4
+dir2
+#+END_SRC
+
+** shell 字符串变量值的替换
+#+BEGIN_SRC shell
+$ echo ${file/dir/path}          # 把变量 file 中的第一个子串 dir 替换成 path
+/path1/dir2/dir3/my.file.txt
+$ echo ${file//dir/path}         # 把变量中的所有子串 dir 替换成 path
+/path1/path2/path3/my.file.txt
+#+END_SRC
+
+** shell 字符串变量默认值
+#+BEGIN_SRC shell
+$ echo ${file-file.txt}              # 如果变量 file 未定义，返回 file.txt；否则，返回 ${file}
+$ echo ${file:-file.txt}             # 如果变量 file 未定义或为空，返回 file.txt；否则，返回 ${file}
+$ echo ${file+file.txt}              # 如果变量 file 已定义，返回 file.txt；否则，返回 ${file}
+$ echo ${file:+file.txt}             # 如果变量 file 非空，返回 file.txt;否则，返回 ${file}
+$ echo ${file=file.txt}              # 如果变量 file 未定义，返回 file.txt，同时给变量 file 赋值；否则，返回 ${file}
+$ echo ${file:=file.txt}             # 如果变量 file 未定义或为空，返回 file.txt，同时给变量 file 赋值；否则，返回 ${file}
+$ echo ${file?file.txt}              # 如果变量 file 未定义，输出 file.txt 到 STDERR；否则，返回 ${file}
+$ echo ${file:?file.txt}             # 如果变量 file 未定义或为空，输出 file.txt 到 STDERR；否则，返回 ${file}
+#+END_SRC
+
+记忆方法：
+- =-= 未定义
+- =+= 已定义
+- ~=~ 未定义 和 赋值
+- =?= 未定义 和 输出到 STDERR
+- =:= 为空 或 不为空 。具体含义需要看它和谁组合在一起
+
+** 计算 shell 字符串变量的长度
+#+BEGIN_SRC shell
+$ echo ${#file}
+#+END_SRC
+
+** shell 数组
+#+BEGIN_SRC shell
+$ A=(a b c def)           # 定义数组
+$ echo ${A[@]}            # 输出数组全部元素
+a b c def
+$ echo ${A[*]}            # 输出数组全部元素
+a b c def
+$ echo ${A[0]}            # 输出数组第一个元素
+a
+$ echo ${#A[@]}           # 输出数组 length
+4
+$ echo ${#A[*]}           # 输出数组 length
+4
+$ echo ${#A[3]}           # 输出数组第4个元素的 length
+3
+$ A[2]=xyz                # 数组元素重新赋值
+#+END_SRC
+
+* $(()) 和 (())
+- **=$(())= 是用来做整数运算的** 。不能用于浮点数，因为它会当成字符串。
+ bash 中支持的运算符有 ~+~ ~-~ ~*~ ~/~ ~%~ ~&~ ~|~ ~^~ (异或 XOR) ~!~ 。此外， =$(())= 还可作不同进制(如二进制、八进制、十六进制)的运算，只是输出结果均为十进制的。
+- **=(())= 是用来做整数测试的，也可以重定义变量**
+ 常用于 =(())= 的测试符号有 ~<~ ~>~ ~<=~ ~>=~ ~==~ ~!=~
+=$(())= 或 =(())= 中的变量加不加 =$= 符号都可以
+使用 =(())= 作整数测试时， 注意不要跟 =[]= 的整数测试搞混乱了。
+
+#+BEGIN_SRC shell
+  $ a=11; b=2; c=4;
+  $ echo $(((a+b) * 2))    # 只要括号中的运算符、表达式符合 C 语言运算规则，都可用在 $((exp))
+  $ echo $((16#11))        # 输出十六进制的 11 对应的十进制
+  17
+  $ ((a++))                # 使用 (()) 重定义变量值
+  $ ((a--))
+  $ ((a<b))                # 如果 a<b，返回0（true）
+#+END_SRC

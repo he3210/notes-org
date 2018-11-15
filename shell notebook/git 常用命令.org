@@ -12,6 +12,7 @@
 * 参考
 - [[https://www.liaoxuefeng.com/wiki/0013739516305929606dd18361248578c67b8067c8c017b000][廖雪峰 Git 教程]]
 - [[http://www.ruanyifeng.com/blog/2015/12/git-cheat-sheet.html][常用 Git 命令清单]]
+- [[https://github.com/he3210/git-style-guide][git 使用风格]]
 
 * 新建代码库
 
@@ -73,6 +74,8 @@ $ git branch -d [branch-name]                         # 删除分支
 # 删除远程分支
 $ git push origin --delete [branch-name]
 $ git branch -dr [remote/branch]
+$ git branch --merged | grep -v '*'                   # 查看哪些分支已被并入当前分支。已被合并的分支一般都可以删掉了。加 * 号的分支是当前分支
+$ git branch --no-merged                              # 查看尚未合并到当前分支的分支
 #+END_SRC
 
 * 标签

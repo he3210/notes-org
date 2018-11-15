@@ -1,0 +1,23 @@
+#+TITLE: wildcard
+
+* 通配符
+对于一个命令 =$ command_name options arguments= ，通配符是作用于 arguments 里的 path 之上的。换句话说， **通配符是一种命令行的 _路径扩展(path expansion)_ 功能** 。在使用通配符进行扩展后，命令行会先完成重组，才会交给shell来处理
+
+- =*=                 匹配 0 个或多个字符。不能匹配以 . 开头的隐藏文件
+- =?=                 匹配任意单一字符。不能匹配以 . 开头的隐藏文件
+- =[list]=            匹配 list 中任意单一字符。其中 [a-z] 中符号 =-= 两边必须有字符才表示一个范围，否则 =-= 只是一个 literal
+- =[!list]=           匹配不在 list 中任意单一字符。其中 =!= 只能放在第一位，否则 =!= 就是一个 literal
+- ={str1,str2,...}=   匹配 str1 或者 str2 或者 ... 中任一字符串
+
+* 例
+
+#+BEGIN_SRC shell
+$ ls
+1.sh      2.sh      3.sh       a.sh    b.sh  c.sh
+$ ls -l [1-9].sh
+-rwxr-xr-x  1 he  staff  256 Nov 15 01:45 1.sh
+-rwxr-xr-x  1 he  staff  107 Nov 14 18:41 2.sh
+-rwxr-xr-x  1 he  staff  256 Nov 15 01:45 3.sh
+#+END_SRC
+
+当我们在命令行中执行 =$ ls -l [0-9].sh= 时， 因为 wildcard 处于argument 的位置上，于是根据匹配的路径，扩展为: 1.sh 2.sh 3.sh， 在重组出 =$ ls -l 1.txt 2.txt 3.txt= 这样的命令行。

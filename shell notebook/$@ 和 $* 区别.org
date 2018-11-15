@@ -1,0 +1,64 @@
+#+TITLE: $@ 和 $* 区别
+
+* 结论
+在 shell script 中，$0 代表脚本名(例如 ./my.sh)，$1 代表脚本的第一个参数，...
+在 shell script 中的 function 中，$0 代表脚本名(例如 ./my.sh)，$1 代表函数的第一个参数，...
+=$@= 和 =$*= 的区别仅仅是当它们处于 soft quote 中的时候，区别如下：
+
+命令行传入 p1 "p2 p3" p4
+- =$@=    可得到 "p1" "p2" "p3" "p4" 这四个不同字段
+- =$*=    同 $@
+- ="$@"=  可得到 "p1" "p2 p3" "p4" 这 3 个字段
+- ="$*"=  可得到 "p1 p2 p3 p4" 这一个字段
+- =$2=    可得到 "p2 p3" 这一个字段
+另外，需要注意的是当参数数量 >= 10 时，不能写成 =$10= (因为 =$10= 等价于 =${1}0= ） =$11= ...，需要加 ={}= 符号，例如： =${10}= =${11}= ...
+
+* 测试一
+#+BEGIN_SRC shell
+#!/bin/bash
+
+my_fun() {
+    echo '$0 inside function is '$0
+    echo '$1 inside function is '$1
+    echo '$2 inside function is '$2
+}
+
+echo '$0 outside function is '$0
+echo '$1 outside function is '$1
+echo '$2 outside function is '$2
+
+my_fun fp1 "fp2 fp3"
+#+END_SRC
+
+#+BEGIN_SRC shell
+$ ./my.sh p1 "p2 p3"
+$0 outside function is ./my.sh
+$1 outside function is p1
+$2 outside function is p2 p3
+$0 inside function is ./my.sh
+$1 inside function is fp1
+$2 inside function is fp2 fp3
+#+END_SRC
+
+* 测试二
+#+BEGIN_SRC shell
+  #!/bin/bash
+
+  my_fun() {
+      echo "$#"
+  }
+
+  echo 'the number of parameter in $* is '$(my_fun $*)
+  echo 'the number of parameter in $@ is '$(my_fun $@)
+  echo 'the number of parameter in "$@" is '$(my_fun "$@")
+  echo 'the number of parameter in "$*" is '$(my_fun "$*")
+#+END_SRC
+
+执行
+#+BEGIN_SRC shell
+  ./1.sh p1 "p2 p3" p4                                                                                                                                                     6.30   01:43:06
+  the number of parameter in $* is 4
+  the number of parameter in $@ is 4
+  the number of parameter in "$@" is 3
+  the number of parameter in "$*" is 1
+#+END_SRC

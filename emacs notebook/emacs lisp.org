@@ -31,3 +31,34 @@
              interprogram-paste-function 'gui-selection-value)))
 #+END_SRC
 
+* save-excursion
+
+该函数用于保存当前 buffer 和当前光标位置，执行完其包含的代码段后恢复 buffer 和光标位置
+** 例：对齐当前选中的内容或整个 buffer
+快捷键 =C-M-\= 默认是调用 indent-region 函数，现将其改为调用函数 indent-region-or-buffer。该函数会判断如果在选中状态，则对齐选中的内容；否则对齐整个 buffer
+#+BEGIN_SRC emacs-lisp
+(defun indent-buffer()
+  "Indent the currently visited buffer."
+  (interactive)
+  (indent-region (point-min) (point-max)))    ;; point-min表示buffer开始位置，point-max表示buffer末尾位置
+
+(defun indent-region-or-buffer()
+  "Indent a region if selected, otherwise the whole buffer."
+  (interactive)
+  ;; save-excursion 函数保存当前 buffer 和当前光标位置，执行完其包含的代码段后恢复 buffer 和光标位置
+  ;; region-active-p 如果 Transient-Mark Mode 打开，并且 mark 处于激活状态（即处于选中状态下），该函数返回非空
+  ;; region-beginning 函数返回选中区域起始位置，region-end 函数返回末尾位置
+  (save-excursion
+    (if(region-active-p)
+        (progn
+          (indent-region (region-beginning) (region-end))
+          (message "Indented selected region."))
+      (progn
+        (indent-buffer)
+        (message "Indented buffer.")))))
+
+(global-set-key (kbd "C-M-\\") 'indent-region-or-buffer)  ;; 改进文本对齐快捷键。该快捷键原先是调用 indent-region
+#+END_SRC
+
+** 例：导出笔记
+[[./搭建我的笔记系统.org::*后续优化2 —— 生产环境测试环境分离][修复导出笔记前后光标位置改变的问题]]

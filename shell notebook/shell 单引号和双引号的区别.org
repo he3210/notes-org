@@ -1,8 +1,5 @@
 #+TITLE: shell 单引号和双引号的区别
 
-* 参考
-- [[https://github.com/wzb56/13_questions_of_shell]]
-
 * shell command line 分解
 shell command line 处理流程：
 shell 会根据 IFS 把从 command line 输入的文字分解为每一个单词，然后对 meta 字符进行处理，最后按词重组 command line。
@@ -26,53 +23,85 @@ command line 的每一个 charactor, 分为如下两种：
 - =!=    执行 histroy 列表中的命令
 - =IFS=  字段分隔符。由按键 space 或者 tab 或者 Enter 三者之一组成
 - =CR=   由 Enter 产生
-
+- ...
 
 * quoting 处理
 假如我们需要在 command line 中将这些保留元字符的功能关闭的话，就需要 quoting 处理了
-在 bash 中，常用的quoting有以下三种方法：
-1. hard quote：''(单引号)，凡在 hard quote 中的所有 meta 均被关闭
+在 bash 中，常用的 quoting 有以下三种方法：
+1. hard quote：''(单引号)，凡在 hard quote 中的所有 meta 均被关闭，在 hard quote 中的 hard quote 中的所有 meta 均被开启
 2. soft quote：""(双引号)，凡在 soft quote 中大部分 meta 都会被关闭，但某些会保留(如 $ 等)
 3. escape: \ (反斜杠)，只有在紧接在 escape 之后的单一 meta 才被关闭
 
-
-
-Enter 键的含义
-- =CR=    告诉 shell 命令可以执行了
-- =IFS=   字段分割符。
+* 举例：从 Enter 键看区别
+Enter 存在如下含义
+- =CR=    告诉 shell 命令结束了，可以交由 shell 执行了。如果不使用 quoting 处理，Enter 就被解释为 CR
+- =IFS=   字段分割符。在 soft quote 种的 Enter 会被解释为 IFS
 - =NL=    new line。在 hard quote 中的 Enter 含义就是 NL
 - =FF=    Form Feed（换页）
-- =NULL=
+- =NULL=  在 escape 后面，Enter 就被解释为 NULL
 
+#+BEGIN_SRC shell
+  # space 键被作为 IFS
+  $ A=B C   # 空白符未被关闭，作为 IFS 处理
+  C：command not found.
+  $ echo $A
 
-* shell meta 和 command meta 区别
+  # space 键在 "" 中被解释为 literal
+  $ A="B C" # 空白符已被关掉，仅作为空白符
+  $ echo $A
+  B C
+
+  # Enter 在 '' 中被解释为 NL
+  $ A='B
+  > C
+  > '
+  $ echo "$A"
+  B
+  C
+
+  # Enter 在 "" 中被解释为 IFS
+  $ A="B
+  > C
+  > "
+  $ echo $A
+  B C
+
+  # Enter 在 \ 后被解释为 NULL
+  $ A=B\
+  > C\
+  >
+  $ echo $A
+  BC
+#+END_SRC
+
+* 举例：从 awk 命令看区别
+shell meta 和 command meta 区别
 - =shell meta=      shell 处理的 meta
 - =command meta=    command 程序自己处理的 meta
 
-* 举例1
 命令 =$ awk '{print $0}' 1.txt= 为什么要使用 hard quote，而不写成 =$ awk {print $0} 1.txt= ?
-使用 hard meta 是为了将 {} <space> $ 这几个 shell meta 关闭，避免在 shell 中处理，而完整的成为 awk 中的 command meta
-也可以写成 =$ awk "{print \$0}" 1.txt= 和 =$ awk \{print \$0\} 1.txt=
-
-* 举例2
-下面4种 awk 命令等价：
+使用 hard meta 是为了将 {} <space> $ 这几个 shell meta 关闭，避免在 shell 中处理，而完整的成为 awk 中的 command meta。也可以写成如下 6 种形式
 #+BEGIN_SRC shell
   $ A=0
+  $ awk \{print\ \$0\} 1.txt
+  $ awk "{print \$0}" 1.txt
   $ awk "{print \$$A}" 1.txt
   $ awk  \{print\ \$$A\} 1.txt
   $ awk '{print $'$A'}' 1.txt      # hard quote 中的 hard quote 中的 meta 处于开启状态
   $ awk '{print $'"$A"'}' 1.txt    # $A 依然代表变量，meta 处于开启状态
 #+END_SRC
 
-* 举例3
+* 举例: 从 stdin 输入变量看区别
 #+BEGIN_SRC shell
 $ read A
       aaaa    # 输入的 aaaa 前有 n 个空格
 $ echo $A
 aaaa          # 输出的 $A 没有空格
+$ echo "$A"   # 注意该例子与下一个例子中的 "$A" 不同，注意比较
+aaaa
 #+END_SRC
 
-原因：shell 会根据 IFS 把从 command line 输入的文字分解为每一个单词，然后对 meta 字符进行处理，最后按词重组 command line。而输入的空格就是一个 IFS
+原因：shell 会根据 IFS 把从 command line 输入的文字分解为每一个单词，然后对 meta 字符进行处理（如变量替换、quoting 处理等），最后按词重组 command line。而输入的空格就是一个 IFS。当然，你也可以将 IFS 替换成其它字符
 改为：
 #+BEGIN_SRC shell
 $ read A
@@ -81,7 +110,28 @@ $ echo $A
       aaaa
 #+END_SRC
 
-* 举例4
+再来一个：
+下面例子可看出 **$A 和 "$A" 是有区别的**
+#+BEGIN_SRC shell
+$ A="  abc"
+$ echo $A   # 重组命令行的时候把变量 A 中的空格字符作为 IFS 被裁剪掉了
+abc
+$ echo "$A" # 变量 A 加上 soft quote 后，A 中的空格字符被解释为 literal
+   abc
+$ old_IFS=$IFS
+$ IFS=;    # 把 IFS 设置为 null charactor，而不是 ;
+$ echo $A
+   abc
+$ IFS=$old_IFS
+$ echo $A
+abc
+$ A="b;h;;test"  # 更换 IFS
+$ IFS=";"
+$ echo $A
+b h  test
+#+END_SRC
+
+* 举例：输出原文件
 #+BEGIN_SRC shell
 $ cat aaaa | while read i; do; echo $i; done;
 #+END_SRC

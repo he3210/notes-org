@@ -1,0 +1,84 @@
+#+TITLE: exec fork source 区别
+
+* 区别
+- exec    使用指定的命令会替换当前进程。进程号相同，执行的命令变更了，当前进程的后续命令不会再被执行了
+- fork    使用子进程执行指定的命令
+- source  使用当前进程执行指定的命令。
+
+
+source 命令的2种写法 =$ source ./my_script.sh= 或者 =$ . ./my_script.sh=
+
+* 举例
+1.sh
+#+BEGIN_SRC bash
+#!/bin/bash
+
+A=B
+echo "PID for 1.sh before exec/source/fork:$$"
+
+export A
+echo "1.sh: \$A is $A"
+
+case $1 in
+        exec)         # 同 linux 下 exec 函数。exec 使用命令对当前进程进行替换。
+                echo "using exec..."
+                exec ./2.sh ;;
+        source)       # 使用 source 执行命令不会创建子进程，在原有进程中执行命令
+                echo "using source..."
+                . ./2.sh ;;
+        *)            # 默认使用 fork 执行
+                echo "using fork by default..."
+                ./2.sh ;;
+esac
+
+echo "PID for 1.sh after exec/source/fork:$$"
+echo "1.sh: \$A is $A"
+#+END_SRC
+
+2.sh
+#+BEGIN_SRC bash
+#!/bin/bash
+
+echo "PID for 2.sh: $$"
+echo "2.sh get \$A=$A from 1.sh"
+
+A=C
+export A
+echo "2.sh: \$A is $A"
+#+END_SRC
+
+* 结果
+
+#+BEGIN_SRC shell
+  $ ./1.sh fork
+  PID for 1.sh before exec/source/fork:27856
+  1.sh: $A is B
+  using fork by default...
+  PID for 2.sh: 27857
+  2.sh get $A=B from 1.sh
+  2.sh: $A is C
+  PID for 1.sh after exec/source/fork:27856
+  1.sh: $A is B
+#+END_SRC
+
+#+BEGIN_SRC shell
+  $ ./1.sh exec
+  PID for 1.sh before exec/source/fork:27889
+  1.sh: $A is B
+  using exec...
+  PID for 2.sh: 27889
+  2.sh get $A=B from 1.sh
+  2.sh: $A is C
+#+END_SRC
+
+#+BEGIN_SRC shell
+  $ ./1.sh source
+  PID for 1.sh before exec/source/fork:27921
+  1.sh: $A is B
+  using source...
+  PID for 2.sh: 27921
+  2.sh get $A=B from 1.sh
+  2.sh: $A is C
+  PID for 1.sh after exec/source/fork:27921
+  1.sh: $A is C
+#+END_SRC
