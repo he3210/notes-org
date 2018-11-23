@@ -1,0 +1,42 @@
+#+TITLE: 打印目录下的文件
+
+#+BEGIN_SRC c
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <dirent.h>
+#include <unistd.h>
+#include <string.h>
+
+void printDir(const char *path)
+{
+    DIR *pdir = opendir(path);
+    if(NULL == pdir)
+    {
+        fprintf(stdout, "open dir %s error.\n", path);
+        return;
+    }
+    chdir(path);
+
+    struct dirent *pdirent;
+    struct stat stStat;
+    while(pdirent = readdir(pdir))
+    {
+        fprintf(stdout, "%s\n", pdirent->d_name);
+        stat(pdirent->d_name, &stStat);
+        if(S_IFDIR & stStat.st_mode)
+        {
+            if(!strcmp(pdirent->d_name, ".") || !strcmp(pdirent->d_name, ".."))
+            {
+                continue;
+            }
+            else
+            {
+                printDir(pdirent->d_name);
+                chdir("..");
+            }
+        }
+    }
+    closedir(pdir);
+}
+#+END_SRC

@@ -6,6 +6,14 @@
 Docker Compose 简介：
 一个项目下可能有多个服务，每个服务运行在各自的容器里，而 Docker Compose 管理着这些容器。（简单来说，服务对应着容器，Docker Compose 对应着项目）
 
+* centos7 安装 docker-compose
+使用二进制安装。在 [[https://github.com/docker/compose/releases][这里]] 找到最新的二进制包
+#+BEGIN_SRC shell
+$ curl -L https://github.com/docker/compose/releases/download/1.23.1/docker-compose-`uname -s`-`uname -m` -o /usr/bin/docker-compose
+$ chmod +x /usr/bin/docker-compose
+$ docker-compose -version
+#+END_SRC
+
 * 运行 Compose 项目
 该命令会尝试构建镜像、创建服务容器、启动服务容器、并关联服务相关容器
 #+BEGIN_SRC shell

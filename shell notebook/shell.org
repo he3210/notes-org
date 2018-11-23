@@ -20,3 +20,5 @@
  - [[./重定向.org][重定向]]
  - [[./wildcard.org][wildcard]]
  - [[./regular expression.org][regular expression]]
+- [[./firewall-cmd防火墙.org][firewall-cmd 防火墙]]
+- [[./systemd.org][systemd]]

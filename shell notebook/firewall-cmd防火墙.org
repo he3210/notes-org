@@ -1,0 +1,33 @@
+#+TITLE: firewall-cmd 防火墙
+
+* centos7 以上版本
+#+BEGIN_SRC shell
+# firewall-cmd --zone=public --add-port=8888/tcp --permanent  # 开启端口
+# firewall-cmd --reload               # 重启防火墙
+# firewall-cmd --query-port=8888/tcp  # 查看 tcp 8888 端口是否开启
+#+END_SRC
+
+- =--zone= 作用域
+- =--add-port=80/tcp=  开启的端口，格式为：端口/通讯协议
+- =--permanent=  永久生效，没有此参数重启后失效
+
+
+
+* centos7 以下版本
+
+#+BEGIN_SRC shell
+$ sudo vim /etc/sysconfig/iptables
+#+END_SRC
+
+添加：
+#+BEGIN_EXAMPLE
+               -A INPUT -p tcp -m state --state NEW -m tcp --dport 8888 -j ACCEPT
+#+END_EXAMPLE
+
+#+BEGIN_SRC 
+$ service iptables restart
+Redirecting to /bin/systemctl restart iptables.service
+$ /bin/systemctl restart iptables.service
+#+END_SRC
+
+这样，就可以用端口 8888 tcp 通信了

@@ -7,6 +7,13 @@ $ brew install docker    # mac 安装 docker
 $ docker info            # 查看 docker 信息
 #+END_SRC
 
+* docker centos7
+#+BEGIN_SRC shell
+$ yum install docker              # 安装
+$ systemctl start docker.service  # 启动 docker daemon
+$ systemctl enable docker.service # 开机自启动
+#+END_SRC
+
 * docker volume
 #+BEGIN_SRC shell
 $ docker volume ls                # 列出所有 volume

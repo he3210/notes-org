@@ -10,3 +10,7 @@
 - [[./gdb.org][gdb]]
 - [[./sock5 终端代理设置.org][终端设置 sock5 代理]]
 - [[./一个守护进程.org][一个守护进程]]
+- [[./AF_INET域与AF_UNIX域socket通信原理区别.org][AF_INET 域与 AF_UNIX 域 socket 通信原理区别]]
+- [[./IO多路转接模型select实例.org][I/O多路转接模型select实例]]
+- [[./fread-fwrite.org][fread-fwrite]]
+- [[./打印目录下的文件.org][打印目录下的文件]]

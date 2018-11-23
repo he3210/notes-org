@@ -1,0 +1,65 @@
+#+TITLE: fread-fwrite
+
+* 打印文件到标准输出
+
+#+BEGIN_SRC c
+#include <stdio.h>
+#include <string.h>
+
+int main(int argc, char **argv)
+{
+    FILE *pFile = fopen("/home/he/Desktop/test/a.dat", "rb");
+    if(!pFile)
+    {
+        fprintf(stdout, "open file error.\n");
+        return 0;
+    }
+
+    char line[16] = {0};
+    size_t ret = 0;
+    while(!feof(pFile))
+    {
+        ret = fread(line, 1, 15, pFile);
+        ret = fwrite(line, 1, strlen(line), stdout);
+        memset(line, 0x00, 16);
+    }
+    fclose(pFile);
+
+    return 0;
+}
+#+END_SRC
+
+* 对块的操作
+
+#+BEGIN_SRC c
+#include <stdio.h>
+#include <string.h>
+
+struct student
+{
+    char szID[5];
+    char szName[20];
+    double dScore;
+};
+
+int main(int argc, char **argv)
+{
+    struct student stu[3] = {
+        "0001", "Bob", 88,
+        "0002", "Rose", 90,
+        "0003", "Tom", 78.2};
+
+    FILE* pf = fopen("/home/he/Desktop/test/a.dat", "w+b");
+    if(!pf)
+    {
+        fprintf(stdout, "open file error.\n");
+        return 0;
+    }
+
+    size_t ret = fwrite(stu, sizeof(struct student), sizeof(stu)/sizeof(struct student), pf);
+
+    ret = fread(stu, sizeof(struct student), sizeof(stu)/sizeof(struct student), pf);
+
+    return 0;
+}
+#+END_SRC

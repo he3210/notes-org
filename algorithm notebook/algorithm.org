@@ -2,7 +2,6 @@
 
 - 其它
  - [[./蓄水池抽样算法.org][蓄水池抽样算法]]
- - [[./skiplist 跳表.org][skiplist 跳表]]
 
 - 排序
  - [[./插入排序.org][插入排序]]
@@ -26,6 +25,7 @@
  - [[./bit-map.org][bit-map]]
  - [[./bloom filter.org][bloom filter]]
  - [[./consistent-hashing.org][一致性哈希]]
+ - [[./skiplist 跳表.org][skiplist 跳表]]
 
 - [[./%E5%8A%A8%E6%80%81%E8%A7%84%E5%88%92.org][动态规划]]
  - [[./瓷砖铺地板.org][瓷砖铺地板]]

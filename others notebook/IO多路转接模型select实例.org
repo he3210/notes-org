@@ -1,0 +1,89 @@
+#+TITLE: I/O 多路转接模型 select 实例
+
+#+BEGIN_SRC c
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/select.h>
+#include <sys/time.h>
+#include <string.h>
+
+int main(void)
+{
+    char buf[1024];
+
+    int fd1 = open("aa.txt", O_RDWR);
+    int fd2 = open("bb.txt", O_RDWR);
+    int fd3 = open("cc.txt", O_RDWR);
+    int fd4 = open("dd.txt", O_RDWR);
+    if(-1 == fd1 || -1 == fd2 || -1 == fd3 || -1 == fd4)
+    {
+        perror("open");
+        exit(-1);
+    }
+
+    fd_set fdrd, fdwr;
+    FD_ZERO(&fdrd);
+    FD_ZERO(&fdwr);
+    FD_SET(fd1, &fdrd);
+    FD_SET(fd2, &fdrd);
+    FD_SET(fd3, &fdwr);
+    FD_SET(fd4, &fdwr);
+
+    int max = fd1 > fd2 ? fd1:fd2;
+    max = max > fd3 ? max:fd3;
+    max = max > fd4 ? max:fd4;
+
+    struct timeval tv;
+    tv.tv_sec = 2;
+    tv.tv_usec = 0;
+    int ret;
+
+    while(1)
+    {
+        fprintf(stdout, "============================\n");
+        if(-1 == select(max + 1, &fdrd, &fdwr, NULL, &tv))
+        {
+            perror("select");
+            exit(-1);
+        }
+
+        if(FD_ISSET(fd1, &fdrd))
+        {
+            ret = read(fd1, buf, sizeof(buf)-1);
+            buf[ret] = 0;
+            puts(buf);
+            sleep(1);
+        }
+
+        if(FD_ISSET(fd2, &fdrd))
+        {
+            ret = read(fd2, buf, sizeof(buf)-1);
+            buf[ret] = 0;
+            puts(buf);
+            sleep(1);
+        }
+
+        if(FD_ISSET(fd3, &fdwr))
+        {
+            write(fd3, "Hello, I am fd3.", strlen("Hello, I am fd3."));
+            sleep(2);
+        }
+
+        if(FD_ISSET(fd4, &fdwr))
+        {
+            write(fd4, "Hello, I am fd4.", strlen("Hello, I am fd4."));
+            sleep(2);
+        }
+    }
+    close(fd1);
+    close(fd2);
+    close(fd3);
+    close(fd4);
+
+    return 0;
+}
+#+END_SRC

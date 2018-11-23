@@ -29,6 +29,7 @@ $ docker run -d -p 80 --name static_web he3210/static_web:v1 nginx -g "daemon of
 $ docker run -ti -w /var/log ubuntu pwd
 $ docker run -d -p 80 --name website -v $PWD/website:/var/www/html/website he3210/nginx:v1 nginx    # 第一本Docker书 page102
 $ docker run -d -p 80 --name website -v $PWD/website:/var/www/html/website:ro he3210/nginx:v1 nginx
+$ docker run --name notes -v /root/notes-html:/root/notes-html:ro -v /etc/nginx/nginx.conf:/etc/nginx/nginx.conf:ro -d -p 80:80 nginx
 $ docker run -d --net=app --name db he3210/redis    # 第一本Docker书 page121
 $ docker run -d -P --volumes-from he_blog --name server_blog he3210/apache
 #+END_SRC
@@ -44,7 +45,7 @@ $ docker run -d -P --volumes-from he_blog --name server_blog he3210/apache
 - =-p 127.0.0.1:8080:80= 映射到宿主机这个 IP 127.0.0.1 的 8080 端口。这样就可以使用宿主机的 IP 地址连接到容器中的进程了
 - =-P= 将容器的端口映射到宿主机的随机端口
 - =-w /var/log= 将容器内的工作目录设置为 /var/log ，会覆盖掉 Dockerfile 中 WORKDIR 指令设置的工作目录
-- =-v $PWD/website:/var/www/html/website= 将宿主机下的目录 $PWD/website 作为卷挂载到容器中的 website 目录
+- =-v $PWD/website:/var/www/html/website= 将宿主机下的目录 $PWD/website 作为卷挂载到容器中的 website 目录。该标签可以重复使用来挂载多个目录
 - =-v $PWD/website:/var/www/html/website:ro=   ro 和 rw 分别指定容器内目录只读和读写
 - =--net=app= 指定容器在哪个网络中运行
 - =--rm= 创建容器时，如果容器已存在，先删除该容器，在创建新容器。
