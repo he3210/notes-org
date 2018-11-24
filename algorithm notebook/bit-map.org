@@ -36,3 +36,43 @@ int get(int i)
     return a[i>>SHIFT] & (1<<(i & MASK));
 }
 #+END_SRC
+
+#+BEGIN_SRC c
+#include <stdio.h>
+
+#define BITWORD 8
+#define SHIFT 3
+#define MASK 07
+#define N 10000000
+char a[1+N/BITWORD];
+
+// 将位图 a 中的第 i bit 设置为 1
+void set(int i)
+{
+    a[i>>SHIFT] |= (1<<(i & MASK));
+}
+
+// 将位图 a 中的第 i bit 设置为 0
+void clear(int i)
+{
+    a[i>>SHIFT] &= ~(1<<(i & MASK));
+}
+
+// 获取位图 a 中的第 i bit 的值，返回 int 类型
+int get(int i)
+{
+    return a[i>>SHIFT] & (1<<(i & MASK));
+}
+
+int main()
+{
+    set(3);
+    set(10);
+    set(100);
+    printf("%x %x %x\n", get(3), get(10), get(100));
+    clear(10);
+    printf("%x %x %x\n", get(3), get(10), get(100));
+
+    return 0;
+}
+#+END_SRC

@@ -126,7 +126,7 @@ int AddNode(ElemType A[], int n, ElemType node)
   {
       int x = A[k];
       int i = (k-1)/2;
-      while(k > 0 && x > A[i])
+      while(k > 0 && x > A[i])  // 条件 k > 0 换成 i >= 0 也行
       {
           A[k] = A[i];
           k = i;

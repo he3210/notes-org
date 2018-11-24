@@ -110,7 +110,7 @@ void getPrevious(const char *pattern, int lenPattern, int *previous)
                    pattern[curPos] 和 pattern[flagPos] 相等。
                    这样的字符串形式为："...xy...xy...",
                    而 previous 数组存在的意义是源串和模式串不匹配时模式串应该回溯的下标
-                   第一个 "xy" 和第二个 "xy" 相同，由于源串和第二个 "xy" 不匹配，所以肯定和第一个 "xy" 也不匹配
+                   第一个 "xy" 和第二个 "xy" 相同，由于源串和第二个 "xy" 不匹配，所以肯定和第一个 "xy" 也不匹配（例如：源串为 xyxx，模式串为 xyxy）
                    故向前回溯时，应跳过第一个 "xy"，使用 previous[curPos] = previous[flagPos] 语句
                    这样生成的 previous 数组可以使 KMP 函数中少一些不必要的比较
                  */

@@ -25,8 +25,8 @@ int Binary_Search(Elemtype A[], int low, int high, Elemtype key)
 
 * 扩展算法
 
-有一个循环有序数组A，如：{7, 8, 9, 0, 1, 2, 3, 4, 5, 6}，不知道最小值的位置。如何从这样的数组中寻找一个特定的元素呢？
-分析：如下图，首先判断mid位于两个子递增序列中的左边递增序列，还是右边递增序列
+有一个循环有序数组 A，如：{7, 8, 9, 0, 1, 2, 3, 4, 5, 6}，不知道最小值的位置。如何从这样的数组中寻找一个特定的元素呢？
+分析：如下图，首先判断 mid 位于两个子递增序列中的左边递增序列，还是右边递增序列
 
 #+ATTR_ORG: :width 22%
 #+ATTR_HTML: :width 22%
@@ -43,27 +43,27 @@ int search(int A[], int low, int high, int key)
             return mid;
         else
         {
-            if(A[low] <= A[mid])        // 第一种情况，mid在左侧
+            if(A[low] <= A[mid])        // 第一种情况，mid 位于左侧的递增序列中
             {
-                if(key > A[mid])        // key在mid左侧
-                    high = mid - 1;
-                else                    // key在mid右侧
+                if(key > A[mid])        // key 位于左侧的递增序列中，且在 mid 右侧
+                    low = mid + 1;
+                else
                 {
-                    if(key >= A[low])
+                    if(key >= A[low])   // key 位于左侧的递增序列中，且在 mid 左侧
                         high = mid - 1;
-                    else
+                    else                // key 位于右侧的递增序列中
                         low = mid + 1;
                 }
             }
-            else                        // 第二种情况mid在右侧
+            else                        // 第二种情况，mid 位于右侧的递增序列中
             {
-                if(key < A[mid])        // key在mid左侧
+                if(key < A[mid])        // key 位于右侧的递增序列中，且在 mid 左侧
                     high = mid - 1;
-                else                    // key在mid右侧
+                else
                 {
-                    if(key <= A[high])
+                    if(key <= A[high])  // key 位于右侧的递增序列中，且在 mid 右侧
                         low = mid + 1;
-                    else
+                    else                // key 位于左侧的递增序列中
                         high = mid - 1;
                 }
             }
