@@ -66,7 +66,7 @@ int main()
 typedef struct skiplistNode
 {
 	double score;
-	struct skiplistNode *backward;		// 当前节点在第 0 层上的上一个节点
+	struct skiplistNode *backward;		// 当前节点在第 0 层上的上一个节点。如果上一个结点为头节点，则该值为 NULL
 	struct skiplistLevel
 	{
 		struct skiplistNode *forward;	// 用来存储该节点的各个 level 上的下一个节点

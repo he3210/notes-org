@@ -1,0 +1,569 @@
+#+TITLE: 多级时间轮定时器
+
+* 高效定时器的设计方案
+1. libevent 源码中采用的方案是：I/O 多路复用函数（select、epoll、kqueue等） + 小根堆 + common-timeout 队列存放相同超时时长的事件
+2. linux 源码中采用的是多级时间轮
+
+* 时间轮（Timing-Wheel）算法
+[[../images/Timing-Wheel.jpg]]
+如上图就是一个简单的时间轮。类比于时钟的秒针表盘，秒针表盘共 60 秒的刻度，以恒定速度每秒 1 刻度进行读秒。时间轮也是一样，该时间轮共有 N 个 tick 刻度，以恒定速度每次走 1 个 tick 单位时间。每个 tick 对应的是一个双向循环链表，该链表元素为计时器。
+
+**处理定时器的过程** ：如图，指针指向 1，说明 tick 1 所在的链表中的计时器全部到期，遍历该链表，执行到期的计时器的回调函数。再过 1 tick 时间，表盘指针指向 2，tick 2 所在的链表中的计时器全部到期，然后遍历链表处理到期的计时器。
+
+* 多级时间轮算法
+还以秒针表盘为例，秒针表盘 60s 需要 60 个刻度，如果是 1h 呢？难道需要 3600 个刻度吗？不是这样的，时钟有 3 级表盘，秒针、分针、时针，它们的粒度分别是 1s、1min、1h。
+
+同样的，表示一个 32bits 以毫秒为单位的时间，粒度为 1ms，如果采用 1 级时间轮算法，则需要 2^{32} 个 tick，这对于内存空间的消耗非常大。当然，可以降低定时器精度，使每个 tick 表示的时间长一点，但这样的代价将是定时器的精度大打折扣。
+
+linux 内核中的多级时间轮算法采用 5 级时间轮，每级时间轮的粒度分别为：1ms、256ms、256*64ms、256*64*64ms、256*64*64*64ms。它们每级时间轮 tick 刻度数量分别为 256(低 8bits)、64(次 6bits)、64(次 6bits)、64(次 6bits)、64(高 6bits)。
+
+** 多级时间轮算法处理定时器过程
+1. 对于一个 32bits 以毫秒为单位的时间 t。tick 取 t 的低 8bits。如果 tick 不为 0，执行步骤 6；如果 tick 为 0，执行步骤 2
+2. tick 取 t 的次 6 bits，如果 tick 不为 0，取出 2 级时间轮该 tick 的双向循环链表，然后遍历该链表的定时器，根据到期时间来判断将定时器插入到 1 级时间轮还是 2 级时间轮，执行步骤 6。如果 tick 为 0，执行步骤3
+3. tick 取 t 的次 6 bits，如果 tick 不为 0，取出 3 级时间轮该 tick 的双向循环链表，然后遍历该链表的定时器，根据到期时间来判断将定时器插入到 1 级、2 级、3 级时间轮，执行步骤 6。如果 tick 为 0，执行步骤4
+4. tick 取 t 的次 6 bits，如果 tick 不为 0，取出 4 级时间轮该 tick 的双向循环链表，然后遍历该链表的定时器，根据到期时间来判断将定时器插入到 1 级、2 级、3 级、4 级时间轮，执行步骤 6。如果 tick 为 0，执行步骤5
+5. tick 取 t 的高 6 bits，如果 tick 不为 0，取出 5 级时间轮该 tick 的双向循环链表，遍历，根据到期时间来判断将定时器插入到 1 级、2 级、3 级、4 级、5 级时间轮，执行步骤 6
+6. 遍历 1 级时间轮中该 tick 的双向循环链表，执行这些到期定时器的回调函数
+
+* 关于 monotonic 时间
+计时系统使用的是 monotonic 时间，它表示从系统启动这一刻起到现在的时长。不受系统时间被用户修改的影响。
+如果系统不支持 monotonic 时间的话，就可能出现用户修改系统时间，导致计时器混乱的情况。如果出现这种情况，需要进行时间校正。代码中使用了 monotonic 时间，无需时间校正。
+
+* 代码实现
+特点
+- 可添加大量计时器
+- 支持从系统启动到 2^{32}ms 的时间
+- 时间精度为毫秒
+- 可添加 One-Shot Timer（一次性的计时器），也可添加 Repeating Timer（带有首次触发时间和再次触发时间间隔的计时器）
+- 采用多级时间轮算法，节省内存
+- 使用 select 进行计时，而不是 sigaction (SIGALRM, , ) + setitimer (ITIMER_REAL, , );
+- 定时器的增删执行时间复杂度均为 O(1)
+- 时间轮的运行需要 1 个线程
+
+** def.h
+
+#+BEGIN_SRC c
+#ifndef _DEF_H_
+#define _DEF_H_
+
+//基本数据类型定义
+typedef char int8;
+typedef unsigned char uint8;
+typedef uint8 byte;
+typedef short int16;
+typedef unsigned short uint16;
+typedef long int32;
+typedef unsigned long uint32;
+
+#endif //_DEF_H_
+#+END_SRC
+** Timer.h
+
+#+BEGIN_SRC c
+#ifndef _TIMER_H_
+#define _TIMER_H_
+
+#include "def.h"
+#include "Thread.h"
+
+#define CONFIG_BASE_SMALL 0    // TVN_SIZE=64  TVR_SIZE=256
+#define TVN_BITS (CONFIG_BASE_SMALL ? 4 : 6)
+#define TVR_BITS (CONFIG_BASE_SMALL ? 6 : 8)
+#define TVN_SIZE (1 << TVN_BITS)
+#define TVR_SIZE (1 << TVR_BITS)
+#define TVN_MASK (TVN_SIZE - 1)
+#define TVR_MASK (TVR_SIZE - 1)
+#define MAX_TVAL ((unsigned long)((1ULL << (TVR_BITS + 4*TVN_BITS)) - 1))
+
+#define TIME_AFTER(a,b) ((long)(b) - (long)(a) < 0)
+#define TIME_BEFORE(a,b) TIME_AFTER(b,a)
+#define TIME_AFTER_EQ(a,b) ((long)(a) - (long)(b) >= 0)
+#define TIME_BEFORE_EQ(a,b) TIME_AFTER_EQ(b,a)
+
+typedef struct LIST_TIMER
+{
+    struct LIST_TIMER *pPrev;
+    struct LIST_TIMER *pNext;
+} LISTTIMER, *LPLISTTIMER;
+
+typedef struct TIMER_NODE
+{
+    struct LIST_TIMER ltTimer;  // 定时器双向链表的入口
+    uint32 uExpires;            // 定时器到期时间
+    uint32 uPeriod;             // 定时器触发后，再次触发的间隔时长。如果为 0，表示该定时器为一次性的
+    void (*timerFn)(void *);    // 定时器回调函数
+    void *pParam;               // 回调函数的参数
+} TIMERNODE, *LPTIMERNODE;
+
+typedef struct TIMER_MANAGER
+{
+    pthread_mutex_t lock;       // 同步锁
+    pthread_t thread;           // 线程句柄
+    uint32 uExitFlag;           // 线程退出标识(0:Continue, other: Exit)
+    uint32 uJiffies;            // 基准时间(当前时间)，单位：毫秒
+    struct LIST_TIMER arrListTimer1[TVR_SIZE];  // 1 级时间轮。在这里表示存储未来的 0 ~ 255 毫秒的计时器。tick 的粒度为 1 毫秒
+    struct LIST_TIMER arrListTimer2[TVN_SIZE];  // 2 级时间轮。存储未来的 256 ~ 256*64-1 毫秒的计时器。tick 的粒度为 256 毫秒
+    struct LIST_TIMER arrListTimer3[TVN_SIZE];  // 3 级时间轮。存储未来的 256*64 ~ 256*64*64-1 毫秒的计时器。tick 的粒度为 256*64 毫秒
+    struct LIST_TIMER arrListTimer4[TVN_SIZE];  // 4 级时间轮。存储未来的 256*64*64 ~ 256*64*64*64-1 毫秒的计时器。tick 的粒度为 256*64*64 毫秒
+    struct LIST_TIMER arrListTimer5[TVN_SIZE];  // 5 级时间轮。存储未来的 256*64*64*64 ~ 256*64*64*64*64-1 毫秒的计时器。tick 的粒度为 256*64*64 毫秒
+} TIMERMANAGER, *LPTIMERMANAGER;
+
+void SleepMilliseconds(uint32 uMs);
+
+// 创建定时器管理器
+LPTIMERMANAGER CreateTimerManager(void);
+
+// 删除定时器管理器
+void DestroyTimerManager(LPTIMERMANAGER lpTimerManager);
+
+// 创建一个定时器。fnTimer 回调函数地址。pParam 回调函数的参数。uDueTime 首次触发的超时时间间隔。uPeriod 定时器循环周期，若为0，则该定时器只运行一次。
+LPTIMERNODE CreateTimer(LPTIMERMANAGER lpTimerManager, void (*timerFn)(void*), void *pParam, uint32 uDueTime, uint32 uPeriod);
+
+// 删除定时器
+int32 DeleteTimer(LPTIMERMANAGER lpTimerManager, LPTIMERNODE lpTimer);
+
+#endif //_TIMER_H_
+#+END_SRC
+
+** Timer.c
+
+#+BEGIN_SRC c
+  #include <stddef.h>
+  #include <stdlib.h>
+  #include <sys/time.h>
+  #include "Timer.h"
+
+  // 获取基准时间
+  static uint32 GetJiffies_old(void)
+  {
+      struct timeval tv;
+      gettimeofday(&tv, NULL);
+      return tv.tv_sec * 1000 + tv.tv_usec / 1000;
+  }
+
+  static uint32 GetJiffies(void)
+  {
+      struct timespec ts;  // 精确到纳秒（10 的 -9 次方秒）
+      // 使用 clock_gettime 函数时，有些系统需连接 rt 库，加 -lrt 参数，有些不需要连接 rt 库
+      clock_gettime(CLOCK_MONOTONIC, &ts);  // 获取时间。其中，CLOCK_MONOTONIC 表示从系统启动这一刻起开始计时,不受系统时间被用户改变的影响
+      return (ts.tv_sec * 1000 + ts.tv_nsec / 1000000);  // 返回毫秒时间
+  }
+
+  // 将双向循环链表的新结点插入到结点 pPrev 和 pNext 之间
+  static void ListTimerInsert(struct LIST_TIMER *pNew, struct LIST_TIMER *pPrev, struct LIST_TIMER *pNext)
+  {
+      pNext->pPrev = pNew;
+      pNew->pNext = pNext;
+      pNew->pPrev = pPrev;
+      pPrev->pNext = pNew;
+  }
+
+  static void ListTimerInsertHead(struct LIST_TIMER *pNew, struct LIST_TIMER *pHead)
+  {
+      ListTimerInsert(pNew, pHead, pHead->pNext);
+  }
+
+  static void ListTimerInsertTail(struct LIST_TIMER *pNew, struct LIST_TIMER *pHead)
+  {
+      ListTimerInsert(pNew, pHead->pPrev, pHead);
+  }
+
+  // 使用新结点 pNew 替换 pOld 在双向循环链表中的位置。如果双向链表中仅有一个结点 pOld，使用 pNew 替换后，同样，仅有一个结点 pNew
+  static void ListTimerReplace(struct LIST_TIMER *pOld, struct LIST_TIMER *pNew)
+  {
+      pNew->pNext = pOld->pNext;
+      pNew->pNext->pPrev = pNew;
+      pNew->pPrev = pOld->pPrev;
+      pNew->pPrev->pNext = pNew;
+  }
+
+  // 使用新结点 pNew 替换 pOld 在双向循环链表中的位置。
+  static void ListTimerReplaceInit(struct LIST_TIMER *pOld, struct LIST_TIMER *pNew)
+  {
+      ListTimerReplace(pOld, pNew);
+      // 使用 pNew 替换 pOld 在双向循环链表中的位置后，pOld 结点从链表中独立出来了，所以要让 pOld 指向自己
+      pOld->pNext = pOld;
+      pOld->pPrev = pOld;
+  }
+
+  // 初始化时间轮中的所有 tick。初始化后，每个 tick 中的双向链表只有一个头结点
+  static void InitArrayListTimer(struct LIST_TIMER *arrListTimer, uint32 nSize)
+  {
+      uint32 i;
+      for(i=0; i<nSize; i++)
+      {
+          arrListTimer[i].pPrev = &arrListTimer[i];
+          arrListTimer[i].pNext = &arrListTimer[i];
+      }
+  }
+
+  static void DeleteArrayListTimer(struct LIST_TIMER *arrListTimer, uint32 uSize)
+  {
+      struct LIST_TIMER listTmr, *pListTimer;
+      struct TIMER_NODE *pTmr;
+      uint32 idx;
+
+      for(idx=0; idx<uSize; idx++)
+      {
+          ListTimerReplaceInit(&arrListTimer[idx], &listTmr);
+          pListTimer = listTmr.pNext;
+          while(pListTimer != &listTmr)
+          {
+              pTmr = (struct TIMER_NODE *)((uint8 *)pListTimer - offsetof(struct TIMER_NODE, ltTimer));
+              pListTimer = pListTimer->pNext;
+              free(pTmr);
+          }
+      }
+  }
+
+  // 根据计时器的结束时间计算所属时间轮、在该时间轮上的 tick、然后将新计时器结点插入到该 tick 的双向循环链表的尾部
+  static void AddTimer(LPTIMERMANAGER lpTimerManager, LPTIMERNODE pTmr)
+  {
+      struct LIST_TIMER *pHead;
+      uint32 i, uDueTime, uExpires;
+
+      uExpires = pTmr->uExpires; // 定时器到期的时刻
+      uDueTime = uExpires - lpTimerManager->uJiffies;
+      if (uDueTime < TVR_SIZE)   // idx < 256 (2的8次方)
+      {
+          i = uExpires & TVR_MASK; // expires & 255
+          pHead = &lpTimerManager->arrListTimer1[i];
+      }
+      else if (uDueTime < 1 << (TVR_BITS + TVN_BITS)) // idx < 16384 (2的14次方)
+      {
+          i = (uExpires >> TVR_BITS) & TVN_MASK;      // i = (expires>>8) & 63
+          pHead = &lpTimerManager->arrListTimer2[i];
+      }
+      else if (uDueTime < 1 << (TVR_BITS + 2 * TVN_BITS)) // idx < 1048576 (2的20次方)
+      {
+          i = (uExpires >> (TVR_BITS + TVN_BITS)) & TVN_MASK; // i = (expires>>14) & 63
+          pHead = &lpTimerManager->arrListTimer3[i];
+      }
+      else if (uDueTime < 1 << (TVR_BITS + 3 * TVN_BITS)) // idx < 67108864 (2的26次方)
+      {
+          i = (uExpires >> (TVR_BITS + 2 * TVN_BITS)) & TVN_MASK; // i = (expires>>20) & 63
+          pHead = &lpTimerManager->arrListTimer4[i];
+      }
+      else if ((signed long) uDueTime < 0)
+      {
+          /*
+           ,* Can happen if you add a timer with expires == jiffies,
+           ,* or you set a timer to go off in the past
+           ,*/
+          pHead = &lpTimerManager->arrListTimer1[(lpTimerManager->uJiffies & TVR_MASK)];
+      }
+      else
+      {
+          /* If the timeout is larger than 0xffffffff on 64-bit
+           ,* architectures then we use the maximum timeout:
+           ,*/
+          if (uDueTime > 0xffffffffUL)
+          {
+              uDueTime = 0xffffffffUL;
+              uExpires = uDueTime + lpTimerManager->uJiffies;
+          }
+          i = (uExpires >> (TVR_BITS + 3 * TVN_BITS)) & TVN_MASK; // i = (expires>>26) & 63
+          pHead = &lpTimerManager->arrListTimer5[i];
+      }
+      ListTimerInsertTail(&pTmr->ltTimer, pHead);
+  }
+
+  // 遍历时间轮 arrlistTimer 的双向循环链表，将其中的计时器根据到期时间加入到指定的时间轮中
+  static uint32 CascadeTimer(LPTIMERMANAGER lpTimerManager, struct LIST_TIMER *arrListTimer, uint32 idx)
+  {
+      struct LIST_TIMER listTmr, *pListTimer;
+      struct TIMER_NODE *pTmr;
+
+      ListTimerReplaceInit(&arrListTimer[idx], &listTmr);
+      pListTimer = listTmr.pNext;
+      // 遍历双向循环链表，添加定时器
+      while(pListTimer != &listTmr)
+      {
+          // 根据结构体 struct TIMER_NODE 的成员 ltTimer 的指针地址和该成员在结构体中的便宜量，计算结构体 struct TIMER_NODE 的地址
+          pTmr = (struct TIMER_NODE *)((uint8 *)pListTimer - offsetof(struct TIMER_NODE, ltTimer));
+          pListTimer = pListTimer->pNext;
+          AddTimer(lpTimerManager, pTmr);
+      }
+      return idx;
+  }
+
+  static void RunTimer(LPTIMERMANAGER lpTimerManager)
+  {
+  #define INDEX(N) ((lpTimerManager->uJiffies >> (TVR_BITS + (N) * TVN_BITS)) & TVN_MASK)
+      uint32 idx, uJiffies;
+      struct LIST_TIMER listTmrExpire, *pListTmrExpire;
+      struct TIMER_NODE *pTmr;
+
+      if(NULL == lpTimerManager)
+          return;
+      uJiffies = GetJiffies();
+      pthread_mutex_lock(&lpTimerManager->lock);
+      while(TIME_AFTER_EQ(uJiffies, lpTimerManager->uJiffies))
+      {
+          // unint32 共 32bit，idx 为当前时间的低 8bit，INDEX(0) 为次 6bit，INDEX(1) 为再次 6bit，INDEX(2) 为再次 6bit，INDEX(3) 为高 6bit
+          // 如果 1 级时间轮的 256 毫秒走完了，会遍历把 2 级时间轮中的计时器，将其中的计时器根据到期时间加入到指定时间轮。这样 1 级时间轮中就有计时器了。
+          //  如果 1、2 级时间轮的 256*64 毫秒都走完了，会遍历 3 级时间轮，将其中的计时器加入到指定时间轮。这样 1 级和 2 级时间轮中就有计时器了。
+          //   如果 1、2、3 级时间轮的 256*64*64 毫秒都走完了，...
+          //    如果 1、2、3、4 级时间轮的 256*64*64*64 毫秒都走完了，...
+          idx = lpTimerManager->uJiffies & TVR_MASK;
+          if (!idx &&
+                  (!CascadeTimer(lpTimerManager, lpTimerManager->arrListTimer2, INDEX(0))) &&
+                  (!CascadeTimer(lpTimerManager, lpTimerManager->arrListTimer3, INDEX(1))) &&
+                  !CascadeTimer(lpTimerManager, lpTimerManager->arrListTimer4, INDEX(2)))
+              CascadeTimer(lpTimerManager, lpTimerManager->arrListTimer5, INDEX(3));
+          pListTmrExpire = &listTmrExpire;
+          // 新结点 pListTmrExpire 替换 arrListTimer1[idx] 后，双向循环链表 arrListTimer1[idx] 就只有它自己一个结点了。pListTmrExpire 成为双向循环链表的入口
+          ListTimerReplaceInit(&lpTimerManager->arrListTimer1[idx], pListTmrExpire);
+          // 遍历时间轮 arrListTimer1 的双向循环链表，执行该链表所有定时器的回调函数
+          pListTmrExpire = pListTmrExpire->pNext;
+          while(pListTmrExpire != &listTmrExpire)
+          {
+              pTmr = (struct TIMER_NODE *)((uint8 *)pListTmrExpire - offsetof(struct TIMER_NODE, ltTimer));
+              pListTmrExpire = pListTmrExpire->pNext;
+              pTmr->timerFn(pTmr->pParam);
+              //
+              if(pTmr->uPeriod != 0)
+              {
+                  pTmr->uExpires = lpTimerManager->uJiffies + pTmr->uPeriod;
+                  AddTimer(lpTimerManager, pTmr);
+              }
+              else free(pTmr);
+          }
+          lpTimerManager->uJiffies++;
+      }
+      pthread_mutex_unlock(&lpTimerManager->lock);
+  }
+
+  // 计时器线程。以 1 毫秒为单位进行计时
+  static void *ThreadRunTimer(void *pParam)
+  {
+      LPTIMERMANAGER pTimerMgr;
+
+      pTimerMgr = (LPTIMERMANAGER)pParam;
+      if(pTimerMgr == NULL)
+          return NULL;
+      while(!pTimerMgr->uExitFlag)
+      {
+          RunTimer(pTimerMgr);
+          SleepMilliseconds(1);  // 线程睡 1 毫秒
+      }
+      return NULL;
+  }
+
+  // 睡 uMs 毫秒
+  void SleepMilliseconds(uint32 uMs)
+  {
+      struct timeval tv;
+      tv.tv_sec = 0;
+      tv.tv_usec = uMs * 1000;  // tv.tv_usec 单位是微秒
+      select(0, NULL, NULL, NULL, &tv);
+  }
+
+  // 创建定时器管理器
+  LPTIMERMANAGER CreateTimerManager(void)
+  {
+      LPTIMERMANAGER lpTimerMgr = (LPTIMERMANAGER)malloc(sizeof(TIMERMANAGER));
+      if(lpTimerMgr != NULL)
+      {
+          lpTimerMgr->thread = (pthread_t)0;
+          lpTimerMgr->uExitFlag = 0;
+          pthread_mutex_init(&lpTimerMgr->lock, NULL);
+          lpTimerMgr->uJiffies = GetJiffies();
+          InitArrayListTimer(lpTimerMgr->arrListTimer1, sizeof(lpTimerMgr->arrListTimer1)/sizeof(lpTimerMgr->arrListTimer1[0]));
+          InitArrayListTimer(lpTimerMgr->arrListTimer2, sizeof(lpTimerMgr->arrListTimer2)/sizeof(lpTimerMgr->arrListTimer2[0]));
+          InitArrayListTimer(lpTimerMgr->arrListTimer3, sizeof(lpTimerMgr->arrListTimer3)/sizeof(lpTimerMgr->arrListTimer3[0]));
+          InitArrayListTimer(lpTimerMgr->arrListTimer4, sizeof(lpTimerMgr->arrListTimer4)/sizeof(lpTimerMgr->arrListTimer4[0]));
+          InitArrayListTimer(lpTimerMgr->arrListTimer5, sizeof(lpTimerMgr->arrListTimer5)/sizeof(lpTimerMgr->arrListTimer5[0]));
+          lpTimerMgr->thread = ThreadCreate(ThreadRunTimer, lpTimerMgr);
+      }
+      return lpTimerMgr;
+  }
+
+  // 删除定时器管理器
+  void DestroyTimerManager(LPTIMERMANAGER lpTimerManager)
+  {
+      if(NULL == lpTimerManager)
+          return;
+      lpTimerManager->uExitFlag = 1;
+      if((pthread_t)0 != lpTimerManager->thread)
+      {
+          ThreadJoin(lpTimerManager->thread);
+          ThreadDestroy(lpTimerManager->thread);
+          lpTimerManager->thread = (pthread_t)0;
+      }
+      DeleteArrayListTimer(lpTimerManager->arrListTimer1, sizeof(lpTimerManager->arrListTimer1)/sizeof(lpTimerManager->arrListTimer1[0]));
+      DeleteArrayListTimer(lpTimerManager->arrListTimer2, sizeof(lpTimerManager->arrListTimer2)/sizeof(lpTimerManager->arrListTimer2[0]));
+      DeleteArrayListTimer(lpTimerManager->arrListTimer3, sizeof(lpTimerManager->arrListTimer3)/sizeof(lpTimerManager->arrListTimer3[0]));
+      DeleteArrayListTimer(lpTimerManager->arrListTimer4, sizeof(lpTimerManager->arrListTimer4)/sizeof(lpTimerManager->arrListTimer4[0]));
+      DeleteArrayListTimer(lpTimerManager->arrListTimer5, sizeof(lpTimerManager->arrListTimer5)/sizeof(lpTimerManager->arrListTimer5[0]));
+      pthread_mutex_destroy(&lpTimerManager->lock);
+      free(lpTimerManager);
+  }
+
+  // 创建一个定时器。fnTimer 回调函数地址。pParam 回调函数的参数。uDueTime 首次触发的超时时间间隔。uPeriod 定时器循环周期，若为0，则该定时器只运行一次。
+  LPTIMERNODE CreateTimer(LPTIMERMANAGER lpTimerManager, void (*timerFn)(void*), void *pParam, uint32 uDueTime, uint32 uPeriod)
+  {
+      LPTIMERNODE pTmr = NULL;
+      if(NULL == timerFn || NULL == lpTimerManager)
+          return NULL;
+      pTmr = (LPTIMERNODE)malloc(sizeof(TIMERNODE));
+      if(pTmr != NULL)
+      {
+          pTmr->uPeriod = uPeriod;
+          pTmr->timerFn = timerFn;
+          pTmr->pParam = pParam;
+
+          pthread_mutex_lock(&lpTimerManager->lock);
+          pTmr->uExpires = lpTimerManager->uJiffies + uDueTime;
+          AddTimer(lpTimerManager, pTmr);
+          pthread_mutex_unlock(&lpTimerManager->lock);
+      }
+      return pTmr;
+  }
+
+  //删除定时器
+  int32 DeleteTimer(LPTIMERMANAGER lpTimerManager, LPTIMERNODE lpTimer)
+  {
+      struct LIST_TIMER *pListTmr;
+      if(NULL != lpTimerManager && NULL != lpTimer)
+      {
+          pthread_mutex_lock(&lpTimerManager->lock);
+          pListTmr = &lpTimer->ltTimer;
+          pListTmr->pPrev->pNext = pListTmr->pNext;
+          pListTmr->pNext->pPrev = pListTmr->pPrev;
+          free(lpTimer);
+          pthread_mutex_unlock(&lpTimerManager->lock);
+          return 0;
+      }
+      else
+          return -1;
+  }
+#+END_SRC
+** Thread.h
+
+#+BEGIN_SRC c
+#ifndef _THREAD_H_
+#define _THREAD_H_
+
+#include <pthread.h>
+#include "def.h"
+
+typedef void* (*FNTHREAD)(void *pParam);
+
+pthread_t ThreadCreate(FNTHREAD fnThreadProc, void *pParam);
+void ThreadJoin(pthread_t thread);
+void ThreadDestroy(pthread_t thread);
+
+#endif //_THREAD_H_
+#+END_SRC
+
+** Thread.c
+
+#+BEGIN_SRC c
+#include "Thread.h"
+
+pthread_t ThreadCreate(FNTHREAD fnThreadProc, void *pParam)
+{
+    pthread_t t;
+    if(fnThreadProc == NULL)
+        return 0;
+    if(pthread_create(&t, NULL, fnThreadProc, pParam) == 0)
+        return t;
+    else
+        return (pthread_t)0;
+}
+
+void ThreadJoin(pthread_t thread)
+{
+    pthread_join(thread, NULL);
+}
+
+void ThreadDestroy(pthread_t thread)
+{
+}
+#+END_SRC
+
+** main.c
+
+#+BEGIN_SRC c
+#include <stdio.h>
+#include "Timer.h"
+
+void TimerFun(void *pParam)
+{
+    LPTIMERMANAGER pMgr;
+    pMgr = (LPTIMERMANAGER)pParam;
+    printf("Timer expire! Jiffies: %lu\n", pMgr->uJiffies);
+}
+
+int main(void)
+{
+    LPTIMERMANAGER pMgr;
+    LPTIMERNODE pTn;
+    pMgr = CreateTimerManager();
+    CreateTimer(pMgr, TimerFun, pMgr, 2000, 0);
+    pTn = CreateTimer(pMgr, TimerFun, pMgr, 4000, 1000);
+    SleepMilliseconds(10001);
+    DeleteTimer(pMgr, pTn);
+    SleepMilliseconds(3000);
+    DestroyTimerManager(pMgr);
+    return 0;
+}
+#+END_SRC
+
+** Makefile
+
+#+BEGIN_SRC makefile
+# Makefile for test timer
+
+CC			= gcc
+CXX			= g++
+CFLAGS		= -c -Wall -O -Wno-unused
+CXXFLAGS	= -c
+LDFLAGS		= -lrt -lpthread -L.
+LD			= gcc
+CXXLD		= g++
+
+OBJS		= Thread.o Timer.o main.o
+
+TARGET_APP	= main
+
+all: $(TARGET_APP)
+	@echo done.
+
+$(TARGET_APP): $(OBJS)
+	@echo "---- Build : $@ ----"
+	$(LD) $(OBJS) $(LDFLAGS) -o $@
+
+%.o: ./Timer/%.c
+	$(CC) $(CFLAGS) -o $@ $<
+
+.PHONY: clean cleanobj
+clean:
+	rm -f *.o
+	rm -f $(TARGET_APP)
+
+cleanobj:
+	rm -f *.o
+#+END_SRC
+
+* 简单测试结果
+
+#+BEGIN_SRC shell
+$ make                                                                                                                                                                                03:23:30 
+gcc -c -Wall -O -Wno-unused   -c -o Thread.o Thread.c
+gcc -c -Wall -O -Wno-unused   -c -o Timer.o Timer.c
+gcc -c -Wall -O -Wno-unused   -c -o main.o main.c
+---- Build : main ----
+gcc Thread.o Timer.o main.o -lrt -lpthread -L. -o main
+done.
+$ ./main                                                                                                                                                                              03:23:32 
+Timer expire! Jiffies: 5596783743
+Timer expire! Jiffies: 5596785743
+Timer expire! Jiffies: 5596786743
+Timer expire! Jiffies: 5596787743
+Timer expire! Jiffies: 5596788743
+Timer expire! Jiffies: 5596789743
+Timer expire! Jiffies: 5596790743
+Timer expire! Jiffies: 5596791743
+#+END_SRC

@@ -1,0 +1,106 @@
+#+TITLE: 连续到来多个信号时，signal 和 sigaction 的处理逻辑
+
+* signal
+-  一次注册，可多次使用
+-  对于较短时间内的多个同种信号，按顺序依次执行信号处理函数
+-  对于较短时间内的多个不同种信号，递归处理。先跳转去处理另一个信号，处理完毕后才会继续处理当前信号
+-  如果程序阻塞在一个系统调用（如 read）时，此时收到一个信号，程序会先执行信号调用函数，然后再重新执行 read 函数。
+
+* sigaction
+
+** 测试代码
+#+BEGIN_SRC c
+  #include<stdio.h>
+  #include<stdlib.h>
+  #include<unistd.h>
+  #include<string.h>
+  #include<signal.h>
+
+  int cnt = 0;
+  void sighandler_new(int signo, siginfo_t *psigninfo, void *pReserved)
+  {
+      int count = ++cnt;
+      printf("%d enter, signo: %d\n", count, signo);
+      sleep(3);
+      printf("%d leave, signo: %d\n", count, signo);
+  }
+
+  int main(void)
+  {
+      struct sigaction act;
+      act.sa_flags = SA_SIGINFO | SA_RESTART;
+      act.sa_sigaction = sighandler_new;
+      // 假如 SIGQUIT 在信号屏蔽集合中，而程序正在执行 SIGINT 的信号处理函数，
+      // 此时来了一个 SIGQUIT 信号，则 SIGQUIT 暂时被屏蔽，
+      // SIGINT 信号处理函数执行完毕后才去执行 SIGQUIT 信号处理函数。
+      sigemptyset(&act.sa_mask);
+      sigaddset(&act.sa_mask, SIGQUIT);
+      sigaction(SIGINT, &act, NULL);
+
+      char buf[8];
+      int iret;
+      do
+      {
+          iret = read(STDIN_FILENO, buf, sizeof(buf) - 1);
+          if(-1 == iret)
+          {
+              perror("read error");
+              exit(-1);
+          }
+          buf[iret] = '\0';
+          puts(buf);
+      }while(strcmp(buf, "quit\n"));
+
+      return 0;
+  }
+#+END_SRC
+** 结果
+第一次运行 main，使用快捷键 =ctrl-c= 发出 1 个 SIGINT 信号，然后使用快捷键 =ctrl-\= 发出 4 个 SIGQUIT 信号
+第二次运行 main，使用快捷键 =ctrl-c= 连续发出 6 个 SIGINT 信号
+结果如下
+#+BEGIN_SRC shell
+$ gcc main.c -o main
+$ ./main
+^C1 enter, signo: 2
+^\^\^\^\1 leave, signo: 2
+[1]    9358 quit       ./main
+$ ./main
+^C1 enter, signo: 2
+^C^C^C^C^C1 leave, signo: 2
+2 enter, signo: 2
+2 leave, signo: 2
+#+END_SRC
+
+如果 SIGQUIT 不在信号屏蔽集合中，即删除如下 2 行代码
+
+#+BEGIN_SRC c
+      sigemptyset(&act.sa_mask);
+      sigaddset(&act.sa_mask, SIGQUIT);
+#+END_SRC
+
+先发送一个 SIGINT 信号，再发送一个 SIGQUIT 信号，结果如下
+#+BEGIN_SRC shell
+$ gcc main.c -o main
+$ ./main
+^C1 enter, signo: 2
+^\[1]    9644 quit       ./main
+#+END_SRC
+
+** 结论
+1. 同种信号，按信号到来的先后顺序依次处理
+2. 结果中，为什么连续发出多个 SIGINT 信号只会执行 2 次？
+ 对于同种信号，当一个信号被阻塞之后（即在执行信号处理函数时），在解除阻塞之前，无论该信号发生多少次，但是解除阻塞的时候，内核只会向进程发送一个信号而已，而不管在其阻塞期间有多少个信号产生，因为linux并不会对信号进行排队。 
+3. 异种信号，递归处理。例如：如果当前正在处理 SIGINT 信号，此时来了一个 SIGQUIT 信号，会先处理 SIGQUIT 信号，处理完毕后才会继续处理 SIGINT 信号
+4. 异种信号，如果到来的异种信号在屏蔽集合中，先处理完当前信号，再处理异种信号。例如：SIGQUIT 被加入到 SIGINT 的屏蔽集合中了，会先处理完 SIGINT 信号再处理 SIGQUIT
+
+** 关于 SA_RESTART
+如果程序正阻塞在一个系统调用，此时收到一个信号，系统调用被打断，程序去执行信号处理函数了。该标志就是在信号处理函数执行完毕后，使被信号打断的系统调用自动重新发起。 
+例如该测试代码，如果不指定该标志，信号处理完毕后，read 函数会读取失败。如下：
+
+#+BEGIN_SRC shell
+$ gcc main.c -o main
+$ ./main                                                                                                                                                                                    20:49:21 
+^C1 enter, signo: 2
+1 leave, signo: 2
+read error: Interrupted system call
+#+END_SRC

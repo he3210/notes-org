@@ -69,3 +69,12 @@ $ gcc main.c -o main -std=c99
 main.c:16:3: error: flexible array member not at end of struct
   }level[];
 #+END_SRC
+* redis 中 sdshdr 中也用到了柔性数组
+
+#+BEGIN_SRC c
+  struct sdshdr {
+      int len;
+      int free;
+      char buf[];
+  };
+#+END_SRC

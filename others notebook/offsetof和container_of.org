@@ -1,0 +1,41 @@
+#+TITLE: offsetof 和 container_of
+
+* offsetof
+头文件 stddef.h，用于求出一个 struct 或 union 数据类型的给定成员的 size_t 类型的字节偏移值。offsetof() 宏有两个参数，分别是结构名与结构内的成员名
+
+* container_of
+container_of 宏用来根据成员的地址来获取结构体的地址
+
+* 实验
+#+BEGIN_SRC c
+#include <stdio.h>
+#include <stdlib.h>
+//#include <stddef.h>
+
+#define NAME_STR_LEN  32
+
+#define offsetof(type, member) ((size_t)&(((type*)0)->member))
+#define container_of(ptr, type, member) ((type *)((char *)(1 ? (ptr) : &((type *)0)->member) - offsetof(type, member)))
+
+typedef struct student_info
+{
+    int  id;
+    char name[NAME_STR_LEN];
+    int  age;
+}student_info;
+
+
+int main()
+{
+    printf("id offset: %lu\n", offsetof(student_info, id));
+    printf("name offset: %lu\n", offsetof(student_info, name));
+    printf("age offset: %lu\n", offsetof(student_info, age));
+
+    student_info *stu = (student_info *)malloc(sizeof(student_info));
+    stu->age = 10;
+    student_info *ptr = container_of(&(stu->age), student_info, age);
+    printf("stu address:%p\n", stu);
+    printf("ptr address:%p\n", ptr);
+    return 0;
+}
+#+END_SRC

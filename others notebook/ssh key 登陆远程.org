@@ -31,8 +31,9 @@ Host he
     IdentityFile ~/.ssh/id_rsa
 #+END_EXAMPLE
 
-* 登陆
-使用下面的命令即可登录（只有首次登陆时需要输入密码，以后则不需要）
+* 使用
+
 #+BEGIN_SRC shell
-$ ssh he
+$ ssh he  # 使用该命令即可登录（只有首次登陆时需要输入密码，以后则不需要）
+$ scp -r test he:/root/  # scp 命令也支持 ssh key
 #+END_SRC
