@@ -1,0 +1,206 @@
+#+TITLE: redis 3.0 源码阅读计划
+
+* 介绍
+第 2 部分和第 3 部分为 reids 底层数据结构的实现
+第 4 部分为 redis 对外提供的键值对的数据类型
+第 5 部分包括数据库的实现，持久化，和一些 redis 独立的功能模块
+第 6 部分为 redis 客户端与服务器的实现
+第 7 部分为主从复制，redis sentinel，redis 集群的实现
+
+* 底层数据结构实现
+** DONE sds
+
+** DONE 双端链表
+
+** DONE skiplist
+
+** DELAY hyperloglog
+
+* 内存编码数据结构实现
+** DONE inset 数据结构
+
+** DONE ziplist 数据结构
+
+* redis 数据类型实现
+** DONE list 键
+
+文件：t_list.c
+
+该文件主要是 **列表的实现** 和 **列表键命令的实现** 。
+
+需要注意或做到的事情：
+- 列表底层使用两种编码方式：ziplist 和 linkedlist。所以该文件涉及到列表键转码，如何从 ziplist 转码成 linkedlist，以及转码需要满足什么条件
+- 列表的 entry 肯定要对应到 ziplist 和 linkedlist 的 entry。
+ - 列表 entry 的迭代器肯定要对应到底层 ziplist 和 linkedlist 的迭代器；
+ - 列表 push、pop 一个 entry 肯定要对应到 ziplist 和 linkedlist 的 push、pop；等等
+- 关于对象 rojb 的引用计数的注意事项。ziplist 和 linkedlist 在引用计数上肯定是不同的。
+ - 例如在插入时，对于 ziplist，会直接拷贝对象的成员中的值成员到 ziplist 的 entry 中，该对象的引用计数不必变化；而对于 linkedlist，会直接用其 entry 中的一个指针指向这个对象，所以该对象引用计数肯定要自增一的。
+- 删除迭代器指定的 entry 时，要注意删除 entry 后，迭代器的更新。为什么呢？因为 ziplist 每次在删除一个 entry 的时候都会重新为整个 ziplist 分配空间，所以迭代器位置会发生变化；而 linkedlist 需要迭代器指向下一个 entry 位置
+- brpoplpush 是原子操作。例如：从 a 列表弹出表尾元素插入到 b 列表。如果元素插入 b 列表失败时，会重新把元素放入 a 列表的表尾
+- 阻塞相关命令的实现机制。例如：blpop、brpop、brpoplpush。 
+ **阻塞实现机制如下** ：
+ - 相关结构体
+  #+BEGIN_SRC c
+    typedef struct redisDb {
+        dict *blocking_keys;// 键是数据库中 key，值是被该 key 阻塞的 redisClient 链表
+        dict *ready_keys;   // 就绪的 key 的集合。该字典只有键没有值，相当于集合。当被阻塞的 key 对应的列表被 push 进数据了，就会把这个 key 添加到该集合中。用于防止发送就绪信号时，重复向 redisServer.ready_keys 添加数据。
+    } redisDb;
+
+    typedef struct blockingState {
+        mstime_t timeout;      // 阻塞超时时间
+        dict *keys;            // 造成客户端阻塞的键的集合（值为 NULL 的字典）
+        robj *target;          // 在被阻塞的键有新元素进入时，需要将这些新元素添加到哪里的目标键。用于 brpoplpush 命令
+    } blockingState;
+
+    typedef struct redisClient {
+        blockingState bpop;    // 记录客户端使用命令 brpop blpop brpoplpush 阻塞后的阻塞信息
+        int flags;             // 可以设置为阻塞状态 REDIS_BLOCKED，来对客户端进行阻塞
+        int btype;             // 阻塞类型。当 flags 为 REDIS_BLOCKED，设置该值为 REDIS_BLOCKED_LIST
+    } redisClient;
+
+    typedef struct readyList {
+        redisDb *db;
+        robj *key;
+    } readyList;
+
+    struct redisServer {
+        list *ready_keys;      // 链表结点为 readyList 类型。每个结点都记录了一个指定数据库和该数据库上一个就绪的 key
+    };
+  #+END_SRC
+ - **调用 bpop 相关命令后，若被阻塞，执行阻塞操作 blockForKeys()** ：设置 redisClient 的 bpop 成员值；将该客户端添加到 redisDb.blocking_keys；设置 redisClient 阻塞标记 flags 和 btype
+ - **调用 push 相关命令后，列表中有数据了。所以发送就绪信号 signalListAsReady()** ：生成一个 readyList 结构体对象，插入到 redisServer 的 ready_keys 链表中。
+ - **解除阻塞操作 handleClientsBlockedOnLists()** ：遍历 redisServer.ready_keys 链表上的 readyList 元素，在 redisDb.blocking_keys 获取相应被该 key 阻塞的客户端链表。以先阻塞先解除阻塞的原则，从列表中 pop 数据，然后为指定客户端解除阻塞。每解除一个，就将该客户端从客户端链表删除，直到列表中没数据了，没解除阻塞的客户端等待下次列表被 push 数据
+  - **为指定客户端解除阻塞 unblockClient()** ：遍历 redisClient.keys 上的所有 key；在 redisDb.blocking_keys 中获取被该 key 阻塞的 redisClient 链表；遍历该链表，找到该客户端并删除。设置 redisClient 非阻塞标记 flags 和 btyp
+
+** DONE hash 键
+
+文件：t_hash.c
+
+该文件主要是 **散列键的实现**
+
+散列键底层的两种编码方式：ziplist 和 dict
+
+也就是在 ziplist 和 dict 上封装了一层，封装了一些多态操作，将对 hash 的操作根据编码方式转化为对 ziplist 和 dict 的操作。文件内容主要包含有编码转换，迭代器的初始化、迭代、释放等，获取键值对，判断键值对是否存在，设置键值对，删除键值对，获取键值对数量，哈希键命令的实现等。
+
+关于 scan 类命令要注意的事项
+#+BEGIN_EXAMPLE
+scan cursor [match pattern] [count n]
+hscan key cursor [match pattern] [count n]
+sscan key cursor [match pattern] [count n]
+zscan key cursor [match pattern] [count n]
+#+END_EXAMPLE
+
+- 如果底层是 dict 的话
+ - 最多取 count 个元素（键值对）（取了 count 个元素，可能会根据 pattern 被过滤掉，所以最多取 count 个元素），如果 dict 中不够 count 个元素就取所有元素
+ - 参考另一篇笔记：[[./redis源码难点：字典的遍历dictScan.org][字典的遍历 dictScan]]
+  - 该算法可能会返回重复元素，但是已经把返回重复元素的可能性降到了最低;
+   1. 当 dict 哈希表在两次迭代过程之间发生收缩，原哈希表容量为 x，收缩后容量为 y，则最多会有 x/y – 1 个原 bucket 的节点会被重复迭代；
+   2. 当 dict 哈希表在两次迭代过程之间发生扩展，不会存在同一个结点重复迭代的情况；
+  - 开始遍历那一刻起，只要 dict 哈希表中的元素在迭代过程期间不被删除，肯定能被遍历到，不管 dict 哈希表扩展还是缩小；
+- 如果底层使用 inset 的话，直接取所有元素，忽略 count 参数
+- 如果底层是 ziplist 的话，直接取所有元素（键值对），忽略 count 参数
+
+如果用 dict 编码作为哈希对象的底层实现，哈希表的一个 entry 存储一对键值对
+- 字典的每个键都是一个字符串对象，而不会是整型对象
+- 字典的每个值都是一个字符串对象，而不会是整型对象
+
+** DONE set 键
+
+文件：t_set.c
+
+该文件主要是 **集合的实现**
+
+set 底层使用两种编码方式：intset 和 dict
+
+它也就是在 intset 和 dict 上封装了一层，封装了一些多态操作。编码转换，迭代器的初始化、迭代、释放等，set 对象创建，删除、添加集合元素，判断是否是集合元素，随机一个元素，获取集合元素个数，
+
+** DOING zset 键
+
+文件：t_zset.c 中除 zsl 开头的函数之外的所有函数
+
+zset 底层使用两种编码方式：ziplist 和 skiplist + dict。
+
+- 对于 skiplist + dict 的编码方式。当插入一个元素时，既插入到 skiplist 中又插入到一个 dict 中。其结构体如下：
+ #+BEGIN_SRC c
+   typedef struct zset {
+       dict *dict;      // 用于支持 O(1) 复杂度的按成员取分值操作
+       zskiplist *zsl;  // 用于支持平均复杂度为 O(log N) 的按分值定位成员操作以及范围操作
+   } zset;
+ #+END_SRC
+- 对于第二种编码方式 skiplist + dict，为什么有序集合使用跳表和字典结合的方式来实现呢，而不单独使用跳表或字典实现？
+ - 跳表和字典各有其优缺点，例如：dict 能以 O(1) 时间复杂度来查找元素，而 skiplist 查找元素则需要 O(log(n))；skiplist 按分值从小到大排列元素，它的优势在于范围型操作，例如：zrank、zrange 等命令就是通过 skiplist 的 API 来实现的。而 dict 中的哈希表保存的元素是乱序的，进行范围型操作时十分麻烦。skiplist + dict 结合的方式能充分利用 skiplist 和 dict 的优点。
+ - skiplist 和 dict 一起使用并不会浪费太多内存。有序集合中一个 element 对应一个 score，element 对象使用了引用计数的方式在 skiplist 和 dict 间共享，不会浪费内存；dict 中也不存储 score 值，它通过一个指针指向 skiplist 结点中的 double 类型的 score。
+- 对于 ziplist 的编码方式。使用 2 个 entry 来保存一个有序集合元素。第一个 entry 保存 element，第二个保存 score。使用 ziplist 编码的有序集合的元素是按 score 从小到大顺序排列的
+
+** DELAY hyperloglog 键
+
+* 数据库的实现
+** DONE Redis 数据库实现
+文件：redis.h 文件中的 redisDb 结构， 以及 db.c 文件
+
+封装了对数据库的一些操作。例如：对键的增删改查，清空数据库，随机返回数据库的一个键，键改名，对过期时间的操作等等。
+
+redis 数据库中使用 redisDb.dict 字典来保存所有键值对。其中 key 是 sds 类型的，value 是 robj 类型的
+
+redis 数据库中使用 redisDb.expires 字典来保存到期时间。其中 key 值是通过指针指向 redisDb.dict 中的 key，它们是共享的，并不会额外增加内存开销；value 是 UNIX 时间戳，是 int64_t 类型的
+
+**redis 对过期键的删除策略** 。不难想到，过期键的删除策略可以有如下 3 种：（redis 使用了第 2 和第 3 种）
+1. 定时器。在为一个键设置过期时间的时候，创建一个定时器，定时器时间到后执行对键的删除操作。对内存最友好，对 CPU 时间极不友好。并且 redis 的时间事件使用无序链表实现的，查找事件的时间复杂度高达 O(N)。所以不使用该策略；
+2. 惰性删除。每次从键空间获取键时，都检查键是否过期，过期则删除键，未过期则返回键。对内存极不友好，对 CPU 时间友好。它会存在过期键长期不被删除的情况。为解决这些问题，需要该策略和定期删除策略一起使用；
+3. 定期删除。每隔一段时间就遍历一遍数据库中带过期时间的键，过期则删除。在 redis 中，会周期性执行定期删除函数。定期删除函数流程为：在规定的时间内，遍历各个数据库，从每个数据库中随机抽取一部分带过期时间的 key，检查并删除其中的过期键。如果规定时间到，暂停执行，等待下一次调用该函数。
+
+** DONE Redis 数据库通知功能实现
+文件：notify.c
+
+当键空间发生变化时，根据键空间的类型向指定频道发出一个通知。如果有客户端订阅了该频道，该客户端就可以收到通知
+
+| 键空间通知类型        | 表示关联到该通知类型的配置 | 代码是否已支持 |
+|-----------------------+----------------------------+----------------|
+| REDIS_NOTIFY_KEYSPACE | K                          | 支持           |
+| REDIS_NOTIFY_KEYEVENT | E                          | 支持           |
+|-----------------------+----------------------------+----------------|
+| REDIS_NOTIFY_GENERIC  | g                          | 不支持         |
+| REDIS_NOTIFY_STRING   | $                          | 不支持         |
+| REDIS_NOTIFY_LIST     | l                          | 不支持         |
+| REDIS_NOTIFY_SET      | s                          | 不支持         |
+| REDIS_NOTIFY_HASH     | h                          | 不             |
+| REDIS_NOTIFY_ZSET     | z                          | 不             |
+| REDIS_NOTIFY_EXPIRED  | x                          | 不             |
+| REDIS_NOTIFY_EVICTED  | e                          | 不             |
+
+** DONE 发布与订阅功能的实现
+
+文件：pubsub.c 和 redis.h 文件的 pubsubPattern 结构
+
+实现了频道订阅发布的 API 和相关命令。API 有：订阅频道/退订频道，订阅频道模式串/退订频道模式串，退订所有频道/退订所有频道模式串，发布消息到指定频道
+
+订阅与发布功能基本结构体如下：
+#+BEGIN_SRC c
+  typedef struct pubsubPattern {
+      redisClient *client;    // 订阅频道模式的客户端
+      robj *pattern;          // 订阅的频道模式
+  } pubsubPattern;
+
+  typedef struct redisClient {
+      dict *pubsub_channels;  // 该字典记录了客户端所有订阅的频道。键为频道名字，值为 NULL。也即是一个客户端订阅的频道集合
+      list *pubsub_patterns;  // 链表元素为 pattern 对象。记录着该客户端订阅的频道模式。每次都添加到表尾
+  } redisClient;
+
+  struct redisServer {
+      dict *pubsub_channels;  // 字典，键为频道，值为链表。链表中保存了所有订阅某个频道的客户端。新客户端总是被添加到链表的表尾
+      list *pubsub_patterns;  // 链表元素为 pubsub_patterns。每次都添加到表尾
+      int notify_keyspace_events;  // 键空间发生改变时，通知的类型。用于实现通知功能
+  };
+#+END_SRC
+
+** TODO RDB 持久化
+** TODO AOF 持久化
+
+* 客户端和服务器的实现
+** TODO 事件处理器实现
+** TODO Redis 的网络连接库
+** TODO 单机 Redis 服务器的实现
+* 多机功能的实现
+** TODO redis 主从复制
+** TODO redis sentinel
+** TODO redis 集群
