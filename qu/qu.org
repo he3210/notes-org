@@ -1,3 +1,4 @@
 #+TITLE: 私人笔记
 
 - [[./ShadowsocksR.org][ShadowsocksR 配置]]
+- [[./redis 面试题.org][redis 面试题]]

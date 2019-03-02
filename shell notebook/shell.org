@@ -22,3 +22,4 @@
  - [[./regular expression.org][regular expression]]
 - [[./firewall-cmd防火墙.org][firewall-cmd 防火墙]]
 - [[./systemd.org][systemd]]
+- [[./shell 常用命令.org][shell 常用命令]]

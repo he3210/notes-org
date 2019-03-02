@@ -1,0 +1,5 @@
+#+TITLE: redis 相关资料
+
+- [[http://redisdoc.com/][redis 命令]]
+- [[https://doc.yonyoucloud.com/doc/wiki/project/redis/index.html][Redis 源码日志]]
+- [[http://redisbook.com/][Redis 设计与实现]]

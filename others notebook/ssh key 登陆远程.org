@@ -2,7 +2,7 @@
 
 * 生成 public_key 和 private_key
 #+BEGIN_SRC shell
-$ ssh-keygen -t rsa -C "shi_zhonghe@163.com”
+$ ssh-keygen -t rsa -C "shi_zhonghe@163.com"
 #+END_SRC
 
 会生成 2 个文件

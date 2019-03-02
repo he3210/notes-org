@@ -1,0 +1,82 @@
+#+TITLE: shell 常用命令
+
+* tldr 查看指定命令的常用命令
+快速查看各种命令的常用命令
+#+BEGIN_SRC shell
+  $ tldr tar
+
+  tar
+
+  Archiving utility.
+  Often combined with a compression method, such as gzip or bzip.
+
+  - Create an archive from files:
+      tar -cf target.tar file1 file2 file3
+
+  - Create a gzipped archive:
+      tar -czf target.tar.gz file1 file2 file3
+
+  - Extract an archive in a target directory:
+      tar -xf source.tar -C directory
+
+  - Extract a gzipped archive in the current directory:
+      tar -xzf source.tar.gz
+
+  - Extract a bzipped archive in the current directory:
+      tar -xjf source.tar.bz2
+
+  - Create a compressed archive, using archive suffix to determine the compression program:
+      tar -caf target.tar.xz file1 file2 file3
+
+  - List the contents of a tar file:
+      tar -tvf source.tar
+
+  - Extract files matching a pattern:
+      tar -xf source.tar --wildcards "*.html"
+#+END_SRC
+* nslookup 查看域名解析是否正常
+查询DNS的记录，查看域名解析是否正常，在网络故障的时候用来诊断网络问题
+#+BEGIN_SRC shell
+  $ nslookup www.langdebuqing.com
+  Server:		8.8.8.8
+  Address:	8.8.8.8#53
+
+  Non-authoritative answer:
+  Name:	www.langdebuqing.com
+  Address: 149.28.67.225
+#+END_SRC
+* netstat 查看端口网络连接信息
+查看网络连接信息
+#+BEGIN_SRC shell
+  $ netstat -anp | grep 1942   # 查看端口 1942 的网络连接信息
+  tcp6       0      0 :::1942                 :::*                    LISTEN      7677/python
+  tcp6       0      0 149.28.67.225:1942      218.249.22.2:52013      ESTABLISHED 7677/python
+  tcp6       0      0 149.28.67.225:1942      218.249.22.2:52023      ESTABLISHED 7677/python
+  tcp6       0      0 149.28.67.225:1942      218.249.22.2:52007      ESTABLISHED 7677/python
+  udp6       0      0 :::1942                 :::*                                7677/python
+  $ netstat -atp               # 查看 tcp 的网络连接信息
+  Active Internet connections (servers and established)
+  Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name
+  tcp        0      0 localhost:smtp          0.0.0.0:*               LISTEN      1217/master
+  tcp        0      0 0.0.0.0:bintec-admin    0.0.0.0:*               LISTEN      4638/sshd
+  tcp        0      0 0.0.0.0:http            0.0.0.0:*               LISTEN      975/nginx: master p
+  tcp        0      0 149.28.67.:bintec-admin 218.249.22.2:50573      ESTABLISHED 2013/sshd: root@pts
+  tcp        0      0 149.28.67.:bintec-admin 218.249.22.2:50493      ESTABLISHED 1563/sshd: root@pts
+  tcp        0     76 149.28.67.:bintec-admin 218.249.22.2:51960      ESTABLISHED 5943/sshd: root@pts
+  tcp6       0      0 localhost:smtp          [::]:*                  LISTEN      1217/master
+  tcp6       0      0 [::]:bintec-admin       [::]:*                  LISTEN      4638/sshd
+  tcp6       0      0 [::]:1942               [::]:*                  LISTEN      7677/python
+  $ netstat -aup               # 查看 udp 的网络连接信息
+  Active Internet connections (servers and established)
+  Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name
+  udp        0      0 0.0.0.0:46753           0.0.0.0:*                           7677/python
+  udp        0      0 localhost:323           0.0.0.0:*                           492/chronyd
+  udp        0      0 0.0.0.0:bootpc          0.0.0.0:*                           871/dhclient
+  udp6       0      0 [::]:1942               [::]:*                              7677/python
+  udp6       0      0 localhost:323           [::]:*                              492/chronyd
+#+END_SRC
+* tcptraceroute 基于 TCP 的 traceroute
+可用来检测 tcp 阻断
+#+BEGIN_SRC shell
+  sudo tcptraceroute langdebuqing.com 2345  # 必须使用 sudo 权限
+#+END_SRC

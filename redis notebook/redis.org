@@ -1,5 +1,6 @@
 #+TITLE: redis 笔记
 
+- [[./redis相关资料.org][redis 相关资料]]
 - [[./redis源码难点：字典的遍历dictScan.org][redis 源码难点：字典的遍历 dictScan]]
 - [[../algorithm notebook/skiplist 跳表.org][skiplist 跳表]]
 - [[./redis源码阅读计划.org][redis 源码阅读计划]]
