@@ -1,0 +1,88 @@
+#+TITLE: 面试题：N 个线程循环打印
+
+** 问题
+阿里多线程面试题
+#+BEGIN_QUOTE
+通过 N 个线程顺序循环打印从 0 至 100，如给定 N = 3 则输出:
+thread0: 0
+thread1: 1
+thread2: 2
+thread0: 3
+thread1: 4
+...
+#+END_QUOTE
+
+** 代码
+#+BEGIN_SRC c
+  #include <stdio.h>
+  #include <semaphore.h>
+  #include <pthread.h>
+
+  #define N 7          // 线程数
+  #define M 101        // 打印数字的总数
+
+  sem_t sem[N];
+
+  void * func(void *arg)
+  {
+      int id = (int)arg;  // 线程编号
+      int offset = id < (M%N) ? 1 : 0;
+      for(int i = 0; i < M/N + offset; ++i)
+      {
+          sem_wait(&sem[id]);
+          printf("thread %d: %d\n", id, i*N + id);
+          sem_post(&sem[(id+1)%N]);  // 下一个信号灯灯值加一，唤醒下一个线程
+      }
+  }
+
+  int main()
+  {
+          sem_init(&sem[0], 0, 1);   // 初始化，只有第一个信号灯中有一个访问资源
+          for(int i = 1; i < N; ++i)
+              sem_init(&sem[i], 0, 0);
+
+          pthread_t thread[N];
+          for(int i = 0; i < N; ++i)
+          {
+              int arg = i;
+              pthread_create(&thread[i], NULL, &func, (void*)arg);
+          }
+
+          for(int i = 0; i < N; ++i)
+              pthread_join(thread[i], NULL);
+
+          for(int i = 0; i < N; ++i)
+              sem_destroy(&sem[i]);
+
+          return 0;
+  }
+#+END_SRC
+
+** 执行结果
+#+BEGIN_SRC shell
+$ gcc test.c -o test -std=c99 -pthread
+$ ./test
+thread0: 0
+thread1: 1
+thread2: 2
+thread3: 3
+thread4: 4
+thread5: 5
+thread6: 6
+thread0: 7
+thread1: 8
+thread2: 9
+thread3: 10
+thread4: 11
+thread5: 12
+thread6: 13
+thread0: 14
+...
+thread3: 94
+thread4: 95
+thread5: 96
+thread6: 97
+thread0: 98
+thread1: 99
+thread2: 100
+#+END_SRC

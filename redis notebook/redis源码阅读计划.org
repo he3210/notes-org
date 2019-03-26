@@ -9,7 +9,7 @@
 
 * 底层数据结构实现
 ** DONE sds
-
+文件：sds.c 和 sds.h
 **数据结构**
 #+BEGIN_SRC c
   typedef char *sds;  // sds 是一个 char* 指针，指向 sdshdr.buf
@@ -31,6 +31,37 @@
  - 惰性空间释放。sds 字符串缩短时，并不会主动释放多余空间，只是记录在 sdshdr.free 中。当然，sds 也提供了相应的 API，真正的释放 sds 的未使用空间
 
 ** DONE 双端链表
+文件：adlist.c 和 adlist.h
+
+**数据结构**
+#+BEGIN_SRC c
+  #define AL_START_HEAD 0  // 从表头向表尾进行迭代
+  #define AL_START_TAIL 1  // 从表尾到表头进行迭代
+
+  typedef struct listNode {
+      struct listNode *prev;
+      struct listNode *next;
+      void *value;
+  } listNode;
+
+  typedef struct list {
+      listNode *head;
+      listNode *tail;
+      void *(*dup)(void *ptr);             // 节点值复制函数
+      void (*free)(void *ptr);             // 节点值释放函数
+      int (*match)(void *ptr, void *key);  // 节点值对比函数
+      unsigned long len;                   // 链表所包含的节点数量
+  } list;
+
+  typedef struct listIter {
+      listNode *next;  // 当前迭代到的节点
+      int direction;   // 迭代的方向
+  } listIter;
+#+END_SRC
+
+**redis 双端链表特点**
+- redis 的链表是无环链表。因为链表表头结点的前置结点和表尾结点的后置结点都指向 NULL
+- 通过为链表设置不同类型的特定函数（dup、free、match 函数），redis 的链表可以用于保存各种不同类型的值
 
 ** DONE 字典
 

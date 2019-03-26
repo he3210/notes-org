@@ -1,0 +1,5 @@
+#+TITLE: 跨域问题
+
+参考
+- [[http://www.ruanyifeng.com/blog/2016/04/cors.html][跨域资源共享 CORS 详解--阮一峰]]
+- [[https://segmentfault.com/a/1190000015597029][不要再问我跨域的问题了]]

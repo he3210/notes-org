@@ -1,0 +1,77 @@
+#+TITLE: gdb 调试多线程死锁
+
+** 死锁示例代码
+#+BEGIN_SRC c
+  #include<pthread.h>
+  #include<unistd.h>
+  #include<stdio.h>
+
+  void* alive_thread(void *arg)
+  {
+      while(1)
+      {
+          usleep(1000*1000);
+      }
+  }
+
+  void* dead_thread(void *arg)
+  {
+      pthread_mutex_t mutex;
+      pthread_mutex_init(&mutex, NULL);
+      usleep(1000*1000);
+      fprintf(stderr, "timeout we will start dead lock\n");
+      pthread_mutex_lock(&mutex);
+      pthread_mutex_lock(&mutex);
+  }
+
+  int main(void)
+  {
+      pthread_t alive_pid;
+      pthread_create(&alive_pid, NULL, alive_thread, NULL);
+      pthread_t dead_pid;
+      pthread_create(&dead_pid, NULL, dead_thread, NULL);
+      void *ret1 = NULL;
+      pthread_join(alive_pid, &ret1);
+      void *ret2 = NULL;
+      pthread_join(dead_pid, &ret2);
+
+      return 0;
+  }
+#+END_SRC
+
+** 编译调试
+
+#+BEGIN_SRC bash
+$ gcc main.c -o main -g -lpthread
+$ ./main
+timeout we will start dead lock
+#+END_SRC
+
+先不要杀死该进程，打开另一个终端进行 gdb 调试
+
+#+BEGIN_SRC bash
+  $ ps -ef | grep main | grep -v grep
+  root     22895 22671  0 15:30 pts/0    00:00:00 ./main
+  $ gdb main 22895
+  ...
+  (gdb) info threads
+    Id   Target Id         Frame
+    3    Thread 0x7f03a291a700 (LWP 22896) "main" 0x00007f03a29da06d in nanosleep () from /lib/x86_64-linux-gnu/libc.so.6
+    2    Thread 0x7f03a2119700 (LWP 22897) "main" 0x00007f03a2ce789c in __lll_lock_wait () from /lib/x86_64-linux-gnu/libpthread.so.0
+  ,* 1    Thread 0x7f03a310b700 (LWP 22895) "main" 0x00007f03a2ce2148 in pthread_join () from /lib/x86_64-linux-gnu/libpthread.so.0
+  (gdb) thread 2
+  [Switching to thread 2 (Thread 0x7f03a2119700 (LWP 22897))]
+  #0  0x00007f03a2ce789c in __lll_lock_wait () from /lib/x86_64-linux-gnu/libpthread.so.0
+  (gdb) bt
+  #0  0x00007f03a2ce789c in __lll_lock_wait () from /lib/x86_64-linux-gnu/libpthread.so.0
+  #1  0x00007f03a2ce3065 in _L_lock_858 () from /lib/x86_64-linux-gnu/libpthread.so.0
+  #2  0x00007f03a2ce2eba in pthread_mutex_lock () from /lib/x86_64-linux-gnu/libpthread.so.0
+  #3  0x000000000040084c in dead_thread ()
+  #4  0x00007f03a2ce0e9a in start_thread () from /lib/x86_64-linux-gnu/libpthread.so.0
+  #5  0x00007f03a2a0e36d in clone () from /lib/x86_64-linux-gnu/libc.so.6
+  #6  0x0000000000000000 in ?? ()
+#+END_SRC
+
+第一个线程运行到 pthread_join，显然是主线程
+第二个线程运行到 __lll_lock_wait()，显然是 dead_thread() 函数中第二个 pthread_mutex_lock(&mutex) 加锁时在等待锁。通过 thread 2 跳转到该线程，bt 查看堆栈，显然发生死锁
+第三个线程运行到 nanosleep()，显然是 alive_thread() 函数中无限休眠

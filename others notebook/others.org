@@ -16,3 +16,7 @@
 - [[./打印目录下的文件.org][打印目录下的文件]]
 - [[./offsetof和container_of.org][小技巧：offsetof 和 container_of 根据结构体成员计算结构体地址]]
 - [[./signal和sigaction处理逻辑.org][连续到来多个信号时，signal 和 sigaction 的处理逻辑]]
+- [[./跨域问题.org][跨域问题]]
+- [[./面试题：N 个线程循环打印.org][面试题：N 个线程循环打印]]
+- [[./gdb 调试段错误.org][gdb 调试段错误]]
+- [[./gdb 调试多线程死锁.org][gdb 调试多线程死锁]]
