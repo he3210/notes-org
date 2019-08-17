@@ -3,8 +3,9 @@
 * centos7 以上版本
 #+BEGIN_SRC shell
 # firewall-cmd --zone=public --add-port=8888/tcp --permanent  # 开启端口
-# firewall-cmd --reload               # 重启防火墙
-# firewall-cmd --query-port=8888/tcp  # 查看 tcp 8888 端口是否开启
+# firewall-cmd --reload                    # 重启防火墙
+# firewall-cmd --query-port=8888/tcp       # 查看 tcp 8888 端口是否开启
+# firewall-cmd --zone=public --list-ports  # 查看所有打开的端口
 #+END_SRC
 
 - =--zone= 作用域

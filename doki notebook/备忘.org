@@ -1,0 +1,12 @@
+#+TITLE: 备忘笔记
+
+** 笔记
+- mysql miveshow 表 special_live_show_users 为主播黑名单。该主播的直播不对外展示。其中有两个字段 'type' 和 'viewer_uids'，
+ - type == 3 时表示 'viewer_uids' 字段生效，表示黑名单中主播的直播只能被这些用户（viewer_uids）看到
+ - type == 2 时表示 在 special_users 中字段 'type' 不为 1 的用户才能看到
+ - type == 1 时表示 在 special_users 中的所有用户都可看到该主播直播
+
+- 我的 uid：u2572271555577408120001317
+
+
+

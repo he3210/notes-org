@@ -1,0 +1,28 @@
+#+TITLE: code snippet
+
+* 批量获取 redis string 缓存
+#+BEGIN_SRC python
+  def get_gift_list_info_by_gift_ids(self, gift_ids):
+      gift_info_keys = [OPT_GIFT_KEY_FORMAT_V2 % gift_id for gift_id in gift_ids]
+      if not gift_info_keys:
+          return []
+      gift_str_list = self.redis_con.mget_slave(gift_info_keys)
+      gift_list = []
+      for gift_id, gift_str in zip(gift_ids, gift_str_list):
+          if not gift_str:
+              key = OPT_GIFT_KEY_FORMAT_V2 % gift_id
+              with self.get_redis_lock(key):
+                  if not self.redis_con.exists(key):
+                      gift = self.dal.db_get_gift_byid(gift_id)
+                      if gift:
+                          value = json.dumps(gift)
+                          self.redis_con.setex(key, time=DEFAULT_EXPIRE_TIME, value=value)
+                      else:
+                          value = json.dumps({})
+                          self.redis_con.setex(key, time=DEFAULT_EXPIRE_TIME, value=value)
+              gift_str = self.redis_con.get_slave(key)
+              gift_list.append(json.loads(gift_str))
+          else:
+              gift_list.append(json.loads(gift_str))
+      return gift_list
+#+END_SRC

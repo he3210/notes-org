@@ -37,3 +37,12 @@ Host he
 $ ssh he  # 使用该命令即可登录（只有首次登陆时需要输入密码，以后则不需要）
 $ scp -r test he:/root/  # scp 命令也支持 ssh key
 #+END_SRC
+* 其它
+** 去除 private_key 私钥密码
+#+BEGIN_SRC shell
+  $ ssh-keygen -f he.pem -p
+  Enter old passphrase:
+  Enter new passphrase (empty for no passphrase):
+  Enter same passphrase again:
+  Your identification has been saved with the new passphrase.
+#+END_SRC

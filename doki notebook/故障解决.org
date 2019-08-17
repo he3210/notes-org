@@ -1,0 +1,46 @@
+#+TITLE: doki 故障解决笔记
+
+* doki 线上后台重启方法
+
+主机：jp-live-admin01
+执行：
+#+BEGIN_SRC shell
+$ tmux attach -t doki_admin
+#+END_SRC
+
+ctrl+c 杀死当前进程
+上翻查询进程启动命令并重启
+
+* 测试环境跨域
+在测试环境注释文件： miveshow/webserver/src/settings.py
+中的行：'django.middleware.csrf.CsrfViewMiddleware',
+
+* 2019.05.24 五月病活动恢复连续开播用户连续开播天数没加上的问题
+搜索所有有效开播的直播
+#+BEGIN_SRC sql
+  select t.id, from_unixtime(UNIX_TIMESTAMP(t.start_time) + 9*3600) start_time, concat("zadd gw_valid_live_date:", t.uid, " ", UNIX_TIMESTAMP(t.start_time) + 9*3600, " ", substring(from_unixtime(UNIX_TIMESTAMP(t.start_time) + 9*3600), 1, 10)) zadd
+  from user_show_history t 
+  where t.id < 2933631 and t.is_enabled = 1 and TIMESTAMPDIFF(second,t.start_time,t.end_time) >= 1800
+  order by id desc 
+  limit 400;
+#+END_SRC
+* 2019.05.27 统计开播时长、本次开播收礼、start_time（日本时间）
+#+BEGIN_SRC sql
+select t.id, t.uid, t.show_id, UNIX_TIMESTAMP(t.end_time) - UNIX_TIMESTAMP(t.start_time) `time(second)`, from_unixtime(UNIX_TIMESTAMP(t.start_time) + 9*3600) `start_time(japan)`, t.credits
+from user_show_history t 
+where t.start_time between '2019-05-20 03:00:00' and '2019-05-26 15:00:00'
+order by id desc
+limit 1000;
+#+END_SRC
+* 统计红方胜利次数、蓝方胜利次数、平局次数等
+#+BEGIN_SRC sql
+  select COUNT(if(result=1, true, null)) red_win_count, COUNT(if(result=2, true, null)) blue_win_count, COUNT(if(result=0, true, null)) nothing, COUNT(if(result=3, true, null)) draw, COUNT(*) `all`, red_uid, blue_uid 
+  from pk_link_history where ctime like '2019-06-25%' group by red_uid, blue_uid;
+#+END_SRC
+* 2019-CM 活动家族对战获取用户应该补偿的积分
+#+BEGIN_SRC sql
+  select tt.uid, SUM(tt.score) score from 
+  (select t.uid, t.score1+t.score2+t.score3+t.score4 score from 
+  (select uid, credits, result, is_kill, cv, if(credits >= 10000, 50, if(credits >= 500, 11, if(credits >= 100, 2, if(credits >= 50, 1, 0)))) score1, if(result=2, 5, if(result=3, 1, 0)) score2, if(cv=0, 0, if(MOD(cv,3)=0, 3, 0)) score3, if(is_kill=2, 3, 0) score4 from user_battle where id > 800000 and mtime > "2019-07-02 13:00:00" and mtime < "2019-07-04 23:56:00") t) tt
+  group by tt.uid order by score desc;
+#+END_SRC

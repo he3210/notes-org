@@ -1,5 +1,26 @@
 #+TITLE: gdb
 
+* gdb 调试的几种方法
+1. gdb binary_executable_file
+  #+BEGIN_SRC shell
+    $ gdb binary_executable_file
+    (gdb) run arg1 arg2 … argN
+  #+END_SRC
+
+2. gdb -args binary_executable_file arg1 arg2 ... argN
+  #+BEGIN_SRC shell
+    $ gdb -args binary_executable_file arg1 arg2 ... argN
+    (gdb) run
+  #+END_SRC
+
+3. gdb
+  #+BEGIN_SRC shell
+    $ gdb
+    (gdb) file binary_executable_file
+    set arg1 arg2 ... argN
+    run
+  #+END_SRC
+
 * 常用命令
 调用 gdb 编译需要在 cc 后面加 -g 参数再加-o；
 在 gdb 中如果命令前缀可以唯一确定这条命令，不必写出全部命令，只需写出部分命令即可
@@ -107,3 +128,22 @@ show environment [varname]         # 查看环境变量
 可以查看哪些信号被 GDB 处理，并且可以看到缺省的处理方式
 
 gdb signal 命令和 shell 的 kill 命令不同，kill 命令发信号给被调试程序时，是由 GDB 截获的，而 signal 命令所发出一信号则是直接发给被调试程序的
+
+* gdbserver: 调试远程二进制可执行文件
+1. 远程通过 tcp 监听所有网卡的 1234 端口，调试 binary_executable_file
+  #+BEGIN_SRC shell
+    $ gdbserver 0.0.0.0:1234 binary_executable_file
+  #+END_SRC
+  - 注意！一定要打开防火墙 tcp 1234 端口
+  - gdbserver 不能通过 <C-c> 和 <C-\> 杀死，可以在客户的 gdb 通过命令 quit 或快捷键 <C-d> 退出
+2. 本地 gdb 连接 gdbserver 调试远程二进制可执行文件
+  #+BEGIN_SRC shell
+    $ gdb
+    (gdb) target remote langdebuqing.com:1234
+  #+END_SRC
+3. 本地 clion 远程调试
+  1) clion 点击 Edit Configurations，配置 GDB Remote Debug
+    #+ATTR_ORG: :width 50%
+    #+ATTR_HTML: :width 50%
+    [[../images/gdb_gdbserver.png]]
+  2) clion 添加断点，点击 Run -> Debug 'gdbserver_vultr'，连接 gdbserver 进行调试

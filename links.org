@@ -10,3 +10,5 @@
 - [[https://xuexb.com/][前端小武的博客]]
 - [[http://www.zmonster.me/categories.html][ZMonster's Blog]]
 - [[http://lujun9972.github.io/emacs-document/][lujun9972]]
+- [[https://williamlfang.github.io/][William]]
+- [[http://www.shicheng0829.cn/][shicheng]]

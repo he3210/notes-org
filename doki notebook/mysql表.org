@@ -1,0 +1,15 @@
+#+TITLE: mysql 表
+
+** 数据库 miveshow_task
+*** 表 family_levels
+设置表。用来设置家族各个等级经验、升级到当前等级所需经验等
+
+*** 表 family_experiences
+家族当前等级经验
+
+*** 表 family_user_experiences
+用来记录指定家族中某个用户的等级、经验表
+
+** 数据库 miveshow
+*** 表 family_user
+用来记录家族成员。某个 uid 属于某个家族，以及成员类型：非家族成员、普通成员、管理员、创建者、paid_family

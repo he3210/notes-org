@@ -1,0 +1,95 @@
+#+TITLE: doki API
+
+** topshows
+#+BEGIN_SRC shell
+  $ curl 'http://api.dokidokilive.com/api/live/topshows/v3/'
+#+END_SRC
+
+** 晋级赛
+#+BEGIN_SRC shell
+  $ curl 'https://api.dokidokilive.com/webdoki/api/events_v2/rich_anchor/promote_rich_anchor_event_status/?promote_event_name=war_2019'
+  $ curl 'http://jp.test_api.dokidokilive.com/webdoki/api/events_v2/rich_anchor/promote_rich_anchor_event_status/?promote_event_name=war_2019'
+#+END_SRC
+
+#+BEGIN_SRC js
+  {
+      "data": {
+          "resurrection": [],
+          "master": [
+              {
+                  "status": 2,
+                  "event_name": "war_2019_160",
+                  "start_time": 1559358000,
+                  "promote_event_type": 1,
+                  "end_time": 1559487600
+              },
+              {
+                  "status": 2,
+                  "event_name": "war_2019_120",
+                  "start_time": 1559488200,
+                  "promote_event_type": 1,
+                  "end_time": 1559660400
+              },
+              {
+                  "status": 2,
+                  "event_name": "war_2019_80",
+                  "start_time": 1559661000,
+                  "promote_event_type": 1,
+                  "end_time": 1559833200
+              },
+              {
+                  "status": 1,
+                  "event_name": "war_2019_first_1",
+                  "start_time": 1560135600,
+                  "promote_event_type": 1,
+                  "end_time": 1560351600
+              },
+              {
+                  "status": 0,
+                  "event_name": "war_2019_first_2",
+                  "start_time": 1560352200,
+                  "promote_event_type": 1,
+                  "end_time": 1560524400
+              },
+              {
+                  "status": 0,
+                  "event_name": "war_2019_first_3",
+                  "start_time": 1560525000,
+                  "promote_event_type": 1,
+                  "end_time": 1560610800
+              },
+              {
+                  "status": 0,
+                  "event_name": "war_2019_offline_first_battle",
+                  "start_time": 1561734000,
+                  "promote_event_type": 1,
+                  "end_time": 1561734600
+              },
+              {
+                  "status": 0,
+                  "event_name": "war_2019_offline_second_battle_1",
+                  "start_time": 1561735800,
+                  "promote_event_type": 1,
+                  "end_time": 1561736400
+              },
+              {
+                  "status": 0,
+                  "event_name": "war_2019_offline_second_battle_2",
+                  "start_time": 1561737000,
+                  "promote_event_type": 1,
+                  "end_time": 1561737600
+              },
+              {
+                  "status": 0,
+                  "event_name": "war_2019_offline_champion_battle",
+                  "start_time": 1561741200,
+                  "promote_event_type": 1,
+                  "end_time": 1561744800
+              }
+          ],
+          "undefined": []
+      },
+      "err_msg": "success",
+      "err_code": 0
+  }
+#+END_SRC

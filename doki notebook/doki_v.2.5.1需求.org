@@ -1,0 +1,65 @@
+#+TITLE: doki v2.5.1 需求
+
+* 转盘抽奖
+
+** 需求
+- 观众抽奖获得礼物后会给主播发 gold ，通过红包的形式
+- 送小礼物后主播端增加 2gold 贡献值，即 10 星光
+- 当一次性送出多个小礼物时，送礼动效显示一条，后接送礼个数，评论区显示 送礼消息；
+- 抽奖机会 + x 提示。确定应该由客户端来做
+- 转盘小红点：当抽奖机会 > 0 时，转盘显示小红点，气泡提醒用户还有 x 次抽奖机会
+- 抽奖机会有效期为 30 日
+- 抽奖获得的道具礼物，30日有效， **背包礼物？** 点击后会有有效时间描述；
+- 提供中奖记录接口
+- 横幅接口展示全平台中奖信息。展示最新 50 条消息，优先展示最新的。仅显示获得奖励总价值> =600gold的获奖信息
+- 半小时内，无人抽到 >= 600 gold 返回假数据
+- 横幅获取条件是否能统一一下
+  + 显示最新50条消息
+  + 半小时内，无人抽到 >= 600 gold 返回假数据
+- 抽奖规则
+  - 抽奖类型。需要确认 2 和 3 中包含 1 怎么办
+    1. 每日首抽
+    2. 10 连抽
+    3. 100 连抽
+* 新建表
+#+BEGIN_SRC sql
+  CREATE TABLE `live_common_rank` (
+    `id` bigint(10) unsigned NOT NULL AUTO_INCREMENT,
+    `rank_name` varchar(64) NOT NULL DEFAULT '',
+    `uid` varchar(32) NOT NULL COMMENT 'anchor uid',
+    `score` int(11) NOT NULL DEFAULT '0',
+    `is_enabled` tinyint(4) NOT NULL DEFAULT '1',
+    `ctime` datetime NOT NULL,
+    `mtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uniq_rank_name_uid` (`rank_name`, `uid`)
+  ) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4;
+
+  CREATE TABLE `live_common_knights_rank` (
+    `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+    `rank_name` varchar(64) NOT NULL,
+    `knight_type` tinyint(4) NOT NULL DEFAULT '1' COMMENT '1 - knight_id is uid; 2 - knight_id is gift_id',
+    `knight_id` varchar(32) NOT NULL COMMENT 'knight id',
+    `t_uid` varchar(32) NOT NULL COMMENT 'uid',
+    `score` int(10) NOT NULL DEFAULT '0',
+    `is_enabled` tinyint(4) NOT NULL DEFAULT '1',
+    `ctime` datetime NOT NULL,
+    `mtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uniq_rank_name_knight_id_t_uid` (`rank_name`, `knight_id`, `t_uid`),
+    KEY `idx_rank_name_t_uid` (`rank_name`, `t_uid`)
+  ) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4;
+
+  CREATE TABLE `live_common_rank_score_history` (
+    `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+    `rank_name` varchar(64) NOT NULL,
+    `knight_type` tinyint(4) NOT NULL DEFAULT '1' COMMENT '0 - have no knight;1 - knight_id is uid; 2 - knight_id is gift_id',
+    `knight_id` varchar(32) NOT NULL COMMENT 'knight id',
+    `t_uid` varchar(32) NOT NULL COMMENT 'uid',
+    `score` int(11) NOT NULL DEFAULT '0',
+    `ctime` datetime NOT NULL,
+    `mtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_rank_name_uid` (`rank_name`, `t_uid`)
+  ) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4;
+#+END_SRC

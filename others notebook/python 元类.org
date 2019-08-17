@@ -1,0 +1,3 @@
+#+TITLE: python 元类
+
+[[https://zhuanlan.zhihu.com/p/28333506][pyhon 元类链接]]

@@ -1,0 +1,50 @@
+#+TITLE: CM 活动
+
+* 家族对对碰
+** DONE 问题
+- websocket 收到 OPT BATTLE_CTRL 消息后会把主播加入/删除一个集合中，该集合是当天关闭家族对对碰主播 uid 集合。
+- bug: api/manager/family_battle_manager.py  729 行，uid 应改为 oppo_uid
+- bug: api/manager/family_battle_manager.py  832 行，EVENTS_FAMILY_PK_USER_CONTINUOUS_VICTORY_FORMAT 应改为 DAILY_BATTLE_USER_CONTINUOUS_FAIL_SET_FORMAT
+- bug: get_japan_now()
+** 总结
+- 10 分钟一轮。比赛时间 5 分钟，包含 3 分钟 normal 比赛，2 分钟 final 比赛。比赛过后，有 5 分钟匹配时间。如果在 final 赛阶段，双方实力悬殊的话，会直接进入 15s hurry 比赛模式
+- 榜单
+  + 每次 pk 的 pk 点数榜。score = 本次 pk 收礼 * 连胜系数。本次 pk 结束后即清空
+  + 胜场榜
+  + 每日连胜榜
+  + 每日连败榜
+- 接口 battle_rank。先以当日当前连胜次数排序，再以当日最大连胜次数排序
+- 接口 family_pk_rank。基于胜利点数排序时，先以本次活动总胜利场数排名，再以本次活动总 pk 点数排名（pk 点数为送礼 gold * 连胜系数）
+- 配置
+  + 数据库 miveshow
+  + 表 settings
+  + select * from settings where name in ('battle_setting', 'family_battle_bucket_size');
+  + 'battle_setting': {"is_enabled": 0, "battle_interval_minutes": 5, "battle_start_time": "12:00", "battle_end_time": "23:57"}
+  + 'family_battle_bucket_size': 10
+- 活动配置
+  + 数据库 miveshow
+  + 表 events_common_settings
+  + select * from events_common_settings where `name` = 'family_battle' and is_enabled = 1 order by id desc limit 10;
+
+** 上线前需要处理
+*** DONE 数据埋点 is_kill
+- 0 未记录
+- 1 没有斩杀
+- 2 斩杀
+- 3 被斩杀
+#+BEGIN_SRC sql
+  alter table user_battle add column is_kill tinyint not null default 0 comment '0-未记录是否被斩杀，1-没有进入斩杀模式，2-斩杀，3-被斩杀' after result
+#+END_SRC
+
+* pk 同屏
+** api invite
+- pk 期间可以投降，每天最多投降 4 次，大于 4 次后，无法再发出 pk 邀请。投降后会有 1 分钟惩罚时间，期间无法发起 pk 邀请
+
+** api invite_list
+- 逻辑：获取全量直播，并遍历 => 客户端版本满足要求 => 获取 pk_invite_switch 开关 => 获取主播粉丝列表，得到开关打开 & 版本满足 & 为主播粉丝 & 正在直播的主播 uid 列表 => 补全用户信息，并返回
+** 设置
+*** pk_link_settings
+#+BEGIN_SRC sql
+  select * from settings where name = 'pk_link_settings';
+#+END_SRC
+

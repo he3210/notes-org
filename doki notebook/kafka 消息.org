@@ -1,0 +1,69 @@
+#+TITLE: kafka 消息
+
+** 送礼消息
+#+BEGIN_SRC js
+  [
+      {
+          "topic": "MIVESHOW_EXPERIENCE_TASK_0",
+          "partition": 2,
+          "data": {
+              "retries": 0,
+              "show_id": 8115590334888,
+              "gift_count": 1,
+              "uid": "u2572271555577408120001317",
+              "task_id": 2010,
+              "start_combo": 1,
+              "ctime": "2019-06-05 14:46:45",
+              "t_uid": "u9250061480925911020001233",
+              "combo_count": 1,
+              "task_name": "DailySendGiftTask",
+              "room_state": "0",
+              "guest_uid": "",
+              "gift_id": 260
+          },
+          "offset": 101972
+      }
+  ]
+#+END_SRC
+
+** 卡拉ok
+主播唱歌结束后，会产生一个该消息
+"uid" 字段为主播 uid
+#+BEGIN_SRC js
+  [
+      {
+          "topic": "MIVESHOW_EXPERIENCE_TASK_0",
+          "partition": 1,
+          "data": {
+              "retries": 0,
+              "song_id": 11159,
+              "uid": "u2572271555577408120001317",
+              "task_id": 2070,
+              "show_id": 8015597427888,
+              "task_name": "DailySongTask",
+              "ctime": "2019-06-05 14:31:38"
+          },
+          "offset": 241427
+      }
+  ]
+#+END_SRC
+** 进房消息
+"uid" 字段为进房者 uid
+#+BEGIN_SRC js
+  [
+      {
+          "topic": "MIVESHOW_EXPERIENCE_TASK_0",
+          "partition": 2,
+          "data": {
+              "retries": 0,
+              "show_id": 8115590334888,
+              "uid": "u2572271555577408120001317",
+              "task_id": 2080,
+              "room_id": "u9250061480925911020001233",
+              "task_name": "JoinRoomTask",
+              "ctime": "2019-06-05 14:55:42"
+          },
+          "offset": 102054
+      }
+  ]
+#+END_SRC

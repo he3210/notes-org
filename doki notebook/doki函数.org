@@ -1,0 +1,27 @@
+#+TITLE: doki 函数
+
+** 根据uid 获取主播 show_id
+#+BEGIN_SRC python
+  show_id = user_cacher.get_user_current_show_id(room_id)
+#+END_SRC
+
+** 判断 uid 是否是新人
+#+BEGIN_SRC python
+  is_new = user_cacher.is_new_user(uid)
+#+END_SRC
+
+** 判断是否是新设备
+#+BEGIN_SRC python
+  is_new = user_cacher.is_new_device(udid)
+  is_new = user_cacher.is_new_device_v2(udid)  # 通过布隆过滤器判断是否为新设备
+#+END_SRC
+
+** 获取指定直播间观看人数
+#+BEGIN_SRC python
+  viewer_count, real_viewer_count = show_cacher.get_show_viewer_count(current_show_id)
+#+END_SRC
+** 过滤用户信息
+#+BEGIN_SRC python
+  from common.utils import simplify_item_info
+  user = simplify_item_info(family_cacher.get_user_info(show["uid"]), ["uid", "screen_name"])
+#+END_SRC

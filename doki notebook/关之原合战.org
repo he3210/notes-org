@@ -1,0 +1,107 @@
+#+TITLE: 关之原合战
+
+* 注意事项
+** DONE 4 个 http 接口
+先拔头筹、攻防战一轮二轮、王座战排行榜功能接口
+- api.events_v2.common_anchor.both_rank
+- api.events_v2.common_anchor.both_rank_status
+- api.events_v2.common_anchor.war_2019_champion_rank
+- api.events_v2.common_anchor.war_2019_champion_rank_status
+
+** DONE 浮动 icon 的六个倒计时
+攻防战一轮和二轮浮动 icon 倒计时
+需要获取攻防战一轮、二轮 2 个活动的配置文件中的活动攻防起止时间，判断主播属于哪方，调整 floating_icons http 接口和 floating_icons 的定时事件
+- 东军布阵时间 剩余 04:59
+- 西军进攻时间 剩余 09:59
+- 东军防守时间 剩余 09:59
+
+** DONE 定时向指定主播发送弹幕
+- 弹幕
+  1. 先手开始布阵  先攻軍が布陣開始！
+  2. 后手开始进攻  後攻軍が攻撃開始！
+  3. 先手开始防御  先攻軍が防御開始！
+  4. 后手开始布阵  後攻軍が布陣開始！
+  5. 先手开始进攻  先攻軍が攻撃開始！
+  6. 后手开始防御  後攻軍が防御開始！
+
+東軍布陣タイム
+西軍攻撃タイム
+東軍防御タイム
+
+西軍布陣タイム
+東軍攻撃タイム
+西軍防御タイム
+
+残り04:00
+
+- websocket 消息 json
+ #+BEGIN_SRC json
+   {
+       "command": "MNY",
+       "param": "MSG",
+       "msg_id": "xxx",
+       "data": {
+           "room_id": "xxx",
+           "msg": u"东军开始布阵",
+           "type": "fanout",
+           "mny_msg_type": 4,
+           "uid": "xxx",
+           "user": {}
+       }
+   }
+ #+END_SRC
+
+** DONE battle_points 调整为 win_points
+** 攻防战一轮、二轮、王者战关系
+- 攻防战一轮、二轮各单独一个榜单，之间无继承关系
+- 主播在王座战的初始战力 = 攻防战一轮战力 + 攻防战二轮战力
+
+
+** 关之原合战周二联调，新需求、联调
+** CM 活动周二开发完成，周三提出新需求
+
+** DONE 先拔头筹浮动 ICON 不展示积分排名
+** DONE 榜单中用户注册后，显示在榜单中的用户积分为 0
+** DONE 王座战取东军、西军前 5 名
+
+** DONE 王座战部分礼物加成，部分礼物不加成
+** DONE 王座战浮动 ICON 文案显示不全
+** DONE 弹幕没发。布防时间结束后没发弹幕
+** DONE 清理相关数据
+** DONE fix bug: buff 加成
+** DONE war_2019_offline_champion_battle_status 接口不返回未晋级主播
+** DONE 页面刷新慢。分数更新慢
+** TODO 冠军战晋级 3 个人，应该晋级 4 人
+** DONE prestart_seconds 调整，所以需要调整文案
+** DONE 王座战活动未开始不展示分数
+* 重新测试时要数据清理
+#+BEGIN_SRC shell
+$ redis-cli -h 10.0.110.115 -p 6370 -n 10 del events_v2_common_anchors_rank_zset_war_2019_offline_first_battle events_v2_common_anchors_rank_zset_war_2019_offline_second_battle_1 events_v2_common_anchors_rank_zset_war_2019_offline_second_battle_2 events_v2_common_anchors_rank_zset_war_2019_offline_champion_battle
+
+$ redis-cli -h 10.0.110.115 -p 6370 -n 10 del events_v2_common_anchors_rank_cache_war_2019_offline_first_battle events_v2_common_anchors_rank_cache_war_2019_offline_second_battle_1 events_v2_common_anchors_rank_cache_war_2019_offline_second_battle_2 events_v2_common_anchors_rank_cache_war_2019_offline_champion_battle
+
+$ redis-cli -h 10.0.110.115 -p 6370 -n 10 keys "events_v2_common_anchor_knights_rank_zset_war_2019_offline_first_battle_*" | xargs redis-cli -h 10.0.110.115 -p 6370 -n 10 del
+
+$ redis-cli -h 10.0.110.115 -p 6370 -n 10 keys "events_v2_common_anchor_knights_rank_zset_war_2019_offline_second_battle_1_*" | xargs redis-cli -h 10.0.110.115 -p 6370 -n 10 del
+
+$ redis-cli -h 10.0.110.115 -p 6370 -n 10 keys "events_v2_common_anchor_knights_rank_zset_war_2019_offline_second_battle_2_*" | xargs redis-cli -h 10.0.110.115 -p 6370 -n 10 del
+
+$ redis-cli -h 10.0.110.115 -p 6370 -n 10 keys "events_v2_common_anchor_knights_rank_zset_war_2019_offline_champion_battle_*" | xargs redis-cli -h 10.0.110.115 -p 6370 -n 10 del
+
+$ redis-cli -h 10.0.110.115 -p 6370 -n 10 keys "events_v2_common_anchor_knights_rank_cache_war_2019_offline_first_battle_*" | xargs redis-cli -h 10.0.110.115 -p 6370 -n 10 del
+
+$ redis-cli -h 10.0.110.115 -p 6370 -n 10 keys "events_v2_common_anchor_knights_rank_cache_war_2019_offline_second_battle_1_*" | xargs redis-cli -h 10.0.110.115 -p 6370 -n 10 del
+
+$ redis-cli -h 10.0.110.115 -p 6370 -n 10 keys "events_v2_common_anchor_knights_rank_cache_war_2019_offline_second_battle_2_*" | xargs redis-cli -h 10.0.110.115 -p 6370 -n 10 del
+
+$ redis-cli -h 10.0.110.115 -p 6370 -n 10 keys "events_v2_common_anchor_knights_rank_cache_war_2019_offline_champion_battle_*" | xargs redis-cli -h 10.0.110.115 -p 6370 -n 10 del
+
+$ redis-cli -h 10.0.110.115 -p 6370 -n 10 del promote_by_setting_war_2019_first_3_war_2019_offline_first_battle promote_by_setting_war_2019_offline_first_battle_war_2019_offline_second_battle_1 promote_by_setting_war_2019_offline_second_battle_1_war_2019_offline_second_battle_2 promote_by_setting_war_2019_offline_second_battle_2_war_2019_offline_champion_battle
+
+
+mysql> delete from common_anchors_rank_score_history where event_name in ('war_2019_offline_first_battle', 'war_2019_offline_second_battle_1', 'war_2019_offline_second_battle_2', 'war_2019_offline_champion_battle');
+
+mysql> delete from common_anchor_knights_rank where event_name in ('war_2019_offline_first_battle', 'war_2019_offline_second_battle_1', 'war_2019_offline_second_battle_2', 'war_2019_offline_champion_battle');
+
+mysql> delete from common_anchors_rank where event_name in ('war_2019_offline_first_battle', 'war_2019_offline_second_battle_1', 'war_2019_offline_second_battle_2', 'war_2019_offline_champion_battle');
+#+END_SRC
