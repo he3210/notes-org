@@ -8,5 +8,26 @@
 
 - 我的 uid：u2572271555577408120001317
 
+** 命令
+*** 从 cdn 下载
+#+BEGIN_SRC shell
+  $ rsync -avP -e 'ssh -i /home/zeus/cdn_keydir/all_storage_key -p 2022' project@upload-project.sf.cdngp.net:/miveshow_test/littleswing3x.png ./
+#+END_SRC
 
-
+*** 上传 cdn
+#+BEGIN_SRC shell
+  rsync -av -e "ssh -i /home/zeus/cdn_keydir/all_storage_key -p 2022" /glusterdata/doki/miveshow_test/littleswing3x.png project@upload-project.sf.cdngp.net:/miveshow_test/littleswing3x.png
+  rsync -av -e "ssh -i /home/zeus/cdn_keydir/all_storage_key -p 2022" /glusterdata/doki/image/upload_image/46/c4c5697d7f1838086c0dead47fbc29.jpeg project@upload-project.sf.cdngp.net:/upload_image/46/
+#+END_SRC
+*** 筛选未执行成功的命令
+#+BEGIN_SRC shell
+  grep "szh_upload_cdn" /var/log/zeus/miveshow_http.log.2019-08-20_08 | grep -v "bytes" | awk '{OFS=" ";print $13, $14, $15, $16, $17, $18, $19, $20, $21, $22}' | sed 's/\\"/"/g'
+#+END_SRC
+** 平台改进
+*** 提供一个 rpc 接口，用于获取全量直播
+- 方案一：开关播时，mysql shows 表中记录直播间信息。redis 保存 show 信息。
+- 方案二：每隔 1s 扫描一下 shows 表。保存全量直播信息到 redis
+- 对外提供一个 rpc 接口。
+- 现有服务是直接读 shows 表获取全量直播。有些 schedule 每隔 1s 获取一次。
+*** 开关播投递一个 kafka 队列
+*** schedule 服务频繁建立各种连接优化

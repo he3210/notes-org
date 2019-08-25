@@ -101,6 +101,31 @@
   alter table pk_link_history add column source_type tinyint not null default 4 comment "0-运营邀请 1-根据进入匹配池时间在匹配池匹配 2-主播邀请 3-根据段位在匹配池匹配 4-旧数据，来源未记录" after state
   alter table pk_link_history add column event_name varchar(64) not null default "" after source_type;
 #+END_SRC
+** 表 miveshow_event.pk_link_match_history
+#+BEGIN_SRC sql
+  CREATE TABLE `pk_link_match_history` (
+    `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+    `event_name` varchar(40) NOT NULL,
+    `link_id` bigint(20) NOT NULL,
+    `red_uid` varchar(40) NOT NULL,
+    `red_show_id` bigint(20) NOT NULL,
+    `red_cv` int(10) unsigned NOT NULL DEFAULT '0',
+    `red_score` int(10) unsigned NOT NULL,
+    `red_link_track_id` varchar(64) NOT NULL,
+    `blue_uid` varchar(40) NOT NULL,
+    `blue_show_id` bigint(20) NOT NULL,
+    `blue_cv` int(10) unsigned NOT NULL DEFAULT '0',
+    `blue_score` int(10) unsigned NOT NULL,
+    `blue_link_track_id` varchar(64) NOT NULL,
+    `ctime` datetime NOT NULL,
+    `mtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uniq_link_id` (`link_id`),
+    KEY `idx_red_uid` (`red_uid`),
+    KEY `idx_blue_uid` (`blue_uid`),
+    KEY `idx_event_name` (`event_name`)
+  ) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4
+#+END_SRC
 
 * 上线模块
 - schedulejob pk_link
