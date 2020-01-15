@@ -1,0 +1,102 @@
+#+TITLE: 项目接口及参数下发
+
+* sql 创建后台接口配置表
+#+BEGIN_SRC sql
+  CREATE TABLE `api_params` (
+    `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+    `name` varchar(40) NOT NULL COMMENT '一个name对应多个api，该name是这些api的唯一标识',
+    `type` tinyint(4) NOT NULL DEFAULT '0' COMMENT '0-api列表 1-主赛 2-复活赛',
+    `params` varchar(512) NOT NULL DEFAULT '' COMMENT 'json 串，参数配置',
+    `desc` varchar(512) NOT NULL DEFAULT '' COMMENT '描述信息',
+    `sort` int(10) unsigned NOT NULL DEFAULT '1' COMMENT '排序字段',
+    `is_enabled` tinyint(4) NOT NULL DEFAULT '0',
+    `ctime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `mtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`)
+  ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4;
+#+END_SRC
+
+* 后台接口配置
+#+BEGIN_SRC js
+  {
+      "origin_event": "yc2019_round3_2",
+      "static_params": {
+          "event_name": "yc2019_round3_2",
+          "board": 0,
+          "rank_timestamp": 0,
+          "page_index": 0,
+          "end_time": -60
+      },
+      "static_others": {
+          "event_name": "red_white_war_2_1"
+          "board": 0,
+          "start_time": 0,
+          "end_time": 0,
+          "status": 0
+      },
+      "dynamic_params": {
+          "end_time": "cur_timestamp",
+          "event_name": "daily",
+          "event_name": "hourly"
+      },
+      "dynamic_others": {
+          "start_time": "event_start",
+          "end_time": "event_end",
+          "status": "event_status"
+      }
+  }
+#+END_SRC
+
+* 后台接口配置描述
+** static_params 表示静态参数
+- "-" 表示由接口调用者填充
+** dynamic_params 动态参数。key 对应的 value 为动态参数的类型
+- cur_timestamp 表示获取当前时间戳。所以 end_time 的最终值为 cur_timestamp-60
+- daily 表示在 event_name 后面拼接当前日期后缀。例如 event_name 最终为 yc2019_round3_2_20191101
+- hourly 表示在 event_name 后面拼接当前小时数。例如 event_name 最终为 yc2019_round3_2_2019110112
+- event_start 活动开始时间戳
+- event_end 活动开始时间戳
+- event_status 活动状态 0-未开始 1-进行中 2-已结束
+
+* 对外接口
+** 接口描述
+/api/common/get_api_list
+GET
+
+** 请求参数
+- key API列表的唯一标识
+
+** 请求示例
+#+BEGIN_SRC shell
+  $ curl "http://jp.test_api.dokidokilive.com/api/common/get_api_list/?key=yc2019"
+#+END_SRC
+
+** 返回示例
+#+BEGIN_SRC js
+  {
+      "data": {
+          "resurrection": [],
+          "master": [],
+          "undefined": [
+              {
+                  "params": {
+                      "event_name": "yc2019_round3_3_2019110111",
+                      "origin_event": "yc2019_round3_3",
+                      "page_index": 0,
+                      "rank_timestamp": 0,
+                      "board": 0
+                  },
+                  "status": 2,
+                  "start_time": 1559358000,
+                  "end_time": 1559487600
+              }
+          ]
+       },
+      "err_msg": "success",
+      "err_code": 0
+  }
+#+END_SRC
+
+* 注意事项
+- 接口调用者需要且仅关注需要自己填充的参数。例如 t_uid
+- 调用者需要先根据后台配置的 key 获取所有接口及其相应参数

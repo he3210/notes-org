@@ -1,0 +1,44 @@
+#+TITLE: 周常活动分赛道
+
+* 需求
+** 运营后台
+***  [通用]活动设置/活动[通用]设置 中新增是否需要报名的字段
+- 该字段和 auto_register 区别？
+*** 报名 start_time end_time
+- 在上一选项下面
+*** 活动参加条件和活动奖励分开
+
+** 报名逻辑
+
+* 代码实现
+** sql
+#+BEGIN_SRC sql
+  CREATE TABLE `event_register` (
+    `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+    `event_type` tinyint(4) NOT NULL DEFAULT '0' COMMENT '活动类型。0-noting 1-吸金主播',
+    `event_name` varchar(40) NOT NULL COMMENT '要报名的活动',
+    `board` tinyint(4) NOT NULL DEFAULT "'0',
+    `promotion_name` varchar(40) NOT NULL DEFAULT '' COMMENT '晋级赛名称，该活动不属于晋级赛的话，为空字符串',
+    `uid` varchar(32) NOT NULL COMMENT '报名者 uid',
+    `status` tinyint(4) NOT NULL DEFAULT '0' COMMENT '0-nothing 1-报名 2-取消报名 3-淘汰',
+    `extra` varchar(128) NOT NULL DEFAULT '0' COMMENT '额外信息',
+    `is_enabled` tinyint(4) NOT NULL DEFAULT '0',
+    `ctime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `mtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_uid` (`uid`)
+  ) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4;
+#+END_SRC
+** 报名统一 HTTP 接口，报名信息保存到单独的表中
+** 报名晋级赛，被淘汰后如何退出？ 2d
+** api 4d
+- 所有活动类型的统一报名接口：报名吸金主播，晋级赛等
+- 统一的取消报名接口
+- 参加中的活动：user、score、rank
+** 报名mysql表
+** 运营后台[通用]活动设置 1d
+- 拆分活动参加条件和 rules
+- 新增报名时间
+- 添加是否需要报名字段
+
+** 26号联调

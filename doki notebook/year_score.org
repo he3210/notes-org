@@ -1,0 +1,121 @@
+#+TITLE: 年度积分
+
+* 需求
+** 直播间入口
+*** 主播头像、昵称、年度积分总排名、年度总积分
+*** 正在参加的活动
+**** banner 图片。怎么获取图片？不能使用表 banner 中的图片等东西。因为 banners 表中没有 event_name 字段
+**** 拼接活动起止时间字段：开始时间-结束时间
+**** 当前排名
+**** 活动的展示
+***** 方案一：仅当主播在榜单中才展示该活动，不管榜单中的积分是否是 0
+***** 方案二：根据 auto_register 字段和榜单来判断是否展示
+*** 历史战绩
+**** 单个活动
+***** banner 图
+***** 活动排名
+***** top3 knight
+**** 历史活动如何排序？按活动开始时间排序？按活动结束时间倒序
+**** 是否有分页？
+**** 展示在历史战绩的活动有哪些？
+*** 该主播在某个活动的排名？
+*** 是否要有分页
+** H5 展示
+*** 即将开始的活动
+**** banner 图
+**** auto_register 字段
+**** 拼接活动起止时间字段：开始时间-结束时间
+**** 家族积分奖励是什么？该活动 top1 计算得到的本活动年度积分
+*** 活动系列一览
+**** 单个系列
+***** 活动按 end_time 排序
+***** 顶部 top3 uesr 是该系列 top3
+***** 单个活动
+****** 正在进行中、已结束标志
+****** 家族积分奖励是什么？
+****** 该活动 top3 user
+****** 可点击吗？
+**** 展示哪些活动系列
+**** 系列排序
+**** 系列名称、背景图片
+
+*** H5 年度单个系列榜单
+**** 主播在该系列排名、积分、用户信息。建议不要加“尚未参加活动”
+**** 榜单
+***** 是否需要传递 room_id
+***** 排名、积分、用户信息、没有骑士榜
+***** 分页
+
+* 开发内容
+** DONE 榜单
+*** 是否需要传递 room_id
+*** 要有分页
+** DOING h5 展示接口
+*** 分页如何做
+** DOING 年度积分接口
+** DONE 2 个运营后台
+** DONE 运营后台 2 个表的缓存，以及缓存更新
+** DOING 各种不同活动类型计算积分的算法，以及积分重算机制
+#+BEGIN_SRC js
+  {
+      "rank_to_score": [10, 7, 5, 3, 2, 1],
+      "score_to_score": [10000, 1000, 2]
+  }
+#+END_SRC
+** DONE schedule 每个 1 小时刷一次正在进行的活动积分
+** DONE 改造骑士榜
+** DOING 维护所有主播系列排名信息、系列得分；维护主播在所有活动的活动排名
+* 上线注意事项 && 注意事项
+** 建表
+#+BEGIN_SRC sql
+  CREATE TABLE `series_to_event` (
+    `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+    `series` varchar(40) NOT NULL COMMENT '年度榜名，系列榜名',
+    `event_name` varchar(40) NOT NULL COMMENT 'name of event',
+    `board` tinyint(4) NOT NULL DEFAULT '0',
+    `event_desc` varchar(128) NOT NULL COMMENT '用于展示的活动名',
+    `sort` int(10) unsigned NOT NULL DEFAULT '0',
+    `is_enabled` tinyint(4) NOT NULL DEFAULT '0',
+    `rules` varchar(4096) NOT NULL DEFAULT '{}',
+    `pt` int(10) unsigned NOT NULL DEFAULT '0',
+    `image` varchar(1024) NOT NULL DEFAULT '',
+    `open_url` varchar(1024) NOT NULL DEFAULT '' COMMENT '该活动榜单 url',
+    `topk` varchar(256) NOT NULL DEFAULT '[]',
+    `ctime` datetime NOT NULL,
+    `mtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uq_series_event_name_board` (`series`,`event_name`,`board`),
+    KEY `idx_name` (`series`)
+  ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4;
+
+  CREATE TABLE `series_settings` (
+    `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+    `series` varchar(40) NOT NULL COMMENT '年度榜名，系列榜名',
+    `series_title` varchar(128) NOT NULL DEFAULT "" COMMENT '系列标题',
+    `series_desc` varchar(4096) NOT NULL DEFAULT "" COMMENT '系列描述',
+    `type` tinyint(4) NOT NULL COMMENT '1-年度 2-系列',
+    `series_url` varchar(1024) NOT NULL DEFAULT "" COMMENT '该系列的url',
+    `sort` int(10) unsigned NOT NULL DEFAULT '0',
+    `is_enabled` tinyint(4) NOT NULL DEFAULT '0',
+    `topk` varchar(256) NOT NULL DEFAULT '[]',
+    `ctime` datetime NOT NULL,
+    `mtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uq_series` (`series`)
+  ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4;
+#+END_SRC
+** series_to_event rules 运营配置
+#+BEGIN_SRC js
+  {
+      "rank_to_score": [10, 7, 5, 3, 2, 1],
+      "score_to_score": [10, 2, 1],
+  }
+#+END_SRC
+** 重新计算积分
+*** 吸金主播只获取了榜单前 200 名进行重新计算积分
+*** common_rank 只获取了榜单前 200 名进行重新计算积分
+** rank_to_score 和 score_to_score 可同时生效
+** 涉及服务
+*** http
+*** admin
+*** schedule-event

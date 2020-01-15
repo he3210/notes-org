@@ -1,0 +1,194 @@
+#+TITLE 2019 红白雪合战
+
+* 报名
+* 分组赛
+** 全员晋级？还是晋级 80 名
+** S型晋级
+** 榜单展示全部主播，不要有 400 名限制
+* 攻防战
+** 第一回合
+*** 第一天
+*** 第二天
+- 本回合胜利方前 10 名获得奖励。线下奖励？线上奖励？运营下发
+*** 胜方获得第二回合主场效果
+** 第二回合
+*** 主场阵营积分加成 10%
+- 加成到阵营积分中，还是加成到个人积分中
+** 第三回合
+*** 主场阵营积分加成 5%
+** 其它规则
+*** 用户每赠送 2000 进攻gold/防御gold，额外增加 200 进攻分/防御分，额外分不计算进入下一个序列？
+- 该加分是加到本阵营的积分池里？还是加到用户榜中
+* 王座战
+** 对战双方各前 20 名（攻防战 3 个回合总榜）晋级到此榜，胜利阵营主播收礼加成 5%
+
+* 主场、客场标志
+* 胜利阵营标志
+* 直播间弹窗
+
+* 运营配置
+** 晋级赛
+#+BEGIN_SRC js
+  [
+      {
+          "promote_type": "to_wpk",
+          "from_event": "red_white_war_1",
+          "from_board_list": [0],
+          "to_event": "red_white_war_2_1",
+          "to_board_list": [0, 1],
+          "to_event_1": "red_white_war_2",
+          "count": 80,
+          "promote_status": 1
+      },
+      {
+          "promote_type": "to_wpk",
+          "from_event": "red_white_war_1",
+          "from_board_list": [0],
+          "to_event": "red_white_war_2_2",
+          "to_board_list": [0, 1],
+          "count": 80
+      },
+      {
+          "promote_type": "to_wpk",
+          "from_event": "red_white_war_1",
+          "from_board_list": [0],
+          "to_event": "red_white_war_2_3",
+          "to_board_list": [0, 1],
+          "count": 80
+      },
+      {
+          "promote_type": "wpk_to_final",
+          "from_event": "red_white_war_2_3",
+          "from_event_1": "red_white_war_2",
+          "from_board_list_1": [0],
+          "to_event_1": "red_white_war_3",
+          "to_board_list_1": [0],
+          "promote_status": 1,
+          "count": 40
+      }
+  ]
+#+END_SRC
+** 第一回合 red_white_war_2_1
+#+BEGIN_SRC js
+  {
+      "defend_start": "2019-11-11 00:00:00",
+      "defend_end": "2019-11-13 00:00:00",
+      "attack_start": "2019-11-12 18:00:00",
+      "kill_start": "2019-11-12 21:00:00",
+      "attack_end": "2019-12-13 00:00:00",
+      "defend_gifts_setting": {},
+      "attack_gifts_setting": {},
+      "attack_extra_score": [2000, 500],
+      "war_rank_name": "red_white_war_2"
+  }
+
+#+END_SRC
+** 第二回合 red_white_war_2_2
+#+BEGIN_SRC js
+  {
+      "defend_start": "2019-11-11 00:00:00",
+      "defend_end": "2019-11-13 00:00:00",
+      "attack_start": "2019-11-12 18:00:00",
+      "kill_start": "2019-11-12 21:00:00",
+      "attack_end": "2019-12-13 00:00:00",
+      "buff": {
+          "factor": 0.1,
+          "from_event": "red_white_war_2_1",
+      },
+      "defend_gifts_setting": {},
+      "attack_gifts_setting": {},
+      "attack_extra_score": [2000, 500],
+      "war_rank_name": "red_white_war_2"
+  }
+#+END_SRC
+** 第三回合 red_white_war_2_3
+#+BEGIN_SRC js
+  {
+      "defend_start": "2019-11-11 00:00:00",
+      "defend_end": "2019-11-13 00:00:00",
+      "attack_start": "2019-11-12 18:00:00",
+      "kill_start": "2019-11-12 21:00:00",
+      "attack_end": "2019-12-13 00:00:00",
+      "buff": {
+          "factor": 0.05,
+          "from_event": "red_white_war_2_1",
+          "buff_redirect": {"0": 1, "1": 0}
+      },
+      "defend_gifts_setting": {},
+      "attack_gifts_setting": {},
+      "attack_extra_score": [2000, 500],
+      "war_rank_name": "red_white_war_2"
+  }
+
+#+END_SRC
+** 王座战 red_white_war_3
+#+BEGIN_SRC js
+  {
+      "gifts_setting": {},
+      "buff": [
+          {
+              "factor": 0.05,
+              "from_event": "red_white_war_2_2"
+          },
+          {
+              "factor": 0.05,
+              "from_event": "red_white_war_2_3"
+          }]
+  }
+#+END_SRC
+* 代码实现
+** 底层数据结构
+*** 防御分/进攻分 redis string。用来控制满 2000 加 200
+- key: pre + event_name + 主播uid
+- value: 收礼 gold
+*** 胜方 redis string。用来保存胜利者的 board。当该 key 存在时，表示该活动已经结束
+- key: pre + event_name
+- value: 0/1
+*** 积分池 redis hash
+- key: pre + event_name
+- field: board + "defend"/"attack"
+- value: score
+
+** TODO 报名
+- 报名后下发一个揭示板
+** 分组赛配置一个吸金主播活动；攻防战配置 3 个攻防战活动；王者战配置...
+** s型晋级：分组赛晋级到攻防战，晋级到个人总榜，个人总榜晋级前 20 名到王座战
+- 吸金主播活动 red_white_pk_pre 以 s 型晋级到 red_white_pking 的 2 个榜单 board 
+- 红方晋级 40 名
+- 白方晋级 40 名
+** TODO 攻防战加分模块 3d
+- 红方阵营榜单、白方阵营榜单、用户个人榜单（包含骑士榜）
+- 进攻时间段内，达成击败条件，立即结束本回合，设置活动结束标志（胜方阵营）
+- 个人总榜、红方阵营榜、白方阵营榜，攻防战 buff 加成到这3个榜单中
+- extra_score、video_score 分别表示防御分、进攻分
+- 注意：同一个礼物不能既配置到攻击 gifts_setting 中，又配置到防守 gifts_setting 中
+- 红方进攻分、防守分；白方进攻分、防守分
+** TODO api
+- 攻防战接口 2d
+- 王座战接口 1d
+- 攻防战直播间弹窗、王座战直播间弹窗 1d
+- 晋级赛接口是否需要调整
+** TODO 浮动icon 1d
+** 攻防战、王座战复用底层吸金主播榜单，调整schedule 定时刷新榜单，使之支持攻防战、王座战
+** 晋级赛 攻防战 -> 王座战 应该有了
+
+* 重启模块
+- admin
+- http
+- events-normal
+- schedule?
+* 注意事项
+- 确定下发的揭示板背包物品id
+- 确认判定胜利逻辑
+- s型分组，如果存在最后一名分数和后续一名分数相同的情况怎么办？
+- 吸金主播支持获取全部榜单
+* 调试问题
+- 王座战接口返回 buff、team
+- 个人总榜加 team
+- 斩杀时刻加分优化
+- 浮动icon
+- 未斩杀，活动结束后强行结算活动
+- 额外分不计入个人榜
+- 去掉第一个大阶段榜单限制
+- tmp_key 设置过期时间，不直接删除
+

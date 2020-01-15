@@ -1,0 +1,157 @@
++TITLE: 师傅的守护
+
+* 需求
+** 报名
+- 根据主播等级 [1, 29), [30, ) 划分新人、师傅。其中师傅必须是最近 3 个月开播过的。
+- 报名阶段主播升级到 30 级怎么办？师傅列表提前写死
+#+BEGIN_SRC sql
+  select aa.uid, bb.total_received_credits, aa.screen_name, aa.last_login_time, ctime, mtime
+  from miveshow.users aa, 
+  (select uid, total_received_credits from miveshow_money.user_credits where total_received_credits >= 10000000) bb 
+  where aa.uid = bb.uid and aa.last_login_time >= "2019-11-01 00:00:00";
+#+END_SRC
+*** 徒弟端
+**** 师傅列表接口
+***** 徒弟已经有一个师傅了：徒弟已经发出申请，并且师傅通过时，返回什么？不必再返回师傅
+***** 分页。30 级以上的主播总共有 61 个，是否需要分页？不需要
+***** 元数据
+- 师傅信息：头像、昵称、主播等级等
+- 该师傅的申请总次数
+- 该师傅的最大徒弟数量，当前徒弟数量
+- 徒弟剩余拜师名额、当天剩余申请次数。每天最多申请 5 次
+***** 师傅们如何排序?按主播等级逆序
+**** 申请拜师接口
+- 拜师宣言
+- 返回值
+  - 已提交申请、今日报名名额已用完、该师傅已招满
+- 向师傅发送拜师系统私信。点击进入h5收徒申请页面。需要和客户端确认是否支持？
+*** 师傅端
+**** 徒弟列表接口，用于展示申请拜师的徒弟列表
+***** 师傅已收满徒弟，如何返回数据？依然返回申请列表
+***** 收徒成功时，客户端打对勾
+***** 活动开始，不返回数据
+***** 元数据
+- 徒弟信息：头像、昵称、主播等级等
+- 拜师宣言
+- 已收徒数量
+- 最大收徒数量
+***** 不用分页
+**** 接受拜师申请
+***** 从申请列表中删除相应申请记录
+***** 返回状态：收徒成功；收徒失败，名额已达上限；收徒失败，他已拜师
+**** 我的徒弟接口
+***** 元数据
+- 徒弟信息：昵称、头像、主播等级等
+***** 如何排序？按师徒招收时间，最新的排上面
+**** 解除师徒关系接口
+***** 返回状态：解除成功；解除失败
+***** 向徒弟发送私信。私信中是解除通知，点击进入h5申请拜师页面。需要和客户端确认是否支持
+*** 申请逻辑
+- 拜师申请保留时长？24小时
+- 申请列表过期删除？对
+- 自己收徒成功时，同意按钮变成已收徒，改成删除申请记录。因为可以在我的徒弟页查看徒弟
+- 其他人收徒成功时，从别人的申请列表中删除申请记录。
+** 加分规则？分榜总榜加分规则？直播间弹窗等展示的分数是哪个分数？
+- 师傅每日收礼 10% 计入徒弟榜单中，每日上限 10000
+- 非冲刺阶段：除冲刺阶段外都是非冲刺阶段  2个限定礼物  如何计分？
+- 冲刺阶段：20:00-21:00  多少限定礼物？  如何计分？
+ - 徒弟榜单中的前 10 名进入冲刺时刻。如果主播没开播，空着这一段时间，浮动icon 不展示
+ - 每人 6min，按照榜单名次依次进行，未直播的视为放弃，空着这一段时间。之后选下个主播进入冲刺时刻
+
+** 直播间弹窗
+*** 徒弟端
+- 个人分数、师傅贡献分
+- 距离上一名还差 xx 分。特殊情况需要考虑？
+*** 师傅端
+- 展示 5 名徒弟，分数是展示徒弟的分数还是师傅的贡献分？
+** 冲刺时刻浮动icon
+- xxx 冲刺中
+- 剩余 05:30
+- 点击跳转目标主播直播间
+- 主播端只展示不跳转，观众端跳转
+* 注意事项
+** 师傅拒绝徒弟，申请列表标志状态
+** 师傅列表是否需要登陆
+** 判断师傅徒弟接口
+** 师傅可以解除师徒关系，徒弟不能解除师徒关系，需要提前向用户说明。否则很可能出现一大波想解除师徒关系的徒弟
+* 开发排期
+** http 接口  4d
+*** 判断师傅徒弟接口    1d
+*** 师傅列表接口        1d
+*** 申请接口            1d
+*** 申请列表接口        1d
+*** 接受/拒绝拜师申请接口  1.5d
+*** 我的徒弟接口        0.5d
+*** 解除关系接口        1.5d
+*** 直播间弹窗接口      1d
+
+** 加分模块 2.5d
+*** 正常加分。加日榜、总榜  2d
+
+** 浮动 icon 1.5d
+
+** buffer 时间  1d
+
+** 总 9d  25号联调
+* sql
+#+BEGIN_SRC sql
+  CREATE TABLE `mg_master` (
+    `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+    `event_name` varchar(40) NOT NULL COMMENT 'name of event',
+    `uid` varchar(32) NOT NULL COMMENT '师傅 uid',
+    `reason` varchar(512) NOT NULL DEFAULT '' COMMENT '当选师傅原因',
+    `apply_cnt` int(10) unsigned NOT NULL DEFAULT '0',
+    `is_enabled` tinyint(4) NOT NULL DEFAULT '0',
+    `ctime` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `mtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `event_name_uid` (`event_name`, `uid`)
+  ) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4;
+
+
+  CREATE TABLE `mg_apprentice` (
+    `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+    `event_name` varchar(40) NOT NULL COMMENT 'name of event',
+    `master` varchar(32) NOT NULL COMMENT '师傅 uid',
+    `uid` varchar(32) NOT NULL COMMENT '徒弟 uid',
+    `whisper` varchar(512) NOT NULL DEFAULT '' COMMENT '拜师宣言',
+    `status` tinyint(4) NOT NULL DEFAULT '0' COMMENT '0-没有关系 1-师徒 2-申请拜师 3-解除师徒 4-拒绝收徒 5-已有师傅',
+    `is_enabled` tinyint(4) NOT NULL DEFAULT '0',
+    `ctime` datetime NOT NULL,
+    `mtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `event_name_uid_master` (`event_name`,`uid`,`master`)
+  ) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4;
+#+END_SRC
+* 运营配置
+#+BEGIN_SRC js
+  {
+      "max_apply_daily": 5,
+      "max_apprentice": 5,
+      "devide_master_rule": {
+          "min_anchor_level": 30,
+          "jp_last_login": "2019-11-01 00:00:00"
+      },
+      "master_to_apprentice_buff": 0.1,
+      "daily_board_start_time": "00:00:00",
+      "daily_board_end_time": "19:30:00",
+      "final_time_start_time": "20:00:00",
+      "final_time_topk": 10,
+      "final_time_interval_minute": 6,
+  }
+#+END_SRC
+* 重启模块
+- http
+- admin
+- events-very_important
+- schedule-events
+- task_v2-normal
+- websocket
+* 上线
+- 建师傅表、徒弟表
+- 插入师傅
+- 发的消息的文案、open_url 是否需要调整
+* 联调
+** 师傅列表带show信息
+** 师傅列表未下发该师傅已申请字段
+

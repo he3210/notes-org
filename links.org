@@ -12,3 +12,11 @@
 - [[http://lujun9972.github.io/emacs-document/][lujun9972]]
 - [[https://williamlfang.github.io/][William]]
 - [[http://www.shicheng0829.cn/][shicheng]]
+
+
+收藏
+- [[https://juejin.im/post/5d995f82f265da5ba308389d][什么是中台?]]
+- [[https://github.com/begeekmyfriend/leetcode][c语言刷leetcode]]
+- [[https://github.com/begeekmyfriend/bplustree][B+树实现]]
+- [[https://github.com/begeekmyfriend/kdtree][KD树实现]]
+- [[https://github.com/begeekmyfriend/CuckooFilter][Cuckoo filter]]

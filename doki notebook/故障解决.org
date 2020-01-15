@@ -44,3 +44,15 @@ limit 1000;
   (select uid, credits, result, is_kill, cv, if(credits >= 10000, 50, if(credits >= 500, 11, if(credits >= 100, 2, if(credits >= 50, 1, 0)))) score1, if(result=2, 5, if(result=3, 1, 0)) score2, if(cv=0, 0, if(MOD(cv,3)=0, 3, 0)) score3, if(is_kill=2, 3, 0) score4 from user_battle where id > 800000 and mtime > "2019-07-02 13:00:00" and mtime < "2019-07-04 23:56:00") t) tt
   group by tt.uid order by score desc;
 #+END_SRC
+* 根据主播等级把主播划分为新人榜和达人榜的吸金主播活动
+如果获取主播等级失败可能会把主播划分到新人榜
+调整方法
+首先提交处理一个工单：
+#+BEGIN_SRC sql
+  update rich_anchor_contestants set board = 1 where id = 368254;
+#+END_SRC
+
+然后删除缓存数据
+#+BEGIN_SRC shell
+  redis-cli -h 10.0.110.251 -p 6360 -n 10 del events_v2_rich_anchor_contestant_niceFood_4_u2667541531297942100001275 events_v2_rich_anchor_rank_zet_niceFood_4_0 events_v2_rich_anchor_rank_zet_niceFood_4_1
+#+END_SRC

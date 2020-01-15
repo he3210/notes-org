@@ -2,8 +2,8 @@
 
 * 需求
 ** 关于连胜
-- pk 同屏之前的连胜是仅在本次直播算。重新开播清零重新计算
-- 本次连胜是按照 event_name 和 uid 来算
+- pk 同屏之前的连胜是仅在本次直播算。重新开播清零重新计算。平局时双方的连胜均清零
+- 本次连胜是按照 event_name 和 uid 来算。平局时双方的连胜值不变
 ** 5 分钟间歇时间，4.5 分钟 pk 时间，0.5 分钟惩罚时间
 + 无 hurry 模式
 ** 榜单。需要维护每日连胜次数、活动连胜次数。日榜是根据结算的时间来确认是哪一天
@@ -76,30 +76,37 @@
 
 
 * 开发内容
-** 状态同步 schedulejob
-- websocket 同步 not_join、matching、matched
+** TODO 状态同步 schedulejob
+- websocket 同步 not_join、matching、matched 等状态。event_name 等信息
 - 待定：matched 是否需要同步
 - 待定：icon 消失/展示如何控制
-** 运营后台：pk 同屏活动设置
-** 日榜 PK 点数榜、日榜胜利次数榜奖励自动下发 schedulejob
+** DONE 运营后台：pk 同屏活动设置
+** DONE 日榜 PK 点数榜、日榜胜利次数榜奖励自动下发 schedulejob
 - 当天 00:00:10 下发前 3 名 gold 奖励
 - 奖励从活动配置中读取
-** 4 个榜单
+** DONE 4 个榜单
 - 暂时采用结算时加榜单的方法
 - 日榜日期的划分需要注意时区！
 - 结算时加榜单、投降时加榜单
-** 匹配算法
-** 接口
-- 榜单 http 接口
-- websocket 同步接口
-- pk 历史
-- 关闭同屏 PK 按钮
+** DONE 匹配算法
+** DOING 接口
+*** DONE 榜单 http 接口
+*** TODO websocket 同步接口
+*** DONE pk 历史
+*** DONE 关闭同屏 PK 按钮
 
-* 上线注意事项
+** DONE 区分几种 PK 同屏来源、区分 PK 同屏活动名，并持久化到 mysql
+** DONE 维护活动连胜次数，并持久化到 pk_link_history
+** TODO 需要和客户端讨论红蓝双方 track_id 的上传
+
+
+* 注意事项 && 上线注意事项
 ** 表 miveshow.pk_link_history
 #+BEGIN_SRC sql
   alter table pk_link_history add column source_type tinyint not null default 4 comment "0-运营邀请 1-根据进入匹配池时间在匹配池匹配 2-主播邀请 3-根据段位在匹配池匹配 4-旧数据，来源未记录" after state
   alter table pk_link_history add column event_name varchar(64) not null default "" after source_type;
+  alter table pk_link_history add column red_event_cv int(10) not null default 0 comment "红方在该活动中连胜次数" after event_name;
+  alter table pk_link_history add column blue_event_cv int(10) not null default 0 comment "蓝方在该活动中连胜次数" after red_event_cv;
 #+END_SRC
 ** 表 miveshow_event.pk_link_match_history
 #+BEGIN_SRC sql
@@ -127,8 +134,53 @@
   ) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4
 #+END_SRC
 
+** 表 miveshow.pk_link_history 加索引
+- 为 result 加索引
+- 为 event_name 加索引
+** 枚举值
+#+BEGIN_SRC python
+  class PKLinkResult(object):
+      not_over = 0
+      red_success = 1
+      blue_success = 2
+      draw = 3
+      abnormal_over = 4
+
+  class PKState(object):
+      pk_ing = 1
+      punish_time = 2
+      over = 3
+      not_start = 4
+
+  # pk 同屏的 pk 来源
+  class PKLinkSourceType(object):
+      system_invite = 0    # 运营邀请
+      match_pool = 1       # 匹配池匹配，根据进入匹配池时间进行匹配
+      anchor_invite = 2    # 主播邀请
+      match_rank = 3       # 排位赛。匹配池匹配，根据段位进行匹配
+      old_pk = 4           # 旧数据，来源未记录
+#+END_SRC
+** 删除 pk_link_history 表中没有 track_id 的遗留数据
+** redis 中 pk_link_info_ 未设置过期值。清理生产环境中的 pk_link_info_
+** 日榜日期的划分需要注意时区
+** 关于客户端心跳异常断掉，导致断掉的一方投降。会影响主播双方连胜数，和主播 PK 历史。
+
+** event_settings 表为 type 加一个索引
+
 * 上线模块
 - schedulejob pk_link
 - http
-- admin
 
+
+* 优化
+** DONE mysql io
+*** end_pk
+*** end_link
+*** surrender_pk
+** DOING redis io
+*** DONE schedule_end_pk 不再获取 settings 表中 pk_link_settings 配置
+*** TODO settle_pk_link 和 surrender_pk 本直播间的连胜次数通过 incrby 获取，不再单独调用一次 get 命令了
+** DONE redis pk_link_info_ 设置过期时间
+** TODO pk 同屏加分操作可在结算时再同步到 mysql 中
+** pk 同屏。状态同步、track_id 上传需要和客户端对一下
+** 年度积分需求

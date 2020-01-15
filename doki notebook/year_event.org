@@ -1,0 +1,261 @@
+#+TITLE: 年度活动
+
+* 需求
+** 庆生领取装饰
+*** 每个人只能领取一次
+*** 奖励（需要领取才能获取）
+**** 1-3 周年聊天纪念框
+**** 2-3 周年开播纪念框
+**** 土豪专属入室特效下发吗？怎么下发
+*** 奖励（无需领取就能获取）
+**** 3-3 周年登陆奖励加倍
+*** 装饰奖励领取后直接佩戴，不作为背包礼物下发
+*** 1-3、2-3、3-3 是什么意思？
+*** 奖励的活动时限都是活动结束时间
+*** 聊天框、主播头像框现在是否有该装饰？
+*** 需求上 5 张图片有什么区别？
+** 阶段一
+*** 一回战榜单
+**** 总榜
+***** 女榜、男榜
+***** 新人男榜、新人女榜：两种实现方案
+- 单独作为榜单：根据性别划分 board，然后添加一条配置 "anchor_level_limit": ["<", 21]
+- 作为男榜、女榜的子榜：当榜单加载到 redis zset 中时，过滤出新人，存放到 redis zset。该种方式不支持晋级
+***** 注册时间新开发
+**** 今日日榜、昨日日榜
+***** 新人男榜、新人女榜
+***** 女榜、男榜
+**** 没有日榜
+**** 榜单加成
+***** 当日日榜排名计算加成系数，把本日的分数加成后加算到总榜。不能实时加总榜
+***** 确定加成系数
+**** 有直播间弹窗？直播间弹窗展示哪个榜单？
+**** 晋级：总榜的 4 个榜单前 30 名晋级到下一回合。男、女榜晋级
+*** 二回战榜单
+**** 总榜
+***** 男榜、女榜
+***** 新人男榜、新人女榜
+***** 活动结束后，放大展示各个榜单 top1
+**** 榜单加成：无。需求文档和思维导图有差异
+**** 有直播间弹窗？直播间弹窗展示哪个榜单？
+** 阶段二
+*** 家族影响力点数榜
+**** 家族群聊是否砍掉？
+**** 影响力点数获取方式
+- 在家族群聊中投票，+100 家族影响力点数。一个人给一个家族每天只能投票一次，一个人每天可以给多个家族投票
+- 主播开播，为主播所在家族 +100 家族影响力点数。每个主播每天只能为该主播家族加分一次？逻辑确认
+**** 距离上一名还差 xxx pt 在 h5 中最好砍掉，可以在直播间弹窗中
+**** 有直播间弹窗？
+**** 主播可以有多个家族吗？
+** 阶段三
+*** 一回战
+**** 活动类型：家族 pk ？pk 同屏？
+**** 家族对战榜单
+***** 榜单实现类型：吸金主播
+***** 加分方式
+- pk 对战双方收礼总额和加成系数有一个映射关系：factor = map(total_score)
+- 主播 A 分数 = A_score * factor
+***** 晋级
+- 前 40 名晋级到下一回合
+- 分数继承到下个回合
+- 骑士榜是否继承？最好不继承
+***** pk 历史分为 DAY1 DAY2 DAY3 通过接口返回
+*** 二回战
+**** 活动类型：吸金主播？
+**** 总榜
+**** 日榜
+- 昨日榜
+- 今日榜
+**** 晋级
+- 前 20 名晋级
+- 分数按照名次映射的系数进行加成，继承到下个回合
+**** 与日榜进行结合什么意思？
+*** 三回战
+**** 活动类型：吸金主播
+**** 总榜
+总榜分数 = 各个小时榜分数累加，以及小时榜第一名前 15min 加成
+**** 小时榜
+- 本小时
+- 上小时
+- 小时榜第一名获得下个小时的总榜分数加成，但不能影响下个小时小时榜排名
+**** 总榜加成
+- 小时榜第一名获得下个小时的总榜分数加成，但不能影响下个小时小时榜排名。需要确定能不能做
+- 确定加成系数
+
+* 第一阶段代码实现
+** round1 活动配置：新人男榜、新人女榜配置一个活动 round1_A；男榜、女榜配置一个活动 round1_B
+新人男榜、新人女榜
+#+BEGIN_SRC js
+  {
+      "auto_register": 0,
+      "board_setting": {
+          "valid_list": [0, 1]
+      },
+      "larger_ctime_limit": "2019-01-09 23:00:00",
+      "default_board_setting": {
+          "default_male_board": 1,
+          "default_female_board": 0
+      },
+      "need_promote_status": 1,
+      "need_anchor_knights_board": 1,
+      "promote_event_type": 1,
+      "gifts_setting": {}
+  }
+#+END_SRC
+
+男榜、女榜
+#+BEGIN_SRC js
+  {
+      "auto_register": 0,
+      "board_setting": {
+          "valid_list": [0, 1]
+      },
+      "default_board_setting": {
+          "default_male_board": 1,
+          "default_female_board": 0
+      },
+      "need_promote_status": 1,
+      "need_anchor_knights_board": 1,
+      "promote_event_type": 1,
+      "gifts_setting": {}
+  }
+#+END_SRC
+
++----------------------------+-----------------+--------+------------+---------------------+
+| uid                        | screen_name     | gender | display_id | ctime               |
++----------------------------+-----------------+--------+------------+---------------------+
+| u2572271555577408120001317 | shi_zhonghe     |      1 |  770955577 | 2019-04-18 08:50:09 |
+| u4361101562832368120001324 | qianye lin      |      2 |  776062832 | 2019-07-11 08:06:08 |
+| u4605521547039481120001298 | 腻腻腻腻酱      |      2 |  765047039 | 2019-01-09 13:11:21 |
+| u8029551547033664120001360 | 王广宇          |      0 |  764947033 | 2019-01-09 11:34:25 |
++----------------------------+-----------------+--------+------------+---------------------+
+
+** round2 活动配置：新人男榜、新人女榜配置一个日榜类型的 rich_anchor 活动 round2_A；男榜、女榜配置一个日榜类型的 rich_anchor 活动 round2_B
+
+新人男榜、新人女榜
+#+BEGIN_SRC js
+  {
+      "auto_register": 0,
+      "daily": 1,
+      "daily_buff": [1.2, 1.1],
+      "need_promote_status": 1,
+      "promote_event_type": 1,
+      "need_anchor_knights_board": 1,
+      "board_setting": {
+          "valid_list": [0, 1]
+      },
+      "gifts_setting": {}
+  }
+#+END_SRC
+
+男榜、女榜
+#+BEGIN_SRC js
+  {
+      "auto_register": 0,
+      "daily": 1,
+      "daily_buff": [1.2, 1.1],
+      "promote_event_type": 1,
+      "need_anchor_knights_board": 1,
+      "board_setting": {
+          "valid_list": [0, 1]
+      },
+      "gifts_setting": {}
+  }
+#+END_SRC
+** rich_anchor 添加日榜概念：日榜 rich_anchor 活动，在活动期间每天都有一个日榜榜单、和一个总榜榜单。日榜实时计算，总榜非实时计算，日榜和总榜对应有加成关系
+** 日榜晋级：round1_A 晋级到 round2_A 总榜后，还需要晋级到 round2_A 的每一个日榜
+#+BEGIN_SRC js
+  [
+      {
+          "promote_type": "daily",
+          "from_event": "yc2019_round1_1_new",
+          "to_event": "yc2019_round1_2_new",
+          "from_board": [0, 1],
+          "to_board": [0, 1],
+          "promote_status": 1,
+          "count": [30, 30]
+      },
+      {
+          "promote_type": "daily",
+          "from_event": "yc2019_round1_1_all",
+          "to_event": "yc2019_round1_2_all",
+          "from_board": [0, 1],
+          "to_board": [0, 1],
+          "promote_status": 1,
+          "count": [30, 30]
+      }
+  ]
+#+END_SRC
+** promote 接口调整：判断一个 rich_anchor 活动如果是日榜类型的话，在 master 中自动生成昨日日榜和今日日榜 event_name、board 等，start_time、end_time 为日榜当天的开始时间、结束时间
+** 新增一个定时任务：每天执行一次，把日榜加算到总榜中，需要考虑 board
+
+* 第三阶段代码实现
+** DONE round1 家族对战配置
+添加吸金主播配置
+#+BEGIN_SRC js
+  {
+      "auto_register": 0,
+      "gifts_setting": {
+          "256": 0
+      },
+      "need_promote_status": 1,
+      "need_anchor_knights_board": 0,
+      "promote_event_type": 1
+  }
+#+END_SRC
+
+** DONE 1->2晋级赛定时任务：分数完全继承
+#+BEGIN_SRC js
+  [
+      {
+          "promote_type": "daily",
+          "from_event": "yc2019_round3_1",
+          "to_event": "yc2019_round3_2",
+          "from_board": [0],
+          "to_board": [0],
+          "promote_status": 1,
+          "count": [40],
+          "inherit_buff": [1]
+      },
+      {
+          "promote_type": "normal",
+          "from_event": "yc2019_round3_2",
+          "to_event": "yc2019_round3_3",
+          "from_board": [0],
+          "to_board": [0],
+          "promote_status": 1,
+          "count": [20],
+          "inherit_buff": [0.3, 0.25, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.15]
+      }
+  ]
+#+END_SRC
+** DONE 2->3晋级赛定时任务：吸金主播晋级到日榜时，需要分数按比例继承到下一阶段
+** DONE 晋级赛接口：调整今日榜、昨日榜返回的位置
+** DONE 日榜结算时，没有配置 valid_list 时，默认 board 使用 0
+** DONE family_battle 送礼加分时，取 topk 用户，其它用户不进行加分；
+** DONE family_battle 结算时，根据指定加分规则，加分到吸金主播榜单中。
+** DONE 第三阶段返回总榜，接口增加一个参数来返回总榜的数据
+** DONE 小时榜直播间弹窗，获取总榜直播间弹窗
+** DONE 小时榜骑士榜，获取总榜骑士榜
+** DONE 注意：第一个小阶段不要忘记提交代码时添加 topk 用户
+** DONE 注意：需要对晋级到 yc2019_round3_1 的主播执行晋级操作，否则会加榜单失败
+#+BEGIN_SRC python
+  events_cacher_v2.register_rich_anchor_contestant("yc2019_round3_1", "u8960471526891737110001220", 0)
+  events_cacher_v2.register_rich_anchor_contestant("yc2019_round3_1", "u2572271555577408120001317", 0)
+  events_cacher_v2.register_rich_anchor_contestant("yc2019_round3_1", "u4778031560328976120001306", 0)
+  events_cacher_v2.register_rich_anchor_contestant("yc2019_round3_1", "u9250061480925911020001233", 0)
+  events_cacher_v2.register_rich_anchor_contestant("yc2019_round3_1", "u5075561559294511120001299", 0)
+  events_cacher_v2.sign_anchor_status("yc2019_round1_1_all", "xxx", 1)
+#+END_SRC
+
+** DONE 注意：小时榜有礼物数量限制，是否调整，调整
+** DONE 注意：直播间弹窗 end_time 是 2.6 转盘的需求
+** DONE 额外：第二阶段中每日送礼限制应该和 event_name 绑定在一起
+** TODO 小时榜是否和转盘二期小时榜需求有冲突
+** DONE 清理之前写死的无用代码。events 吸金主播、吸金主播骑士榜已清理。评论指定文案加分，注释掉
+
+* 第三阶段重启服务
+- http
+- important-events
+- very-important-events
+- schedule-event

@@ -3,3 +3,4 @@
 - [[http://redisdoc.com/][redis 命令]]
 - [[https://doc.yonyoucloud.com/doc/wiki/project/redis/index.html][Redis 源码日志]]
 - [[http://redisbook.com/][Redis 设计与实现]]
+- [[https://www.kancloud.cn/digest/redis-code/199029][Redis 源码分析]]
