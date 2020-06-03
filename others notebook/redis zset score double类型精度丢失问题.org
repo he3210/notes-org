@@ -1,0 +1,4 @@
+#+TITLE: redis zset score double类型精度丢失问题
+
+公司有个榜单需求：分数相同的情况下，根据 mtime 排序。需要以 32bit 的分值和一个 32bit 以秒为单位的时间戳，两个排序纬度来排序。如果采用 redis zset score 多字段划分的方案，难以满足要求。
+[[http://blog.itpub.net/31556438/viewspace-2218088/][Redis SortedSet结构score字段丢失精度问题解决办法]]

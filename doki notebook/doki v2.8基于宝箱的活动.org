@@ -1,0 +1,122 @@
+#+TITLE: doki v2.8基于宝箱的活动
+
+* 需求
+** A SS SSS SSS+ 多种集齐难度，每种难度对应一个分值，集齐后分值计入排行榜
+** 榜单中昨日幸运直播间是啥？
+** 榜单
+** icon 弹窗
+- 主播集齐进度
+- 其他直播间集齐进度排行榜。如何排序？展示数量。仅展示前2名
+- 金宝箱、银宝箱、铜宝箱按钮是干嘛的？
+** 在本小时内，若有主播已集齐，则进行新一轮集齐任务。
+** 集礼物。主播给用户送，用户给主播送，均计算在内
+** 直播间最幸运用户头像框 + 最幸运家族背景图。如果主播是昨日排行榜第一名，加边框一天
+** 两轮集齐有时间间隔 20s，20s之后才生成下一轮礼物集合
+** 历史记录只提供 30条，分页 10个
+** 贡献详情：按单价、贡献时间排序。仅x1，不可能x2以上。礼物图片x1
+
+* 数据结构
+** 更改吸金主播表
+#+BEGIN_SRC sql
+  alter table rich_anchor_contestants change extra extra varchar(2048) NOT NULL DEFAULT '';
+  alter table rich_anchor_contestants change `uid` `uid` varchar(64) NOT NULL COMMENT 'anchor uid';
+#+END_SRC
+** 当前任务
+- 任务表
+#+BEGIN_SRC sql
+  CREATE TABLE `box_gift_tasks` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `event_name` varchar(64) NOT NULL,
+  `task_id` int(11) NOT NULL COMMENT 'event_name + task_id 唯一确定一个任务',
+  `level` varchar(32) NOT NULL COMMENT 'difficulty level',
+  `pt` int(10) NOT NULL COMMENT '率先完成该任务的主播加分',
+  `gifts` varchar(1024) NOT NULL DEFAULT '' COMMENT '礼物集合',
+  `is_finished` tinyint(4) NOT NULL DEFAULT '0' COMMENT '该任务是否完成',
+  `finish_time` datetime NULL DEFAULT NULL COMMENT '默认为None，表示暂未有主播完成该任务',
+  `finish_uid` varchar(32) NOT NULL DEFAULT '' COMMENT 'anchor uid',
+  `ctime` datetime NOT NULL,
+  `mtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_event_name_task_id` (`event_name`, `task_id`)
+  ) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4;
+#+END_SRC
+
+- 当前任务
+redis hash
+pre+event_name 
+#+BEGIN_SRC js
+  {
+      "task_id": 1589534600,
+      "level": "SSS+",
+      "pt": 20,
+      "gifts": [
+          {
+              "gift_id": 111,
+              "credits": 100,
+              "display_name": "xxx",
+              "image_url": "xxx",
+              "need_cnt": 10,
+              "box_gift_ids": [886, 887, 888]
+          }
+      ],
+      "ctime": 1589534600,
+      "is_finished": 0
+  }
+#+END_SRC
+
+** 收集历史表
+#+BEGIN_SRC sql
+  CREATE TABLE `box_gift_collect_history` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `event_name` varchar(64) NOT NULL,
+  `uid` varchar(32) NOT NULL COMMENT 'knight uid',
+  `t_uid` varchar(32) NOT NULL COMMENT 'anchor uid',
+  `task_id` int(11) NOT NULL COMMENT '',
+  `gift_id` int(10) NOT NULL COMMENT '',
+  `gift_cnt` int(10) unsigned NOT NULL DEFAULT '0' COMMENT 'number of gift',
+  `score` int(11) NOT NULL DEFAULT '0' COMMENT 'gift score',
+  `is_enabled` tinyint(4) NOT NULL DEFAULT '1',
+  `ctime` datetime NOT NULL,
+  `mtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_event_name_task_id` (`event_name`, `task_id`)
+  ) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4;
+#+END_SRC
+
+** 个人任务完成情况
+redis hash                           field      value
+pre + event_name + task_id + uid    gift_id      cnt
+
+* 实现
+** 集齐历史记录及贡献榜。礼物集齐的每小时历史，点击展示贡献名单
+- 记录唯一标识：event_name + 年月日时
+** 主播集齐次数日榜
+** 本小时主播集齐度的一个排行榜
+** 获取本小时礼物集合函数
+*** 根据规则挑选本小时礼物集合
+*** 需要王珏提供函数：获取当前小时可开出的礼物，数据格式如下：
+#+BEGIN_SRC python
+  treasure_chest_cacher.get_treasure_chest_hourly_special_gift_info(gift_id_list=gift_id_list, datetime=datetime.now())
+#+END_SRC
+#+BEGIN_SRC js
+  [
+      {
+          "gift_id": 111,
+          "box_gift_ids": [886, 887],
+          "gift_type": "normal_gift"
+      }
+  ]
+#+END_SRC
+** 收礼模块，用于集礼物
+
+** 定时任务下发icon
+- 当前礼物集合，和主播集齐的量
+- 上一轮集齐的主播
+** 直播间弹窗；获取本小说礼物集合http接口
+- 本直播间集齐的量
+- ！！其他直播间本轮的排行榜
+** 直播间内最幸运用户头像框
+** 任务创建
+
+* 上线
+** 确定主播给观众送礼能否不用。获取送礼队列时需要去掉 True。去掉一些日志

@@ -22,3 +22,4 @@
 - [[./gdb 调试多线程死锁.org][gdb 调试多线程死锁]]
 - [[./python 元类.org][python 元类]]
 - [[./使clion支持makefile项目.org][使 clion 支持 makefile 项目]]
+- [[./redis zset score double类型精度丢失问题.org][redis zset score double类型精度丢失问题]]

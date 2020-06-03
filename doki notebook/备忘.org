@@ -281,3 +281,4 @@ http://opsadmin.dokidokilive.com/dk1503/admin/events_v2/eventscleaner/show_page
 [[https://www.infoq.cn/article/3QZ0o9Nmv*O0LoEPVRkN][百度 App 网络深度优化系列一]]
 [[https://www.infoq.cn/article/CDaih849Ao4rS_pctQ2T][百度 App 网络深度优化系列二]]
 [[https://www.infoq.cn/article/pQmLUECekW*DsymqbGvy][百度 App 网络深度优化系列三]]
+[[http://opsadmin.dokidokilive.com/dk1503/admin/basic_settings/clientsetting/86/change/][棒球icon配置]]

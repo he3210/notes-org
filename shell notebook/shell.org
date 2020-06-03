@@ -7,6 +7,7 @@
 - [[./sed.org][sed]]
 - [[./awk.org][awk]]
 - [[./cut.org][cut]]
+- [[./lsof.org][lsof]]
 - [[./touch bar + bettertouchtool + shell 一键优化工作流程.org][touch bar + shell 一键优化工作流程]]
 - [[./shell 编程基础.org][shell 编程基础]]
 - shell 编程问题笔记
@@ -25,3 +26,4 @@
 - [[./systemd.org][systemd]]
 - [[./shell 常用命令.org][shell 常用命令]]
 - [[http://www.ttlsa.com/web/let-infotify-rsync-fast/][inotify + rsync 实时同步文件]]
+- [[./pip.org][pip]]

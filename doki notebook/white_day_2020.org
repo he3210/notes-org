@@ -1,0 +1,76 @@
++TITLE: white day 2020
+
+** http 接口
+*** 获取奖励信息接口
+*** 奖励领取接口
+*** 发信接口
+*** 获取优秀来信
+*** 获取直播间邮件列表
+*** 查看指定邮件接口
+*** 是否公开信件接口
+
+*** 获取最近正在进行中的的活动的未读邮件数量
+** 运营后台
+- 信件后台。优秀信件挑选
+
+** 主播在直播间分享邮件后，在直播间发一条消息，用户点击可读取邮件
+** 活动期间每日弹窗提示
+** 主播收信 WEB_EVENT，写信 WEB_EVENT
+** 私信
+
+** 数据结构
+*** event_emails
+#+BEGIN_SRC sql
+  CREATE TABLE `event_emails` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT COMMENT '唯一标识一个邮件',
+  `uid` varchar(32) NOT NULL,
+  `t_uid` varchar(32) NOT NULL,
+  `event_name` varchar(40) NOT NULL DEFAULT '',
+  `title` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '' COMMENT '邮件标题',
+  `content` varchar(8192) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '' COMMENT '邮件内容',
+  `read_time` datetime,
+  `is_public` tinyint(4) NOT NULL DEFAULT '0' COMMENT '1-发信者允许主播公开信件 0-不允许公开信件',
+  `is_anonymous` tinyint(4) NOT NULL DEFAULT '1' COMMENT '1-匿名发信 0-不匿',
+  `is_example` tinyint(4) NOT NULL DEFAULT '0' COMMENT '1-优秀信件，被运营挑选用于展示 0-常规信件',
+  `is_enabled` tinyint(4) NOT NULL DEFAULT '1',
+  `ctime` datetime NOT NULL,
+  `mtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_event_name_t_uid` (`event_name`, `t_uid`)
+  ) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4 COMMENT='活动直播间邮件表';
+#+END_SRC
+
+*** event_awards
+#+BEGIN_SRC sql
+  CREATE TABLE `event_awards` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT COMMENT '自增字段',
+  `uid` varchar(32) NOT NULL,
+  `event_name` varchar(40) NOT NULL DEFAULT '',
+  `group_id` int(10) NOT NULL COMMENT '该组奖品的组id',
+  `is_received` tinyint(4) NOT NULL DEFAULT '0' COMMENT '0-未领取 1-已领取',
+  `is_enabled` tinyint(4) NOT NULL DEFAULT '1',
+  `ctime` datetime NOT NULL,
+  `mtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_event_name_uid_group_id` (`event_name`, `uid`, `group_id`)
+  ) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4 COMMENT='活动获奖表';
+#+END_SRC
+
+** api
+*** 获取我的奖励领取状态 def get_my_award_status(event_name, uid, group_id_list)
+- EVENT_AWARD_FORMAT
+- 返回一个列表，和 group_id_list 一一对应。-1 表示未达成领取条件 0-待领取 1-已领取
+*** 领取我的奖励  def get_award_by_group_id(event_name, uid, group_id)
+- EVENT_AWARD_FORMAT
+- 返回 1-领取成功 2-已领取 3-未达成领取条件
+*** 获取优秀信件列表 def get_email_examples(event_name, refresh=False)
+- EVENT_EMAIL_EXAMPLES_FORMAT
+- 返回优秀邮件列表 [{"email_id": 123, "uid": "xxx", "t_uid": "xxx", "title": "xxx", "content": "xxx", "ctime": 1582969767}]
+*** 获取该活动中我收到的所有邮件 def get_my_total_emails(event_name, uid, refresh=False)
+- EVENT_MY_EMAILS
+- 返回邮件列表 [{"email_id": 123, "uid": "xxx", "t_uid": "xxx", "title": "xxx", "content": "xxx", "ctime": 1582969767, "is_public": 1, "is_anonymous": 1, "read_time": 1582980539}]
+*** 获取邮件详情 def get_the_email_info(email_id, refresh=False)
+- EVENT_EMAIL_INFO_FORMAT
+- 返回 {"email_id": 123, "uid": "xxx", "t_uid": "xxx", "event_name": "xxx", "title": "xxx", "content": "xxx", "read_time": 1582969767, "is_public": 1, "is_anonymous": 1, "is_example": 1, "ctime": 1582980539}
+*** 获取未读邮件数量
+

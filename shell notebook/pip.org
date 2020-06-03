@@ -1,0 +1,11 @@
++TITLE: pip
+
+** 常用
+#+BEGIN_SRC shell
+  $ pip install virtualenv==  # 列出包 virtual 的各种版本
+  $ cat requirements.txt
+  gevent==1.1.2
+  git+ssh://git@101.201.155.81/common-tools/thrift-gen.git@master
+  $ pip install -r requirements.txt  # 根据文件安装包
+  $ pip install --upgrade virtualenv==16.7.10  # 卸载当前版本，安装最新版本 virtualenv
+#+END_SRC

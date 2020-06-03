@@ -1,0 +1,329 @@
+#+TITLE: 主播自定义活动
+
+* 缩略词 ec event-customized 活动定制
+* 问题
+** 活动审核时已过了活动开始时间。自动设置未通过运营审核
+** 主题：其它。主题如何设计
+** ec_id 唯一确定一个活动
+** 浮动icon如果设计
+** 活动主题说明是添加一个HTTP API，还是直接在 ec_custom_event HTTP GET 接口中带过去？
+** 禁止用户得奖：跳过该用户发奖，不会把他从现有榜单删除，但不会再为他加分了
+
+** 一个用户可活动多个奖励。表结构如何设计，用户邮寄地址放在哪里？获奖名单如何返回
+** 上传自制活动时，如何保存活动奖励：活动奖励暂存到 ec_user_custom_events，运营通过审核后转移到表 ec_rewards
+** 直播间弹窗有 2 个窗口，一是榜单信息，二是活动详情
+* 骑士榜单 1day
+- 加分
+- 查分
+* 加分模块 2day
+* 进房模块 1day
+* 结算模块 2day
+* 黑名单模块
+* 浮动icon增加自制活动
+* 接口文档 + 概要设计 3day
+* buffer 3day
+* 为王珏内容创建与分发提供各种函数接口
+- 自制活动预告列表
+- 最新的自制活动
+- 活动后，产生一个活动结束事件
+- 让王珏提供一个函数：审核通过后，发通知
+* 私信通用card 发消息
+* 接口 12day
+** 1.获取自己的活动 ec_my_events HTTP GET  2day
+*** 请求参数
+- session
+*** 返回参数
+- 活动元数据
+  + ec_id
+  + theme_name
+  + start_time、end_time
+  + 活动奖励信息。
+  + 审核状态：1.审核中 2.未通过 3.已通过未发布 4.被删除 5.已通过未开始 6.已通过正在进行 7.已通过已结束
+  + notice，对应审核状态
+    1. 运营审核中，请稍等
+    2. 未通过原因：奖励过于色情
+    3. 您的活动已经审核完成，点击发布即可通知用户
+    5. 空
+    6. 您的活动已经通知给用户了，不要忘记哦！
+- 是否被运营拉黑
+- 未发布的活动列表
+- 已发布的活动列表
+- 排序规则：1.按照 start_time 升序 2.按照 ctime 升序
+- 展示规则
+  1. 活动已经开始还未审核，自动设置未通过运营审核
+  2. 已结束的活动不展示
+
+** 2.操作自己的活动 ec_my_events HTTP POST  1day
+*** 请求参数
+- session
+- oper_type: 1-发布 2-删除
+- ec_id
+** 3.获取关注主播的自定义活动 ec_followed_events HTTP GET 2day
+*** 请求参数
+- session
+*** 返回的活动元数据
+- ec_id
+- anchor_info
+- anchor_show
+- theme_name
+- start_time、end_time
+- event_status: 进行中、即将开始。
+- 活动奖励列表
+*** 仅展示进行中、即将开始的活动
+*** 按 start_time 升序，按 ctime 升序
+*** 暂时不做分页
+
+** 4.获取所有主播的自定义活动 ec_total_events HTTP GET 1day
+*** 请求参数
+- session
+*** 基于接口2，新增返回参数
+- is_followed
+
+** 5.获取自定义信息 ec_custom_event HTTP GET 1day
+*** 请求参数
+session
+*** 返回数据
+- theme_info list    theme_info 中包含 help 信息
+- 是否被运营拉黑
+
+** 6.定制活动 ec_custom_event HTTP POST 1day
+*** 请求参数
+- ec_id 非必须参数。无该参数-新建，有该参数-编辑
+- system_theme_name
+- customed_theme_name
+- desc
+- rewards json
+  + 列表
+  + 元数据
+    1. 抽奖。name、photo、ec_type、count、must_follow、must_family、min_gold
+    2. 排行榜。name、photo、ec_type、start_rank、end_rank、must_follow、must_family、min_gold
+- start_time end_time
+*** 返回数据
+
+** 7.查看活动获奖详情 ec_event_result HTTP GET 1day
+*** 请求参数
+- ec_id
+*** 返回数据
+- 活动信息：start_time end_time theme_name, rewards
+- 获奖用户列表  是否分页？
+- 主播信息
+- 问号帮助信息。这个返回什么？
+
+** 8.收货地址接口 event_address GET  1day
+** 9.收货地址接口 event_address POST
+** 10.发现页预告：定制活动列表
+** 11.直播间弹窗接口 ec_event_status HTTP GET 1day
+*** 请求参数
+- ec_id
+*** 返回数据
+- 活动信息：start_time end_time theme_name, rewards
+- 骑士榜单  是否分页？
+- 问号帮助信息。这个返回什么？
+*** 需求中直播间弹窗的第4个图片如何触发？
+
+** 12.校验主播定制的时间范围 ec_check_event_time HTTP GET 1day
+*** 请求参数
+- session
+- start_time end_time
+- system_theme_name
+
+** 13.活动详情页 ec_event_info
+*** 请求参数
+- ec_id
+
+*** 返回参数
+- 奖励信息：奖品名、数量、照片、发奖类型等
+- theme_name
+- start_time end_time
+- 活动礼物信息
+- desc
+* 运营后台 2day
+** 运营审核后台
+*** 关于审核后台的活动奖励怎么做？
+*** 审核完后发私信
+- 审核结果
+- 主题
+- start_time end_time
+- rewards
+- **跳转到活动详情，如何跳转？**
+*** 审核完后，首次打开app后弹窗，如何实现？
+*** 审核后要保存活动奖励到 ec_rewards
+** 拉黑后台
+** 获奖名单后台
+** 用户地址后台
+** 主题后台
+* 赛前通知：活动开始前有用户进房通知
+- 赛前是什么时间？如果有多个活动即将开始呢？
+* 赛后群聊通知主播
+* 赛后系统代主播给用户发获奖消息
+- 奖励名称、数量
+- 主播信息
+
+* 发现页预告
+* 数据结构
+** table ec_themes
+#+BEGIN_SRC sql
+  CREATE TABLE `ec_themes` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `type` tinyint(4) NOT NULL DEFAULT '0' COMMENT '1-system 2-customed',
+  `theme_name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '',
+  `theme_style` tinyint(4) NOT NULL DEFAULT '0' COMMENT '主题风格。1-生日风格 2-粉丝突破 3-纪念日 4-月底感谢 5-其他',
+  `position` int(10) NOT NULL DEFAULT '1000' COMMENT '该主题位置，用来排序的',
+  `gifts_setting` varchar(512) NOT NULL DEFAULT '' COMMENT '该主题类型的活动的收礼配置。json 串',
+  `info` varchar(8192) NOT NULL DEFAULT '{}' COMMENT '主题帮助信息 json 串',
+  `icon` varchar(1024) NOT NULL DEFAULT '' COMMENT '浮动 icon 图片 url',
+  `use_cnt` int(10) NOT NULL DEFAULT '0' COMMENT '使用次数',
+  `is_enabled` tinyint(4) NOT NULL DEFAULT '1',
+  `ctime` datetime NOT NULL,
+  `mtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_theme_name` (`theme_name`)
+  ) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4 COMMENT='主题表';
+#+END_SRC
+** table ec_events
+#+BEGIN_SRC sql
+  CREATE TABLE `ec_events` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT COMMENT '代码中用来唯一标识一个活动',
+  `uid` varchar(32) NOT NULL,
+  `theme_name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '',
+  `theme_style` tinyint(4) NOT NULL DEFAULT '0' COMMENT '主题类型。1-生日风格 2-粉丝突破 3-纪念日 4-月底感谢 5-其他',
+  `gifts_setting` varchar(512) NOT NULL DEFAULT '' COMMENT '该活动收礼配置。json 串',
+  `rewards` varchar(8192) NOT NULL DEFAULT '[]' COMMENT '活动奖励。json串',
+  `audit` tinyint(4) NOT NULL DEFAULT '0' COMMENT '运营审核结果。1-待审核 2-未过审核 3-审核通过 4-被删除 5-已发布 8-已结算',
+  `notice` varchar(128) NOT NULL DEFAULT '' COMMENT '审核未通过原因、发布后提示信息，用于返回给前端',
+  `desc` varchar(4096) NOT NULL DEFAULT '' COMMENT '活动描述信息',
+  `start_time` datetime NOT NULL COMMENT '活动开始时间 UTC',
+  `end_time` datetime NOT NULL COMMENT '活动结束时间 UTC',
+  `is_enabled` tinyint(4) NOT NULL DEFAULT '1',
+  `ctime` datetime NOT NULL,
+  `mtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_uid_theme_name` (`uid`, `theme_name`),
+  KEY `idx_end_time` (`end_time`)
+  ) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4 COMMENT='自制活动表';
+#+END_SRC
+
+** table ec_awards
+#+BEGIN_SRC sql
+  CREATE TABLE `ec_awards` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `ec_id` int(10) unsigned NOT NULL COMMENT '自制活动ID',
+  `uid` varchar(32) NOT NULL,
+  `index` int(10) NOT NULL COMMENT '奖品索引',
+  `name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT '' COMMENT '奖品名',
+  `photo` varchar(1024) NOT NULL DEFAULT '' COMMENT '奖品照片',
+  `count` int(10) NOT NULL DEFAULT '0' COMMENT '获奖数量',
+  `reason` varchar(128) NOT NULL DEFAULT '' COMMENT '获奖理由',
+  `is_enabled` tinyint(4) NOT NULL DEFAULT '1',
+  `ctime` datetime NOT NULL,
+  `mtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_ec_id` (`ec_id`)
+  ) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4 COMMENT='获奖用户表';
+#+END_SRC
+
+** table event_address
+#+BEGIN_SRC sql
+  CREATE TABLE `event_address` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `uid` varchar(32) NOT NULL,
+  `event_name` varchar(64) NOT NULL COMMENT '自制活动该字段为 "ec_" + ec_id',
+  `address` varchar(1024) NOT NULL DEFAULT '',
+  `postcode` varchar(32) NOT NULL DEFAULT '' COMMENT '邮编',
+  `tel` varchar(32) NOT NULL DEFAULT '',
+  `name` varchar(64) NOT NULL DEFAULT '',
+  `notes` varchar(1024) NOT NULL DEFAULT '' COMMENT '备注',
+  `ctime` datetime NOT NULL,
+  `mtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_event_name_uid` (`event_name`, `uid`)
+  ) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4 COMMENT='活动邮寄地址表';
+#+END_SRC
+
+** table event_black_list
+#+BEGIN_SRC sql
+  CREATE TABLE `event_black_list` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `oper_role` varchar(32) NOT NULL DEFAULT 'system' COMMENT '操作人员。system-运营手动拉黑 uid-主播拉黑',
+  `uid` varchar(32) NOT NULL,
+  `type` tinyint(4) NOT NULL DEFAULT '0' COMMENT '1-禁止自制活动 2-禁止在自制活动获奖',
+  `reason` varchar(1024) NOT NULL DEFAULT '' COMMENT '禁止理由',
+  `start_time` datetime NOT NULL COMMENT '开始时间 UTC',
+  `end_time` datetime NOT NULL COMMENT '结束时间 UTC',
+  `is_enabled` tinyint(4) NOT NULL DEFAULT '1',
+  `ctime` datetime NOT NULL,
+  `mtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_oper_role_type_uid` (`oper_role`, `type`, `uid`)
+  ) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4 COMMENT='活动黑名单表';
+#+END_SRC
+
+* api
+*** 中奖情况
+**** 计算粉丝的抽奖礼物中奖情况  def ec_cal_lottery_award_info(uid, ec_id)
+**** 计算粉丝排行榜礼物中奖情况  def ec_cal_rank_award_info(uid, ec_id)
+*** 活动
+**** 获取我的活动接口 def ec_get_my_events(uid, refresh=False)
+- EC_MY_EVENTS_FORMAT
+- 该key中保存的数据可能有1.审核中 2.未通过 3.已通过未发布 5.已通过正在进行 6.已通过未开始
+- 缓存刷新的几种情况
+  + 创建/修改自制活动
+  + 审核通过/未通过
+  + 删除自制活动
+  + 发布自制活动
+- 不刷新的情况
+  + 我的活动接口发现活动未开始、正在进行、已结束这3种状态变化时，不刷新缓存
+**** 获取当前全量活动接口 def ec_get_total_events(refresh=False)
+- EC_TOTAL_EVENTS
+- 缓存刷新的几种情况。暂时采用主动刷新
+  + 发布新活动时
+**** 获取活动信息 def ec_get_event_info(ec_id, refresh=False)
+- EC_EVENT_INFO_FORMAT
+- 刷新缓存的几种情况。
+  + 创建/修改自制活动
+  + 审核通过/未通过
+  + 删除自制活动
+  + 发布自制活动
+*** 黑名单
+**** 批量获取是否被禁止创建自制活动接口  def get_event_block_uids(type, uid_list)
+- EVENT_BLOCK_FORMAT
+
+*** 主题
+**** 获取所有系统主题 def ec_get_total_system_theme(refresh=False)
+- EC_TOTAL_SYSTEM_THEMES
+- 缓存刷新的几种情况
+  + 运营增删改主题
+**** 获取指定系统主题 def ec_get_theme_info(theme_name, refresh=False)
+- EC_SYSTEM_THEME_INFO_FORMAT
+- 缓存刷新的几种情况
+  + 运营增删改该主题
+*** 获奖名单
+**** 获取获奖名单 def ec_get_award_list(ec_id, refresh=False)
+- EC_AWARD_LIST_FORMAT
+- 缓存基本不用刷新
+**** 计算获奖名单 def ec_cal_award_list(ec_id)
+- 一个用户可获得多个奖品。奖品是在这里 merge 吗?
+*** 地址
+**** 获取用户地址 def get_event_address_by_uid(event_name, uid)
+- EVENT_ADDRESS_FORMAT
+- 刷新缓存的几种情况
+  + 编辑/修改地址
+*** 榜单
+**** 根据 ec_id 获取榜单 def ec_get_rank_by_ec_id(ec_id)
+**** 获取粉丝得分、排名、距离上一名相差多少分 def ec_get_knight_rank_info(ec_id, uid)
+**** 获取粉丝得分 def ec_get_knight_score(ec_id, uid)
+**** 获取粉丝排名 def ec_get_knight_rank(ec_id, uid)
+
+* 测试
+- 测试主题名是表情文字的情况
+- 主题表中的 info 字段
+  
+
+* 优化
+** EventInfoView  db_ec_get_ec_awards_by_id 加缓存
+** 结算加锁
+** 结算。获取活动详情走缓存
+** 结算。jump_url 改为 线上环境
+** 结算。获取关注用户
+** 结算。获取家族用户
+** 结算。url 改为 线上环境

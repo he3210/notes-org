@@ -1,0 +1,110 @@
+#+TITLE: 2020黄金周接龙活动
+
+* 需求
+** 元素礼物的获取。元素礼物可以填充水晶槽
+*** 每日登陆领取奖励、连续登陆x天领取元素
+*** 满足观看时长送元素
+*** 活动期间充值指定额度可领取元素
+** 红包弹窗
+*** 服务端不能一个红包中同时弹出2礼物，但可以分2次，每次弹出一个礼物
+** 三个榜单。排名奖励是什么东东？
+*** 活动积分榜：根据主播等级划分3个board。是否能用吸金主播？
+*** 守护兽伤害榜：是骑士总榜
+*** 直播间开启水晶次数榜
+** 完成任务后直播间弹出提示：有奖励可以领取
+** 元素槽填满后，开启接龙且接龙结束后，是继续填元素槽吗？
+** 水晶能量进度条弹窗
+** 若连击途中火元素到达max，则此次连击结束后继续下一场
+** gift_chain 消息
+*** 有 4 种守护兽接龙任务，前端需要一个字段确定是哪个接龙任务
+*** 需要水晶 icon
+** 关于属性克制
+** 关于icon消息精简
+** 记录每一场接龙历史
+** 定时任务拆分到 event2
+
+* 数据结构调整：调整为可由多个源触发接龙&可触发多种不同类型的接龙
+** 新增水晶槽进度
+redis hash key            field   value
+pre + event_name + uid    type    进度
+** 记录水晶槽骑士
+redis set key                        value
+pre + event_name + uid + icon_id     knight_uid
+
+** 等待队列
+添加 type 字段，0、1、2、3 分别标识 风、雷、水、火 4 种接龙
+source 有：big_gift、schedule、progress_bar
+init_time 接龙 icon 初始的展示时间
+删除 "gift_id" 属性
+#+BEGIN_SRC python
+  {
+      'source': 'big_gift',
+      'icon_type': 1,
+      'icon_id': 123,
+      'init_time': 20,
+      'knight_uid': knight_uid
+  }
+#+END_SRC
+
+** till_key
+redis string key                  value
+pre + event_name + anchor_uid    {"deadline": "1587443415.242131", "source": "big_gift", "icon_type": 0, "icon_id": 123, "knight_uid": "xxx"}
+
+** gift_settings 配置结构调整
+新增 type，表示在列表种随机一种接龙，默认 [0]
+add_time 改为 list，对应 type 0、1、2、3
+#+BEGIN_SRC js
+  {
+    "max_progress_bar_score": 100,
+    "gift_chain_init_time": 20,
+    "gift_settings": [
+      {
+        "gift_id": 30029,
+        "function": "open",
+        "score": 2222,
+        "icon_types": [0,1,2,3],
+        "random": [20,20,30,30]
+      },
+      {
+        "gift_id": 274,
+        "function": "extend",
+        "score": 111,
+        "add_time_list": [10,12,10,10]
+      },
+      {
+        "gift_id": 275,
+        "function": "progress_bar",
+        "icon_type": 0,
+        "score": 1
+      }
+    ]
+  }
+#+END_SRC
+
+* 开发任务
+** 水晶槽进度接口
+- 进度
+- 是否可领取奖励的小红点
+** 加分模块加榜单、加能量槽等
+** 定时开启/结算接龙模块，给直播间每个用户单发发水晶槽消息
+** 领奖模块：2个页面：领取各种类型元素；领取属性币聊天框  4天
+- 查询奖励接口
+- 领奖接口
+- 用户每日登陆、连续登陆、每日观看时长、充值，需要生成可领奖记录
+- 奖励掉落
+  - 接龙结束，对特定用户掉落5种属性币，属性币可兑换聊天框
+- 接龙icon、http接口上的小红点相关api
+
+* 上线
+** sql
+#+BEGIN_SRC sql
+  insert into miveshow.id_generator (`name`, `next_id`) values ("gift_chain", 1);
+#+END_SRC
+
+** 修改 LuckyBagView 接口，更改领取背包礼物的文案
+** 屏蔽背包礼物碎片
+** knights_max_count
+** icon 上小红点
+** web_event 消息中启用了新字段，较老安卓版本可能不支持
+** 活动结束/非 start_hour、end_hour 期间关闭 icon 展示
+** 放入等待队列中不发消息
