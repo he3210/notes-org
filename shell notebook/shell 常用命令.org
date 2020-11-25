@@ -80,3 +80,5 @@
 #+BEGIN_SRC shell
   sudo tcptraceroute langdebuqing.com 2345  # 必须使用 sudo 权限
 #+END_SRC
+* ps -T -p 进程号
+查看指定进程的所有线程

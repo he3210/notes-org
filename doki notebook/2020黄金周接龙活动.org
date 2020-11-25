@@ -108,3 +108,38 @@ add_time 改为 list，对应 type 0、1、2、3
 ** web_event 消息中启用了新字段，较老安卓版本可能不支持
 ** 活动结束/非 start_hour、end_hour 期间关闭 icon 展示
 ** 放入等待队列中不发消息
+** sql
+#+BEGIN_SRC sql
+  alter table event_settings change `rules` `rules` varchar(9216) NOT NULL DEFAULT '{}';
+#+END_SRC
+
+#+BEGIN_SRC sql
+  CREATE TABLE `user_event_info` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `gift_chain_coins` int(11) NOT NULL DEFAULT '0' COMMENT '礼物接龙通用货币，用来兑换背包物品',
+  `uid` varchar(32) NOT NULL,
+  `is_enabled` tinyint(4) NOT NULL DEFAULT '0',
+  `ctime` datetime NOT NULL,
+  `mtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_uid` (`uid`)
+  ) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4;
+#+END_SRC
+
+#+BEGIN_SRC sql
+  CREATE TABLE `gift_chain_history` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `event_name` varchar(40) NOT NULL COMMENT '活动名称',
+  `uid` varchar(32) NOT NULL COMMENT '主播uid',
+  `open_uid` varchar(32) NOT NULL COMMENT '发起接龙者',
+  `source` varchar(32) NOT NULL COMMENT 'progress_bar  schedule  big_gift',
+  `icon_id` varchar(32) NOT NULL COMMENT '接龙id',
+  `icon_type` tinyint(4)  NOT NULL COMMENT '接龙类型 0 1 2 3',
+  `init_time` int(10) NOT NULL DEFAULT '20' COMMENT '接龙初始时间（秒）',
+  `status` varchar(64) NOT NULL COMMENT '接龙状态',
+  `ctime` datetime NOT NULL,
+  `mtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unq_icon_id` (`icon_id`)
+  ) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4;
+#+END_SRC

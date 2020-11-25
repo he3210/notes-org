@@ -1,0 +1,75 @@
++TITLE: 每日金钱流向
+
+* sql
+#+BEGIN_SRC sql
+  CREATE TABLE `daily_money_monitor` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `date` datetime NOT NULL COMMENT '日期',
+  `normal_gift_send` int(10) NOT NULL COMMENT '昨天观众送出的普通礼物 gold（除抽奖券、宝箱钥匙）',
+  `normal_gift_received` int(10) NOT NULL COMMENT '昨天主播收到的普通礼物 gold（除抽奖券、宝箱钥匙）',
+  `lottery_ticket_send` int(10) NOT NULL COMMENT '昨日送出的抽奖券 gold（一个 20 gold）',
+  `lottery_ticket_received` int(10) NOT NULL COMMENT '昨日主播收到的抽奖券 gold（一个 2 gold）',
+  `lottery_ticket_left` int(10) NOT NULL COMMENT '总的剩余的抽奖券 gold（一个 18 gold）',
+  `copper_key_buy` int(10) NOT NULL COMMENT '昨日购买的铜钥匙 gold（一个 100 gold）',
+  `silver_key_buy` int(10) NOT NULL COMMENT '昨日购买的银钥匙 gold（一个 300 gold）',
+  `gold_key_buy` int(10) NOT NULL COMMENT '昨日购买的金钥匙 gold（一个 1000 gold）',
+  `copper_key_open` int(10) NOT NULL COMMENT '昨日打开的铜宝箱得到的礼物 gold',
+  `silver_key_open` int(10) NOT NULL COMMENT '昨日打开的银宝箱得到的礼物 gold',
+  `gold_key_open` int(10) NOT NULL COMMENT '昨日打开的金宝箱得到的礼物 gold',
+  `copper_key_left` int(10) NOT NULL COMMENT '总的剩余的铜钥匙 gold（铜钥匙100gold，银钥匙300gold，金钥匙1000gold）',
+  `silver_key_left` int(10) NOT NULL COMMENT '总的剩余的铜钥匙 gold（铜钥匙100gold，银钥匙300gold，金钥匙1000gold）',
+  `gold_key_left` int(10) NOT NULL COMMENT '总的剩余的铜钥匙 gold（铜钥匙100gold，银钥匙300gold，金钥匙1000gold）',
+  `barrage_send` int(10) NOT NULL COMMENT '购买弹幕花费的总 gold',
+  `bag_gift_send` int(10) NOT NULL COMMENT '昨日观众送出的背包礼物 gold',
+  `bag_gift_received` int(10) NOT NULL COMMENT '昨日主播收到的背包礼物 gold（仅背包中的可送出的礼物）',
+  `bag_gift_left` int(10) NOT NULL COMMENT '总的剩余的背包礼物 gold（仅背包中的可送出的礼物）',
+
+  `anchor_exchange_received` int(10) NOT NULL COMMENT '昨日主播水晶兑换 gold，主播 gold 收入',
+  `anchor_exchange_income` int(10) NOT NULL COMMENT '昨日主播水晶兑换 gold，平台 gold 收入',
+  `ctime` datetime NOT NULL,
+  `mtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_date` (`date`)
+  ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COMMENT '每日gold流监控';
+#+END_SRC
+
+#+BEGIN_SRC sql
+alter table `user_extra_property_history` add index `idx_ctime` (`ctime`);
+#+END_SRC
+
+
+* 昨日观众收普通礼物、主播收普通礼物收入
+#+BEGIN_SRC sql
+select SUM(credits) credits, SUM(received_credits) received_credits from user_credits_history where ctime >= "2020-10-15 15:00:00" and ctime < "2020-10-16 15:00:00" and gift_id not in ();
+#+END_SRC
+
+
+* 昨日送出的抽奖券、主播收到的抽奖券
+#+BEGIN_SRC sql
+select SUM(credits) credits, SUM(received_credits) received_credits from user_credits_history where ctime >= "2020-10-15 15:00:00" and ctime < "2020-10-16 15:00:00" and gift_id = 389;
+#+END_SRC
+
+* 剩余抽奖券：
+#+BEGIN_SRC sql
+select id, uid, left_times, total_times, lottery_type from user_lottery_times where lottery_name = "flipped_wheel";
+#+END_SRC
+
+* 昨日购买的钥匙
+type 0-购买钥匙  1-消耗钥匙，开启宝箱
+ctime 为 jp 时间
+#+BEGIN_SRC sql
+select type, change_info, extra_info from user_extra_property_history where ctime >= "2020-10-18 00:00:00" and ctime < "2020-10-19 00:00:00";
+#+END_SRC
+
+
+* 后台下发、红包、今日充值额外奖励gold数、今日剩余gold数。
+
+* jpy 兑换 credits
+#+BEGIN_SRC sql
+  select SUM(paid_jpy) paid_jpy, SUM(paid_crystal) paid_crystal, SUM(received_number) received_credits from user_withdraw_orders where target = 1 and state = 1 and ctime >= "2020-11-03 15:00:00" and ctime < "2020-11-04 15:00:00";
+#+END_SRC
+
+* doki coins 兑换 credits
+#+BEGIN_SRC sql
+  select * from user_deposit_orders where uid = "u3684831580894394120001295" and source = 9 order by id desc;
+#+END_SRC

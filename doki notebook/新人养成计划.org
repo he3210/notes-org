@@ -1,0 +1,99 @@
++TITLE: 新人养成计划
+
+* 需求
+** 所有新人参加该活动。且新人不能参加任何其它活动（这块改动太大）
+** 水滴、肥料
+*** 主播开播时长、被评论数、被关注数获得水滴；
+*** 观众在新人直播间达成观看时长，直接给主播加水滴，直接给观众加水晶，间接给观众加肥料（需到h5领取肥料）
+
+** 树苗、小树直播间不能送肥料？可以送
+
+** 用户必须调用新人接口才会绑定 udid，会导致没调用接口的用户无法绑定，收不到水晶
+* 数据结构
+** redis
+*** 水晶 key: pre + uid + rank_name
+crystal_total         总水晶数量
+crystal_used          消费过的水晶数量
+
+*** 每日任务 hash key: pre + uid + date
+问题：如何删除该 key?
+field:value
+show_time             开播时长
+commented_times       被评论次数
+followed_times        被关注次数
+view_time             观看时长
+comment_times         评论次数
+follow_times          关注次数。最多10次
+send_credits          送礼数
+"follow:%s" % uid     关注的人
+
+anchor_show_task:index          主播开播时长任务:已领取的奖励的下标
+anchor_commented_task:index     主播被评论次数任务:已领取的奖励的下标
+anchor_followed_task:index      主播被关注次数任务:已领取的奖励的下标
+
+audience_pt_task:index          观众送礼任务:已领取的奖励的下标
+audience_super_task             观众超级任务
+
+** sql
+*** 毕业生表
+#+BEGIN_SRC sql
+  CREATE TABLE `new_anchor_graduate_history` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `event_name` varchar(64) NOT NULL COMMENT '活动名',
+  `rank_name` varchar(64) NOT NULL COMMENT '从吸金主播的哪个榜单名毕业的',
+  `uid` varchar(64) NOT NULL COMMENT 'anchor uid',
+  `score` int(11) NOT NULL DEFAULT '0' COMMENT '毕业时的分数',
+  `rank` int(10) NOT NULL DEFAULT '0' COMMENT '毕业时的排名，从 0 开始',
+  `ctime` datetime NOT NULL,
+  `mtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_event_name_uid` (`event_name`, `uid`),
+  KEY `idx_rank_name` (`rank_name`)
+  ) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4;
+#+END_SRC
+
+*** 奖励历史表
+#+BEGIN_SRC sql
+  CREATE TABLE `new_anchor_reward_history` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `event_name` varchar(40) NOT NULL COMMENT '活动名',
+  `rank_name` varchar(40) NOT NULL COMMENT '榜单名',
+  `reason` varchar(32) NOT NULL DEFAULT '' COMMENT '获奖原因。comment-评论 commented-被评论 follow-关注 followed-被关注 view_time-观看时长 show_time-直播时长 get-主动领取',
+  `uid` varchar(32) NOT NULL DEFAULT '' COMMENT '贡献者',
+  `t_uid` varchar(32) NOT NULL DEFAULT '' COMMENT '获奖者',
+  `reward_name` int(11) NOT NULL DEFAULT '0' COMMENT '奖品名。drip-水滴 crystal-水晶 fertilizer-化肥',
+  `cnt` int(10) NOT NULL DEFAULT '0' COMMENT '奖品数量',
+  `extra` varchar(128) NOT NULL DEFAULT '{}' COMMENT '额外数据',
+  `ctime` datetime NOT NULL,
+  `mtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_t_uid_rank_name` (`t_uid`, `rank_name`)
+  ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+#+END_SRC
+* 开发内容 共10d
+** 低层设计、接口文档 1d
+** DONE http 接口 共3.5d
+*** 兑换所接口 1.5d
+- GET + POST
+- 用水晶兑换、观众任务兑换、主播任务兑换
+*** 新人主播推荐接口 0.5d
+- GET
+*** 本周新人活动排行榜 0.5d
+- GET
+*** 往期新人活动top3  0.5d
+*** 直播间弹窗 主播/观众任务领取页面 0.5d
+** DONE 浮动icon/同步icon 0.5d
+** DONE 加分模块 1.5d
+** DONE 定时结算 1d
+** DONE 新手直播间屏蔽其它活动（棒球、家族对战、自动报名类活动等） 0.5d
+** DONE 观看时长、开播时长2个新异步任务，评论、关注、开播异步任务 2d
+** DONE 活动初始化。活动开始时，遍历所有直播，加入到吸金榜单中
+** DONE 设备绑定。在进房接口绑定 uid 和 udid。
+
+* 重启服务
+- http
+- schedule-event
+- schedule-event2
+- task_v2-important
+- events-important 吸金主播活动屏蔽新人
+- admin

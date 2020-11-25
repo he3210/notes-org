@@ -120,3 +120,164 @@ pre + event_name + task_id + uid    gift_id      cnt
 
 * 上线
 ** 确定主播给观众送礼能否不用。获取送礼队列时需要去掉 True。去掉一些日志
+
+
+* 需求
+- 根据幸运分划分段位，而非需要完成的任务
+- 人运段位有3、4种礼物组合，任务难度如何表示。地运 B A S。天运 B A S
+- 根据段位切换不同页面
+- 没日榜了
+- 直播间家族样式。直播间昨日最幸运用户
+- 直播间弹窗展示
+- 个人任务历史，需要根据段位吗？
+- 每小时最好2min间歇期是否需要调大？
+- 如果用户从人段位升级到地段位，升级完后，用户处于地段位，再过1s，地段位有人完成了。该用户没收到礼物会被扣分，逻辑是否有问题？
+- 幸运度榜单分 3 个吗？
+- 个人记录，如果用户某次任务没有搜集到礼物，改次任务还算在个人历史中吗？
+- 送礼 +1(-10) 什么意思？
+
+* 数据结构
+** 任务表
+#+BEGIN_SRC sql
+  CREATE TABLE `box_gift_v2_tasks` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `event_name` varchar(64) NOT NULL,
+  `division` tinyint(4) NOT NULL COMMENT '0-人运组 1-地运组 2-天运组',
+  `task_id` bigint unsigned NOT NULL COMMENT 'event_name + task_id 唯一确定一个任务',
+  `level` varchar(32) NOT NULL COMMENT 'difficulty level',
+  `pt` int(10) NOT NULL COMMENT '率先完成该任务的主播加分',
+  `gifts` varchar(2048) NOT NULL DEFAULT '' COMMENT '礼物集合',
+  `status` varchar(16) NOT NULL DEFAULT '' COMMENT 'inprogress、settling、settled',
+  `finish_time` datetime NULL DEFAULT NULL COMMENT '默认为None，表示暂未有主播完成该任务',
+  `finish_uid` varchar(32) NOT NULL DEFAULT '' COMMENT 'anchor uid',
+  `ctime` datetime NOT NULL,
+  `mtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_event_name_task_id` (`event_name`, `task_id`)
+  ) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4;
+#+END_SRC
+
+** 用户任务表
+该表已结算和未结算的活动都会记录
+根据该表决定本阶段榜单、个人历史记录榜单
+对于关播这种情况：
+  人运：立马结算，再次开播重新生成
+  地运、天运：任务结束后统一结算
+#+BEGIN_SRC sql
+  CREATE TABLE `box_gift_v2_tasks_history` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `event_name` varchar(64) NOT NULL,
+  `uid` varchar(32) NOT NULL COMMENT 'anchor uid',
+  `division` tinyint(4) NOT NULL COMMENT '在进行该任务时用户所在的段位：0-人运组 1-地运组 2-天运组',
+  `pt` int(10) NOT NULL DEFAULT '0' COMMENT '用户分配任务时的幸运分',
+  `task_id` bigint unsigned NOT NULL COMMENT 'event_name + task_id 唯一确定一个任务',
+  `progress` varchar(128) NOT NULL DEFAULT '' COMMENT '任务进度 json',
+  `score` int(11) NOT NULL COMMENT '礼物分，用于排序',
+  `is_finished` tinyint(4) NOT NULL DEFAULT '0' COMMENT '该任务是否结束',
+  `ctime` datetime NOT NULL,
+  `mtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_event_name_task_id` (`event_name`, `task_id`),
+  KEY `idx_event_name_uid` (`event_name`, `uid`)
+  ) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4;
+#+END_SRC
+
+** 幸运分历史表（任务贡献表）
+只要存在 `type` 中的这 3 中情况，就会被记录下来。例如：用户当前 3 分，需要扣掉 5 分，会把 -5 分记录下来，而不是 -3 分。实际上用户幸运分最小为 0 分， 0分后就不能再减了。
+#+BEGIN_SRC sql
+  CREATE TABLE `box_gift_v2_pt_history` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `event_name` varchar(64) NOT NULL,
+  `type` tinyint(4) NOT NULL COMMENT 'pt 类型。1-命中宝箱中的物品 2-终结任务 3-该用户是否收到过该任务需要的宝箱 4-升级',
+  `uid` varchar(32) NOT NULL DEFAULT '' COMMENT 'knight uid。仅 type 为 1 时有意义',
+  `t_uid` varchar(32) NOT NULL COMMENT 'anchor uid',
+  `task_id` bigint unsigned NOT NULL COMMENT '',
+  `gift_id` int(10) NOT NULL DEFAULT '0' COMMENT '仅 type 为 1 时有意义',
+  `gift_cnt` int(10) unsigned NOT NULL DEFAULT '0' COMMENT '仅 type 为 1 时有意义',
+  `score` int(11) NOT NULL DEFAULT '0' DEFAULT '0' COMMENT 'gift score，仅 type 为 1 时有意义',
+  `pt` int(11) NOT NULL DEFAULT '0' COMMENT '获得的幸运分',
+  `is_enabled` tinyint(4) NOT NULL DEFAULT '1',
+  `ctime` datetime NOT NULL,
+  `mtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_event_name_t_uid` (`event_name`, `t_uid`),
+  KEY `idx_event_name_type_task_id_t_uid` (`event_name`, `type`, `task_id`, `t_uid`)
+  ) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4;
+#+END_SRC
+
+** 天、地、人榜
+redis zset key                field    value
+pre + event_name + division    uid     score
+
+** 主播当前幸运分 pt
+redis string key          value
+pre + event_name + uid    pt
+
+** 当前任务
+redis string key                    value
+pre + event_name + division         task
+pre + event_name + uid              task
+
+is_outdated 表明任务已经过期，需要立马为该主播生成任务
+join_time 该用户加入任务时间。该字段待定
+#+BEGIN_SRC js
+  {
+      "task_id": 1589534600,
+      "level": "SSS+",
+      "division": 2,
+      "pt": 20,
+      "gifts": [
+          {
+              "gift_id": 111,
+              "credits": 100,
+              "display_name": "xxx",
+              "image_url": "xxx",
+              "image_url2": "xxx",
+              "need_cnt": 10,
+              "box_gift_ids": [886, 887, 888]
+          }
+      ],
+      "status": "settling",
+      "is_outdated": 1,
+      "finish_time": 1593338646,
+      "finish_uid": "u2572271555577408120001317",
+      "ctime": 1589534600,
+      "join_time": 1592917573
+  }
+#+END_SRC
+
+** 该用户是否收到过该任务需要的宝箱
+加分模块需要记录金、银、铜 3 个宝箱所有可开出礼物的 3 个集合
+
+redis string key                     value
+pre + event_name + task_id + uid       1
+
+** 主播在某个任务的任务进度
+redis hash key                       field      value
+pre + event_name + task_id + uid     gift_id    gift_cnt
+
+** 任务详情
+redis string key              value
+pre + event_name + task_id    task
+
+* 上线sql
+#+BEGIN_SRC sql
+  alter table id_generator change column `name` `name` varchar(16) NOT NULL;
+  insert into id_generator (`name`, `next_id`) values ("box_gifts_v2", 1);
+  alter table box_gift_v2_tasks_history add column `pt` int(10) NOT NULL DEFAULT '0' COMMENT '用户分配任务时的幸运分' after `division`;
+#+END_SRC
+
+
+* 上线模块
+- http
+- schedule_event2
+- backend
+- backend_msg
+- admin
+- events-very_important
+- web_event 3项配置
+* DONE 待确定
+- 段位分 get_division_by_pt
+- 升降级分 allocate_a_division_task_safe_for_user
+- 结算时幸运分 settle_task
+- 地运段位分 allocate_a_task_for_user

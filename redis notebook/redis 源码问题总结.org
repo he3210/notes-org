@@ -1,0 +1,36 @@
++TITLE: redis 源码问题总结
+
+** 变量 char **environ 的初始化
+** strdup 函数
+- char * strdup(const char *s);
+- strdup 函数会先用 maolloc 分配与 s 字符串相同的内存大小的空间，然后将参数 s 字符串的内容复制到该内存地址，然后把该地址返回。该字符串不使用时，需要用户使用 free() 来释放
+** strchr 函数
+- char *strchr(const char *str, int c)
+- 在 str 中搜索第一次出现字符 c（一个无符号字符）的位置。
+- 返回在 str 中第一次出现字符 c 的位置指针，如果未找到该字符则返回 NULL。
+** strstr 函数
+- char *strstr(const char *haystack, const char *needle)
+- 在字符串 haystack 中查找第一次出现字符串 needle 的位置，不包含终止符 '\0'。
+- 如果未找到则返回 null
+** 大小端判断
+#+BEGIN_SRC c
+  uint64_t n = 1;
+  char c = *(char *)&n;
+  if( c == 0x01 )
+  {
+      // 小端。低字节存放的是数据的低字节
+  }
+  else
+  {
+      // 大端。低字节存放的是数据的高字节
+  }
+#+END_SRC
+** isspace 函数
+- int isspace(int c)
+- 检查所传的字符是否是空白字符
+- ' '     (0x20)    space (SPC) 空格符
+- '\t'    (0x09)    horizontal tab (TAB) 水平制表符    
+- '\n'    (0x0a)    newline (LF) 换行符
+- '\v'    (0x0b)    vertical tab (VT) 垂直制表符
+- '\f'    (0x0c)    feed (FF) 换页符
+- '\r'    (0x0d)    carriage return (CR) 回车符

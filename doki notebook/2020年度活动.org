@@ -1,0 +1,325 @@
++TITLE: 2020 年度活动
+
+* 需求
+** 工会赛
+*** 选拔赛
+- 积分榜是当前阶段总榜吗？类似年度积分
+- 人多力量大 buff，加成本小时。http 接口中，buff 标志如何表示？buff 强化标志如何表示？人数
+*** 决赛
+- 工会晋级赛。总榜 100% 继承分数。新工会、资深工会总榜前 n 名晋级到决赛？
+*** 其它问题
+- 主播活动期间退出工会、或退出工会后又再加入另外的工会问题
+- 工会直播人数确定要加吗？上个小时加，本小时不加
+- 加成有啥用呢？
+- 抢分赛是什么？
+
+** 分区主播赛
+*** 选拔赛（11.23～11.27）
+- 小时榜分为男女榜
+- 榜单分为：男榜、新人男榜、女榜、新人女榜。男榜为男生总榜吗？不是
+- 榜单中：前 40 名可以晋级、今日淘汰 3 人类似信息暂不支持
+- 选拔赛是小时榜吗？不是
+*** 决赛1（11.28）（共40 名）
+*** 决赛2（11.29）
+*** 决赛3（11.30）
+*** 其它问题
+- 选拔赛无小时榜，决赛有小时榜，且小时榜第一名在下个小时有 buff
+- 每天有开赛时间段吗？无
+- 决赛日榜小时榜结合，需要校验是否可行
+** 巅峰赛
+
+** 集福卡
+- 充值兑换卡片，集齐一套福卡可以兑换宝箱，宝箱开出放大镜等物品
+- 在哪些阶段会存在集福卡 tab 页？所有阶段
+- 集福卡 tab 会在主播端展示吗？不会
+- 开宝箱规则是什么？仅有福卡
+- 兑换卡片按钮干嘛的？充值得到次数，该按钮消耗次数随机得福卡
+
+** 对对碰藏宝图
+*** 用户端使用放大镜
+- 鉴定后直播间发消息
+- 透视卡牌后，被透视的卡牌也是保持 3 min 吗？该透视卡牌是相对所有观众吗？多个观众一起透视呢？待和前端对
+- 主播端消掉2 个相同得牌子之后，使用放大镜的用户端问题？需要和前端对
+*** 主播端翻牌子
+- 搜集直播间礼物获得翻牌机会规则？每满400得1次翻牌机会
+- 翻开后，如果没有消掉 2 张相同的卡牌，则该卡牌保持翻开状态10s（前端做）；否则，一直保持翻开状态
+- 翻开金银铜卡牌需要的翻牌次数不同
+*** 兑换藏宝图
+- 藏宝图碎片数量如何展示？展示在图片下
+- 兑换藏宝图后，会得到什么？会触发什么动作？背包物品、gold、官方账号给主播送礼。触发直播间评论
+*** 其它问题
+- 3 种藏宝图碎片，2 种放大镜。放大镜、超级放大镜为什么不整合成一种放大镜呢？改为 3 种
+- 藏宝图页面有 3 个 tab
+  + 用户端展示：搜集放大镜、勘破藏宝图
+  + 主播端展示：翻转次数界面、勘破藏宝图（和用户端有区别）、兑换藏宝图
+
+
+** 其它问题
+- webview icon 每日排名改为本阶段排名？以及直播间弹窗本日排名、本日分数改为本阶段排名、本阶段分数？不改
+- 工会战直播间弹窗数据内容？
+- 主播同时参加工会赛、分区主播赛等，webview icon 如何展示？浮动icon 会配置吗？
+- 各种直播间消息、弹幕都有哪些？
+- 新人活动影响该活动吗？
+
+* 开发内容
+** 工会赛
+*** 选拔赛
+- **接收开播队列** 开播，判断是否是新工会，即把该主播放入该工会的骑士榜；把该工会放入主榜
+- **人多力量大 buff 接收开播时长队列** 统计上个小时开播时长 > 40min 的人数
+- **http接口**
+  + 小时榜、总榜
+    - 重要字段：工会直播人数
+    - 传入参数：event_name、board、本小时上小时如何表示？
+  + 骑士榜
+
+*** 决赛
+- 人多力量大 buff。
+- **buff 强化** 。上小时top3，本小时加成 30min，强化小时榜
+*** 其它开发内容
+- **工会晋级赛**
+- **webview icon 部分**
+- **直播间弹窗 http 接口？**
+
+* 配置
+** 晋级赛配置 api_params
+本次新增 promote_type 字段
+#+BEGIN_SRC js
+  [
+    {
+      "origin_event": "2020_guild_1_senior",
+      "promote_type": "unionPK",
+      "static_others": {
+        "event_name": "unionPk2",
+        "start_time": 0,
+        "end_time": 0,
+        "status": 0
+      },
+      "dynamic_others": {
+        "start_time": "event_start",
+        "end_time": "event_end",
+        "status": "event_status"
+      }
+    },
+    {
+      "origin_event": "2020_section_1_new",
+      "promote_type": "sectionPk",
+      "static_others": {
+        "event_name": "sectionPk1",
+        "start_time": 0,
+        "end_time": 0,
+        "status": 0
+      },
+      "dynamic_others": {
+        "start_time": "event_start",
+        "end_time": "event_end",
+        "status": "event_status"
+      }
+    },
+    {
+      "origin_event": "2020_section_2_new",
+      "promote_type": "sectionPk",
+      "static_others": {
+        "event_name": "sectionPk2",
+        "start_time": 0,
+        "end_time": 0,
+        "status": 0
+      },
+      "dynamic_others": {
+        "start_time": "event_start",
+        "end_time": "event_end",
+        "status": "event_status"
+      }
+    },
+    {
+      "origin_event": "2020_section_3_new",
+      "promote_type": "sectionPk",
+      "static_others": {
+        "event_name": "sectionPk3",
+        "start_time": 0,
+        "end_time": 0,
+        "status": 0
+      },
+      "dynamic_others": {
+        "start_time": "event_start",
+        "end_time": "event_end",
+        "status": "event_status"
+      }
+    },
+    {
+      "origin_event": "2020_section_4_new",
+      "promote_type": "sectionPk",
+      "static_others": {
+        "event_name": "sectionPk3",
+        "start_time": 0,
+        "end_time": 0,
+        "status": 0
+      },
+      "dynamic_others": {
+        "start_time": "event_start",
+        "end_time": "event_end",
+        "status": "event_status"
+      }
+    }
+  ]
+#+END_SRC
+** 配置 web_event
+** 系统配置
+rank_name_to_event_name_  新增 common_rank 榜单名称到 event_name 等信息的映射
+需要添加 4 个配置：
+- 2020_section_2_new_0
+- 2020_section_2_new_1
+- 2020_section_2_senior_0
+- 2020_section_2_senior_1
+- 2020_section_3_new_0
+- 2020_section_3_new_1
+- 2020_section_3_senior_0
+- 2020_section_3_senior_1
+
+** 小时榜支持多榜单时，积分榜也要支持多榜单
+summary_board_name 支持 list 类型
+需要配置 4 个活动：2020_section_2_new、2020_section_2_senior、2020_section_3_new、2020_section_3_senior
+在 2020_section_2_new 活动设置中，男榜积分榜为 2020_section_2_new_0，女榜积分榜为 2020_section_2_new_1
+配置为 "summary_board_name": ["2020_section_2_new_0", "2020_section_2_new_1"]
+
+** 吸金工会
+#+BEGIN_SRC js
+  {
+      "hourly": 1,
+      "auto_register": 1,
+      "need_knights_board": 0,
+      "need_guild_knights_board": 1,
+      "gifts_setting": {},
+      "board_setting": {
+          "valid_list": [0, 1],
+          "guild_ctime_divides": ["2020-01-01 00:00:00"]
+      },
+      "treasure_map_event_name": "anniversary2020",
+      "summary_board_name": ""
+  }
+#+END_SRC
+
+** 吸金主播活动配置
+#+BEGIN_SRC js
+  {
+      "notice": ["前 40 名晋级", "前 30 名晋级"],
+      "treasure_map_event_name": "anniversary2020"
+  }
+#+END_SRC
+** 新增藏宝图类型活动
+#+BEGIN_SRC js
+  {
+      "gifts_setting": {}
+  }
+#+END_SRC
+
+** 工会晋级赛
+#+BEGIN_SRC js
+  [
+    {
+        "promote_type": "guild_base_hourly",
+        "from_event": "2020_guild_1_new",
+        "from_board": 0,
+        "to_event": "2020_guild_2_new",
+        "to_board": 0,
+        "count": 20
+    },
+    {
+        "promote_type": "guild_base_hourly",
+        "from_event": "2020_guild_1_senior",
+        "from_board": 0,
+        "to_event": "2020_guild_2_senior",
+        "count": 20
+    }
+  ]
+#+END_SRC
+
+** 分区主播晋级赛
+#+BEGIN_SRC js
+  [
+      {
+          "from_event": "2020_section_1_new",
+          "from_board_list": [0, 1],
+          "to_event": "2020_section_2_new",
+          "to_board_list": [0, 1],
+          "count": [8, 10],
+          "inherit_buff": [1, 1]
+      },
+      {
+          "from_event": "2020_section_1_senior",
+          "from_board_list": [0, 1],
+          "to_event": "2020_section_2_senior",
+          "to_board_list": [0, 1],
+          "count": [15, 20],
+          "inherit_buff": [1, 1]
+      },
+      {
+          "from_event": "2020_section_2_new",
+          "from_board": 
+      }
+  ]
+#+END_SRC
+
+* 开发内容
+** http 接口 5d
+*** DONE 晋级赛接口调整
+api_params 表中 params 字段支持 promote_type 自定义类型参数
+晋级赛接口返回除了 undefined、master、resurrection，还会返回自定义类型所对应的活动列表
+*** DONE common_rank 主播榜支持传递榜单名
+*** DONE 吸金主播骑士榜支持上个小时骑士榜
+*** DONE 直播间弹窗 tab 页接口
+*** 工会小时榜、总榜接口
++ 返回字段：上小时满 5
++ 传入参数：event_name、board、type:1-总榜 0-本小时榜 -1-上小时榜
+*** 工会积分榜接口
++ 传入参数：event_name
+*** 工会骑士榜接口
++ 传入参数：event_name、board、guild_id
+*** 工会赛直播间弹窗
+*** 吸金主播晋级名单
+
+** DONE websocket 接口 1.5d
+*** webview icon
+
+** 定时任务
+*** 定时更新积分榜
+取上小时工会成员有效开播数量，对上个小时小时榜分数加成，加成后完成后，更新积分榜。频率 1h 一次*
+*** DONE 工会晋级赛
+工会选拔赛赛 => 工会决赛。根据积分榜名次晋级，晋级后分数为总榜分数
+*** DONE 积分榜晋级收礼榜
+*** DONE 小时榜支持多榜单
+** 接 kafka 队列 2.5d
+*** DONE 直播时长队列。把上小时直播满 40min 的主播放入一个集合。统计工会成员开播时长
+*** DONE 开播队列。注册模块
+*** DONE 加分模块。
+  1.找到该主播所在的工会，在主榜中找到工会所属榜单
+  2.拿不到，注册；拿到了，给工会总榜、骑士榜加分
+  3.获取小时榜主榜、小时榜骑士榜，如果拿不到，注册主播和工会到榜单中
+  4.计算上个小时 top3 buff，然后工会小时榜主榜加分、工会小时榜骑士榜加分
+
+** TODO 其它
+- 充值时加机会
+- 榜单中添加晋级信息 "notice"
+- 调整小时榜结算了定时任务。
+- 设置名人堂数据
+- multiboard_promote 晋级赛支持继承分数
+- 分区主播赛积分榜晋级时，要等积分榜结算后晋级
+** DONE 藏宝图活动
+统计主播个人收礼数，用于主播翻牌机会
+  
+* 上线模块
+- admin
+- http
+- events
+- schedule
+
+
+* 后续开发内容
+** 小时榜改造。新增字段 hour_type
+- 1/2 小时榜
+- 1/4 小时榜
+** tabs 接口支持巅峰赛
+** 小时榜结算
+** icon 同步支持巅峰赛
+** 晋级赛
+** 设置名人堂数据
+

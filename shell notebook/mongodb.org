@@ -1,0 +1,31 @@
++TITLE: mongodb 命令
+
+* 常用命令
+#+BEGIN_SRC shell
+  $ mongo3.4 10.0.110.115:27017/db_msg -u username -p password
+  $ show dbs
+  db_msg
+  $ show collections               # 显示所有集合
+  msg
+  $ db.msg.count()          # 显示集合 msg 中的文档数量
+  $ db.msg.getIndexes()     # 获取索引
+  $ db.msg.find({"msg_id": 6329, "type": 3}, {"_id": 0, "msg_id": 1, "msg": 1})
+  { "msg_id": 6329, "msg" : "hello world" }
+#+END_SRC
+
+* 聚合搜索
+#+BEGIN_SRC shell
+  $ db.msg.aggregate([{$match: {"type": 3}}, {$group: {_id: null, total_char_cnt: {$sum: "$char_cnt"}}}, {$project: {_id: 0, total_char_cnt: 1}}])
+  { "total_char_cnt": 435 }
+  $ db.msg.aggregate([{$match: {"type": {$gte: 3, $lte: 5}}}, {$group: {_id: "$type", total_char_cnt: {$sum: "$char_cnt"}}}, {$project: {_id: 1, total_char_cnt: 1}}])
+  { "_id": 3, "total_char_cnt": 435 }
+  { "_id": 4, "total_char_cnt": 211 }
+  { "_id": 5, "total_char_cnt": 379 }
+#+END_SRC
+
+
+* 分析性能
+#+BEGIN_SRC shell
+  $ db.msg.find({"msg_id": 6329}).explain("executionStats")
+  $ db.msg.explain().aggregate([{$match: {"type": 3}}, {$group: {_id: null, total_char_cnt: {$sum: "$char_cnt"}}}, {$project: {_id: 0, total_char_cnt: 1}}])
+#+END_SRC

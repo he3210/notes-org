@@ -1,0 +1,50 @@
++TITLE: 新版年度积分后台
+
+** 数据结构
+#+BEGIN_SRC sql
+CREATE TABLE `series_to_event_quick` (
+`id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+`event_name` varchar(40) NOT NULL COMMENT '',
+`event_desc` varchar(128) NOT NULL COMMENT '用于展示的活动名',
+`is_enabled` tinyint(4) NOT NULL DEFAULT '0',
+`rules` varchar(2048) NOT NULL DEFAULT '{}',
+`image` varchar(1024) NOT NULL DEFAULT '',
+`open_url` varchar(1024) NOT NULL DEFAULT '' COMMENT '该活动榜单 url',
+`ctime` datetime NOT NULL,
+`mtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+PRIMARY KEY (`id`),
+UNIQUE KEY `uniq_event_name` (`event_name`)
+) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4;
+#+END_SRC
+
+
+** 配置
+#+BEGIN_SRC js
+  [
+    {
+      "series": "year_2019",
+      "board": 6,
+      "rank_to_score": [3, 2, 2, 1, 1, 1, 1],
+      "pt": 10
+    },
+    {
+      "series": "year_2019",
+      "board": 1,
+      "rank_to_score": [3, 2, 2, 1, 1, 1, 1],
+      "pt": 10
+    },
+    {
+      "series": "year_2018",
+      "board": 6,
+      "rank_to_score": [3, 2, 2, 1, 1, 1, 1],
+      "pt": 10
+    }
+  ]
+#+END_SRC
+
+** 上线模块
+- admin
+- http
+- celery
+- schedule_event
+- 有个每小时定时刷新年度积分的任务，被关掉了。且保存活动时会新建一个 celery 任务，用于活动结束后刷新年度积分。

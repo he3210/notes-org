@@ -1,0 +1,123 @@
+#+TITLE: clion 远程调试 redis6.0.5
+
+参考
+- [[https://www.jetbrains.com/help/clion/managing-makefile-projects.html#filewatcher][Managing Makefile Projects]]
+- [[https://www.jetbrains.com/help/clion/remote-debug.html][GDB Remote Debug]]
+
+** 远程主机开发环境搭建
+安装最新开发环境 devtoolset-9。
+为什么需要安装开发环境呢？
+因为我的远程主机是 centos7，gcc 是 4.8.5 版本，不支持 c11
+
+#+BEGIN_SRC bash
+  $ yum install centos-release-scl
+  $ yum install scl-utils-build
+  $ yum install devtoolset-9
+  $ scl --list
+  devtoolset-9
+  $ scl enable devtoolset-9 zsh  # 在当前 zsh 上启用开发环境 devtoolset-9，重新登陆后需要重新执行该命令进入开发环境
+  $ which gcc
+  /opt/rh/devtoolset-9/root/usr/bin/gcc
+  $ gcc --version
+  gcc (GCC) 9.3.1 20200408 (Red Hat 9.3.1-2)
+  Copyright (C) 2019 Free Software Foundation, Inc.
+  This is free software; see the source for copying conditions.  There is NO
+  warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+  $ /usr/bin/gcc --version
+  gcc (GCC) 4.8.5 20150623 (Red Hat 4.8.5-39)
+  Copyright (C) 2015 Free Software Foundation, Inc.
+  This is free software; see the source for copying conditions.  There is NO
+  warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+  $ g++ --version
+  g++ (GCC) 9.3.1 20200408 (Red Hat 9.3.1-2)
+  Copyright (C) 2019 Free Software Foundation, Inc.
+  This is free software; see the source for copying conditions.  There is NO
+  warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+  $ make --version
+  GNU Make 4.2.1
+  Built for x86_64-redhat-linux-gnu
+  Copyright (C) 1988-2016 Free Software Foundation, Inc.
+  License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+  This is free software: you are free to change and redistribute it.
+  There is NO WARRANTY, to the extent permitted by law.
+#+END_SRC
+
+在 .zshrc 中默认使用 devtoolset-9 开发环境
+#+BEGIN_SRC conf
+  source /opt/rh/devtoolset-9/enable
+#+END_SRC
+
+** 远程主机下载源码、编译二进制文件
+在远程主机编译生成二进制文件
+#+BEGIN_SRC bash
+  $ cd /root/code/
+  $ wget http://download.redis.io/releases/redis-6.0.5.tar.gz
+  $ tar -xzvf redis-6.0.5.tar.gz
+  $ cd redis-6.0.5/deps
+  $ make hiredis jemalloc linenoise lua
+  $ cd ..
+  $ make noopt  # 使用 -O0 编译
+#+END_SRC
+
+** 本地 mac 主机准备工作
+*** 生成 Clang's JSON Compilation Database file
+在本地 mac 主机生成 compile_commands.json 文件。为什么要生成 compile_commands.json 文件呢？
+因为 clion 默认 project 使用 cmake，而 redis 没有用 cmake，用了 makefile。
+所以需要借助 Compilation Database 来管理 makefile project
+#+BEGIN_SRC bash
+  $ cd /Users/he/
+  $ wget http://download.redis.io/releases/redis-6.0.5.tar.gz
+  $ tar -xzvf redis-6.0.5.tar.gz
+  $ rm redis-6.0.5.tar.gz
+  $ cd redis-6.0.5
+  $ pip install compiledb
+  $ compiledb -n make noopt  # noopt 表示使用 -O0 标志 生成 compile_commands.json
+  $ ls -al compile_commands.json
+  -rw-r--r--  1 he  staff  46949 Jul 18 13:30 compile_commands.json
+#+END_SRC
+
+*** 安装两个插件
+clion 安装两个插件 Makefile support、File Watchers。点击：
+Clion -> preferences -> Plugins 搜索插件进行安装
+可借助 File Watchers 监控 Makefile 文件，当 Makefile 文件发生变化时，重新执行 =compiledb -n make noopt= 命令
+
+*** 添加 toolchains
+#+ATTR_ORG: :width 80%
+#+ATTR_HTML: :width 80%
+[[../images/clion toolchains.png]]
+
+*** 配置 Deployment
+点击 Tools -> Deployment -> Configuration...，关联远程主机和本地 mac 主机的 project 文件夹
+#+ATTR_ORG: :width 55%
+#+ATTR_HTML: :width 55%
+[[../images/clion deployment1.png]]
+#+ATTR_ORG: :width 55%
+#+ATTR_HTML: :width 55%
+[[../images/clion deployment2.png]]
+
+点击 Tools -> Deployment -> Automatic Upload(always)，设置保存后自动上传文件
+点击 Tools -> Deployment -> Download from vultr，把远程主机上，编译后的二进制文件、.o 文件等下载到本地 mac
+
+*** 配置 GDB Remote Debug
+点击 Run -> Edit Configurations... -> Templates -> GDB Remote Debug 创建一个新的 GDB Remote Debug
+#+ATTR_ORG: :width 80%
+#+ATTR_HTML: :width 80%
+[[../images/clion gdb remote debug.png]]
+- =Symbol file= 填本机 project 二进制文件
+- =Sysroot= 先填 project 根目录（DEBUG 时会报警告，但影响不大）。DEBUG 时，根据 warn 信息（warning: Could not load shared library symbols for 6 libraries, e.g. /lib64/libm.so.6. Use the "info sharedlibrary" command to see the complete listing. Do you need "set solib-search-path" or "set sysroot"?），使用命令 (gdb) info sharedlibrary 查看用到的远程的共享库。然后把远程共享库拷贝到本机的一个自建的文件夹，例如：/Users/he/Library/Caches/JetBrains/sysroot。共享库的目录结构也要拷贝到该文件夹下。最后，sysroot 设置为该目录
+
+** 远程调试
+在远程主机开启 gdb 服务器调试 redis-server
+#+BEGIN_SRC bash
+  $ cd /root/code/redis-6.0.5
+  $ gdbserver 0.0.0.0:1234 ./src/redis-server ./redis.conf
+#+END_SRC
+
+在本地 mac clion 点击小虫子 Debug 'redis6.0.5' 开始调试
+
+** 问题fix
+- 碰到问题有可能是 clion 的 bug。更改配置后，有报错，多重启 clion，重启后可能就好了
+- 问题：所有配置都ok。但系统函数跳转到本机，而不是远程主机。解决：重新创建一个远程 Toolchains，原先的配置拷贝过去。稍后 clion 会创建一个进程用来下载远程系统函数头文件

@@ -3,6 +3,112 @@
 ** 官方账号直接送礼物
 ** 若连续获得头像框，则有效期时间累加，获得时立即生效，初始有效期为7天
 ** 双倍经验 + 双经验时间延长
+** 超级礼盒是自动兑换还是用户自己兑换？
+** 心动礼盒和超级礼盒中奖池轮播？
+** 粉丝兑换主播的写真，需要服务端做些什么？
+** 惊喜礼盒概率？
+** 日榜粉丝top1会登上icon？日榜是哪个粉丝日榜，主播粉丝日榜 or 粉丝日榜
+** icon 上pt，顺位是啥？
+* 数据结构
+** 主播任务完成度
+redis hash key              field       value
+pre + event_name + uid    task_id    progress_value
 
-** 门槛任务期间能给花盒任务加分吗？
-** 日榜是粉丝日榜吗？是
+每日门槛任务 task_id 格式为 "daily_task:%s" % date_str。progress_value 为礼物 score
+礼盒任务 task_id 格式为 "normal_task:%s" % str(gift_id)。progress_value 为收礼数量
+开盒机会 "normal:exchange" 主播已打开普通礼盒次数
+卡片收集 "card:0" 代表卡片0
+         "card_task:exchange" 用户打开超级礼盒总次数
+#+BEGIN_SRC js
+  {
+      "daily_task:20200605": 200,
+      "daily_task:20200605": 300,
+      "normal_task:265": 3,
+      "normal_task:275": 4,
+      "normal_chance:exchange": 3,
+      "card:0": 3,
+      "card:1": 2,
+      "card_task:exchange": 1
+  }
+#+END_SRC
+
+** 礼盒抽奖
+redis hash key            field    value
+pre + event_name + uid    index   awards_json
+
+#+BEGIN_SRC js
+
+#+END_SRC
+** icon
+#+BEGIN_SRC js
+  {
+      "anchor": {},
+      "knight": {},
+      "normal_chance": 4,
+      "super_chance": 1,
+      "cur_stage": "daily_task",
+      "daily_task": {
+          "task_name": "晴天娃娃",
+          "cur_score": 200,
+          "all_score": 300
+      },
+      "normal_task": [
+          {
+              "gift_id": 275,
+              "img": "xxx",
+              "task_name": "紫阳花",
+              "cur_score": 10,
+              "all_score": 30,
+              "received_chance": 3
+          }
+      ]
+  }
+#+END_SRC
+
+** 剪刀手兑换
+#+BEGIN_SRC js
+  {
+      "coin:0": 3,
+      "coin:1": 2,
+      "coin:2": 4,
+      "reward_exchanged:0": 3,
+      "reward_exchanged:1": 2,
+      "reward_exchanged:2": 4
+  }
+#+END_SRC
+** 中奖历史表
+#+BEGIN_SRC sql
+  CREATE TABLE `flower_box_award_history` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `event_name` varchar(64) NOT NULL,
+  `uid` varchar(32) NOT NULL COMMENT 'anchor uid',
+  `box_name` varchar(64) NOT NULL COMMENT '从哪个盒子开出的礼物',
+  `box_img` varchar(128) NOT NULL,
+  `content` varchar(128) NOT NULL COMMENT '开出的内容',
+  `is_enabled` tinyint(4) NOT NULL DEFAULT '1',
+  `ctime` datetime NOT NULL,
+  `mtime` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_event_name_uid` (`event_name`, `uid`)
+  ) ENGINE = InnoDB AUTO_INCREMENT = 1 DEFAULT CHARSET = utf8mb4;
+#+END_SRC
+
+** 卡片收集
+不再基于背包物品实现
+
+* 运营配置
+#+BEGIN_SRC js
+  {
+      "icon_knight_score_limit": [5000, 10000, 15000]
+  }
+#+END_SRC
+* 开发
+** 收礼模块
+** 状态同步
+** http 接口
+- 全平台主播心动礼盒/超级礼盒中奖历史？
+- 任务完成度接口
+- **拆心动礼盒接口**
+- **拆超级礼盒接口**
+- 主播开盒记录，50条
+- 我的剪刀手相关接口
