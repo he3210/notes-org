@@ -317,9 +317,24 @@ api_params 表中 params 字段支持 promote_type 自定义类型参数
 ** 小时榜改造。新增字段 hour_type
 - 1/2 小时榜
 - 1/4 小时榜
-** tabs 接口支持巅峰赛
+** DONE tabs 接口支持巅峰赛
 ** 小时榜结算
-** icon 同步支持巅峰赛
-** 晋级赛
+** DONE icon 同步支持巅峰赛
+** DONE 晋级赛
+- 分区主播赛晋级到巅峰赛需要继承收礼榜分数吗？
 ** 设置名人堂数据
+** 配置
+*** 巅峰赛 6 个活动配置
+- 2020_final_1_king、2020_final_2_king、2020_final_3_king
+- 2020_final_1_diamond、2020_final_2_diamond、2020_final_3_diamond
+*** 3 项晋级赛配置 anniversary2020
+*** 系统设置。不用配置了。
+rank_name_to_event_name_
+需要添加配置:
+- 2020_final_1_king
+- 2020_final_2_king
+- 2020_final_3_king
+- 2020_final_1_diamond
+- 2020_final_2_diamond
+- 2020_final_3_diamond
 
