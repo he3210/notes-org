@@ -3,3 +3,14 @@
 * 需求
 - 第一大阶段全员集合是吸金主播吗？
 - 上个冲锋礼物贡献
+
+* 上线模块
+- http
+- events-important
+- backend
+- schedule-event
+- schedule-event2
+
+- schedule-event
+- schedule-event2
+- events-important

@@ -1,0 +1,106 @@
++TITLE: cos晋级赛活动
+
+** 活动名
+- cosplay1 代表第一期 cosplay 活动
+
+*** 第一阶段 吸金主播活动
+cosplay1_1  0  1
+
+*** 第二阶段
+cosplay1_2_camera  0  1
+cosplay1_2_shoes   0  1
+cosplay1_2_clothes 0  1
+
+*** 第二阶段之后，还有总榜。总榜继承第一、二阶段，第二阶段结束之后还有一天时间，这一天，加分加到总榜
+cosplay1_total  0  1
+
+** 第一阶段 /api/events_v2/cosplay/rank/
+- 主播收礼榜需要支持 relation 字段
+- 新增字段 total，代表当前榜单人数
+
+** 第二阶段 /api/events_v2/cosplay/rank/
+- 从活动设置中读取 score_use_round，如果是就用完成任务次数代替 score
+
+** 第三阶段 复用吸金主播
+- 从活动设置中读取 star_event_name，作为 cos 值，骑士总榜需要支持一下
+
+** 活动配置
+- 新增活动rules配置：register_all_times 表示报名时间段和活动时间段均可报名
+- "round_score": [40, 70]
+- task_rewards
+#+BEGIN_SRC js
+  // 活动设置中需要新增 2 项配置：round_score、task_rewards
+  // round_score：完成任务需要搜集的礼物个数
+  // cosplay1_2_1、cosplay1_2_2、cosplay1_2_3 这 3 个活动，需要配置奖励的获得条件和奖励，如下：
+  {
+    "round_score": [40, 70],       // board 0 的主播需要搜集 40 个，board 1的 主播需要搜集 70 个才算完成任务
+    "task_rewards": [
+      [                            // board 0，也就是新人榜主播的奖励设置
+        {
+          "cond": {},              // 获得奖励的条件，为 {} 代表只要完成任务就可获得奖励
+          "rewards": [             // 奖励列表（达成 cond 条件即可获得该列表所有奖励）
+            {
+              "item_id": 123,      // item_id 为背包礼物 id
+              "count": 1
+            },
+            {
+              "extra_permission_id": 456,  // 徽章id
+              "count": 1
+            }
+          ]
+        },
+        {
+          "cond": {                // 完成任务，且是第一名，才可获得奖励
+            "rank": [1]
+          },
+          "rewards": [
+            {
+              "item_id": 111,
+              "count": 1
+            },
+            {
+              "cos_rate": 1,       // cos 分数加成奖励，count 为加成的比率
+              "count": 20
+            }
+          ]
+        },
+        {                          // 可以在这里设置其它名次的奖励
+
+        },
+        {
+
+        }
+      ],
+      [                            // board 1，达人榜主播的奖励设置
+        {
+          "cond": {},
+          "rewards": [
+            {
+              "item_id": 123,
+              "count": 1
+            },
+            {
+              "extra_permission_id": 456,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "cond": {
+            "rank": [1]
+          },
+          "rewards": [
+            {
+              "item_id": 111,
+              "count": 1
+            },
+            {
+              "cos_rate": 1,
+              "count": 20
+            }
+          ]
+        }
+      ]
+    ]
+  }
+#+END_SRC

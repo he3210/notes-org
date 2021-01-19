@@ -7,3 +7,137 @@
 - HTTP POST 领取进度奖励
 - 进度什么情况下增加？
 *** 
+** 运营配置
+*** 活动设置
+#+BEGIN_SRC js
+  {
+      "progress": {
+          "item_id_list": [11, 22, 33, 44, 55, 66, 77, 88, 99],
+          "rewards": [
+              {
+                  "id": 1,
+                  "item_id": 123,
+                  "val": 5,
+                  "img": "",
+                  "status": 0
+              },
+              {
+                  "id": 2,
+                  "extra_permission_id": 456,
+                  "val": 7,
+                  "img": "",
+                  "status": 0
+              },
+              {
+                  "id": 3,
+                  "item_id": 789,
+                  "val": 9,
+                  "img": "",
+                  "status": 0
+              }
+          ]
+      },
+      "card_pool": [
+          {
+              "id": 1,
+              "title": "卡池1",
+              "start_time": "2020-12-17 00:00:00",
+              "end_time": "2020-12-19 00:00:00",
+              "img1": "",
+              "img2": "",
+              "key": "card_pool_1"
+          },
+          {
+              "id": 2,
+              "title": "卡池2",
+              "start_time": "2020-12-19 00:00:00",
+              "end_time": "2020-12-21 00:00:00",
+              "img1": "",
+              "img2": "",
+              "key": "card_pool_2"
+          },
+          {
+              "id": 3,
+              "title": "卡池3",
+              "start_time": "2020-12-21 00:00:00",
+              "end_time": "2020-12-23 00:00:00",
+              "img1": "",
+              "img2": "",
+              "key": "card_pool_2"
+          }
+      ],
+      "card_to_card": {
+          "require_cnt": 5,
+          "card_list": [
+              {
+                  "item_id": 11,
+                  "success_rate": [10, 20, 40, 80, 100],
+                  "require": [111, 112, 113, 114, 115, 116]
+              },
+              {
+                  "item_id": 22,
+                  "success_rate": [10, 20, 40, 80, 100],
+                  "require": [221, 222, 223, 224, 225, 226]
+              },
+              {
+                  "item_id": 33,
+                  "success_rate": [10, 20, 40, 80, 100],
+                  "require": [331, 332, 333, 334, 335, 336]
+              }
+          ]
+      }
+  }
+#+END_SRC
+
+*** 系统设置
+key = "card_pool_%s" % pool_id
+#+BEGIN_SRC js
+  {
+      "card_to_reward": {
+          "require": {
+              "5": ["r", "sr"],
+              "1": ["ur"]
+          },
+          "rewards": [
+              {
+                  "item_id": 444,
+                  "weight": 3
+              },
+              {
+                  "extra_permission_id": 555,
+                  "img": "xxx",
+                  "weight": 4
+              }
+          ]
+      },
+      "event_list": [
+          {
+              "event_name": "halloween_card_2020",
+              "title": "万圣节",
+              "r": [
+                  {
+                      "item_id": 111,
+                      "weight": 3
+                  }
+              ],
+              "sr": [
+                  {
+                      "item_id": 222,
+                      "weight": 3
+                  }
+              ],
+              "ur": [
+                  {
+                      "item_id": 333,
+                      "weight": 4
+                  }
+              ]
+          }
+      ]
+  }
+#+END_SRC
+
+** 重启服务
+- admin
+- events_very-important
+- http

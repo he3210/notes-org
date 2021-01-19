@@ -1,0 +1,17 @@
+
++TITLE: 109广告活动
+
+** merge request
+- http://101.201.155.81/live/miveshow/merge_requests/3266
+** 开发
+*** 星光值使用吸金主播榜单保存。只有 board 0，board 0 保存着所有用户的星光值
+*** 代码写死部分
+**** ad202101_2 晋级到 ad202101_3 时，主播会同时继承 ad202101_1 和 ad202101_2 的分数
+*** web event icon fanout_ad202101_icon_msg
+
+** 重启
+- events_very-important  藏宝图加分
+- schedule-event  晋级赛
+- schedule-event2 icon状态同步
+- http
+- monitor
