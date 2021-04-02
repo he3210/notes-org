@@ -1,0 +1,133 @@
++TITLE: 2021情人节
+
+** 需求
+** 注意事项
+*** 写死常量
+- 活动总天数有变化是需要改 VALENTINES_DAY_PRIVATE_CHAT_MESSAGES
+- 购买巧克力的虚拟 gift_id: VALENTINES_DAY_GIFT_INFO VALENTINES_DAY_GIFT_IDS
+*** 右下角的心动 icon 是通过 floating icon 实现的
+
+*** 调整抽奖券转盘概率配置 prize_wheel_config prize_wheel_config_risk
+** 运营配置
+*** 系统设置 event_deposit_promotion
+#+BEGIN_SRC js
+  {
+      "cur_event": "valentines_day_202102",
+      "promotion_list": [
+          {
+              "type": "daily_first_deposit",
+              "paid_number": 1220,
+              "text": "+3巧克力 每日首次",
+              "rewards": [
+                  {
+                      "item_id": 123,
+                      "cnt": 3
+                  }
+              ]
+          },
+          {
+              "type": "daily_first_deposit",
+              "paid_number": 5860,
+              "text": "+4巧克力 每日首次",
+              "rewards": [
+                  {
+                      "item_id": 456,
+                      "cnt": 4
+                  }
+              ]
+          },
+          {
+              "type": "daily_first_deposit",
+              "paid_number": 11000,
+              "text": "+6巧克力 每日首次",
+              "rewards": [
+                  {
+                      "item_id": 789,
+                      "cnt": 6
+                  }
+              ]
+          }
+      ]
+  }
+#+END_SRC
+
+*** 活动设置 valentines_day_202102
+#+BEGIN_SRC js
+  {
+      "daily": 1,
+      "gifts_setting": {
+          "30084": 5000,
+          "20000": 300,
+          "30094": 30000,
+          "30068": 1000,
+          "231": 10
+      },
+      "board_setting": {
+          "valid_list": [0, 1, 2],
+          "anchor_level_divides": [11, 21]
+      },
+      "need_anchor_knights_board": 1,
+      "extra_permission_id": [
+          3753
+      ],
+      "extra_permission_type": 1,
+      "extra_permission_last_event_name": "",
+      "day_replace": [
+          {
+              "1": 20,
+              "2": 10
+          },
+          {
+              "2": 20,
+              "3": 10
+          },
+          {
+              "3": 20,
+              "4": 10
+          },
+          {
+              "4": 20,
+              "5": 10
+          }
+      ],
+      "piece_list": [
+          {
+              "id": 1,
+              "name": "西班牙旅行",
+              "image_url": "xxx",
+              "progress": [1, 8],
+              "rate": 10,
+              "tag": "",
+              "rewards": [
+                  {
+                      "item_id": 123,
+                      "name": "爱心",
+                      "image_url": "xxx",
+                      "cnt": 1
+                  }
+              ]
+          },
+          {
+              "id": 2,
+              "name": "中国旅行",
+              "image_url": "xxx",
+              "progress": [1, 8],
+              "rate": 10,
+              "tag": "",
+              "rewards": [
+                  {
+                      "item_id": 456,
+                      "name": "钻戒",
+                      "image_url": "xxx",
+                      "cnt": 1
+                  }
+              ]
+          }
+      ]
+  }
+#+END_SRC
+** 重启服务
+- task_v2_very-important
+- events-important
+- schedule-event
+- http

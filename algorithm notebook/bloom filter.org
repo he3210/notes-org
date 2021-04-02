@@ -1,5 +1,6 @@
 #+TITLE: bloom filter
 
+[[./https://zhuanlan.zhihu.com/p/94619052][SHA256算法原理]]
 * bloom filter
 布隆过滤器算法用不太严谨的话来说就是 hash + bit-map 的组合算法。
 - 插入一条数据 :: 首先通过 n 个 hash 函数计算出该数据的 n 个哈希值，然后在 bit-map 上将这些哈希值对应的 n 个位置置为 1。
@@ -21,10 +22,12 @@ p 为误判率
 1. 如果给定 m 和 n，当 k 取以下值时，误判率 p 的值最小
  $$k=\ln 2 \times \frac{m}{n} \approx 0.693 \times \frac{m}{n}$$
  此时误判率 p 等于
- $$p_{min} \approx (1-e^{\frac{kn}{m}})^k = (1 - \frac{1}{2})^k \approx 0.6185^{\frac{m}{n}}$$
+ $$p_{min} \approx (1-e^{\frac{-kn}{m}})^k = (1 - \frac{1}{2})^k \approx 0.6185^{\frac{m}{n}}$$
 2. 更常见的需求是，已知 n，并设定好误判率p，需要计算出该给 bit-map 分配多大内存合适，也就是要确认 m 的大小，可使用如下公式解决问题
  $$m = - \frac{n \ln p}{(\ln 2)^2}$$
-* 一个简易的布隆过滤器
+3. 已知 p，求 k
+ $$k = -log_{2}p$$
+* 一个简易的 bloom filter
 #+BEGIN_SRC cpp
 #include <iostream>
 #include <bitset>
@@ -88,3 +91,12 @@ int main()
     return 0;
 }
 #+END_SRC
+* redis bloom filter 实现思路
+** 问题：redis 单 key 最大 512MB，且分配内存是耗时操作，特别是大内存
+- 当 n 过大时，需要采用分治法
+- 分片处理，例如一片 512k，共有 10 片（具体 bloom filter 需要多少分片可以根据公式计算），分片 idx = md5(key)%10，根据 idx 可以定位到 redis 上的一片 bloom filter
+- 这样 redis 最大一次性分配 512k 内存，避免内存分片耗时过长
+- 分片的话，各个分片就可以存储在 redis 集群的不同 node，避免热 key
+** setbit getbit 命令优化
+- 使用 pipeline 来批量操作
+

@@ -7,4 +7,5 @@
 - [[./shell notebook/shell.org][shell 笔记]]
 - [[./docker notebook/docker.org][docker 笔记]]
 - [[./redis notebook/redis.org][redis 笔记]]
+- [[./golang notebook/golang.org][golang 笔记]]
 - [[./others notebook/others.org][未分类笔记]]

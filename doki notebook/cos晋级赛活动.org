@@ -24,6 +24,10 @@ cosplay1_total  0  1
 ** 第三阶段 复用吸金主播
 - 从活动设置中读取 star_event_name，作为 cos 值，骑士总榜需要支持一下
 
+** 注意事项
+- 这三个任务赛 cosplay1_2_1, cosplay1_2_2, cosplay1_2_3 结束后，要结束任务赛，调用三次 settle_the_task 函数
+- 上新一期代码时，在代码中搜索 "cosplay，需要修改代码中写死的期数
+- 替换写死后的代码后，重启服务 http、schedule-event2
 ** 活动配置
 - 新增活动rules配置：register_all_times 表示报名时间段和活动时间段均可报名
 - "round_score": [40, 70]

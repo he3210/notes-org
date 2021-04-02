@@ -1,0 +1,56 @@
++TITLE: 2021白色情人节
+
+** 实现内容
+*** 主视觉接口
+*** 巧克力领取对应背包物品
+*** 情人节icon 小红点？
+*** 情人节icon
+*** 主播端直播间弹窗tab：祝福券。用户端展示什么？
+*** 祝福券只能由主播送给用户？
+*** 祝福等级奖励接口：聊天框，参考try_send_chat_item
+*** 祝福券抽奖接口：抽中的活动礼物会直接送给该直播间主播，抽奖获得的礼物只加主播活动分数，不增加经验和gold？
+*** 用户收到祝福券后，充值优惠
+** 运营配置
+*** 活动规则
+#+BEGIN_SRC js
+  {
+      "blessing_ticket": {
+          "gift_id": 7789,
+          "item_id": 123,
+          "anchor_max_daily": 10,
+          "audience_max_daily": 2,
+          "interval": 900
+      }
+  }
+#+END_SRC
+*** 系统设置
+- "cond" 必须满足该条件才能有这个优惠
+- "daily_cond" 每天都必须完成这个条件，才能有这个优惠
+#+BEGIN_SRC js
+  {
+    "cur_event": "white_day_2021",
+    "promotion_list": [
+      {
+        "type": "daily_first_deposit",
+        "paid_number": 1220,
+        "text": "+2マカロン",
+        "cond": "daily_cond",
+        "rewards": [
+          {
+            "item_id": 6482,
+            "cnt": 2
+          }
+        ]
+      }
+    ]
+  }
+#+END_SRC
+
+** 注意事项
+*** 活动开始前先调用函数计算 valentine_day_202102 送出的巧克力：white_day_2021_set_chocolate_cnt
+** 重启
+- task_v2-very-important
+- task_v2-important
+- http
+- schedule-event
+- events-important

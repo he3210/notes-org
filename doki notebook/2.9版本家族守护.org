@@ -2,8 +2,159 @@
 
 ** 问题
 *** 未加入家族，点击开通守护按钮
+*** 粉丝铭牌是什么？
+*** 个人家族等级
+*** 如何查看扣费类型：自动续费？
+*** 开通守护是自然月、自然季吗？
+*** 私信卡片消息支持领取奖励吗？（应该不行，新增私信领奖卡片类型）
+*** 每个守护档位对应唯一的头像框吗？
+
 ** 实现内容
+*** 各个功能
+- 签到功能（专属礼物）
+- 红包功能
+- 购买开通/续费功能
+- 迭代的接口/榜单接口
+- 各种特权/消息/特效
+- 拉黑/退群
+
 *** HTTP API
 **** 我的家族主页
+- /api/family/profile_detail_v2/
 **** 守护列表
 - 函数：获取 uid、t_uid 守护信息
+**** 主播守护开关
+**** 粉丝铭牌编辑
+**** 我加入的家族列表
+
+**** 拉黑接口GET
+- 弹出 toast，如果是守护关系，告知需要退款
+**** 拉黑 POST /api/user/block/
+1. 判断是否是守护关系
+2. 判断主播余额是否充足，不充足弹 toast
+3. 获取用户购买的 3 种守护档位
+4. 计算各个档位的退款数额，执行退款操作，记录退款历史
+5. 相互退出家族
+**** 移除群聊接口 GET
+- 弹出 toast，如果是守护关系，告知需要退款
+**** 移除群聊接口 POST
+- 主播踢人接口 FamilyUpdateView
+- 参数：uid=u3684831580894394120001295&family_uid=u3684831580894394120001295&t_uid=u7871781602669936120001287&family_type=0
+- 逻辑类似拉黑
+**** 用户退出家族（迭代）
+**** 主播资料卡（迭代）
+**** 观众资料卡（迭代）
+**** 用户个人主页（迭代）
+**** 守护榜单 1
+**** 守护购买页面 1
+1. 验证主播是否打开守护开关，没打开就报错
+**** 购买/续费  2
+参数：uid t_uid product_id count
+0. 判断该用户是否被拉黑  is_uid_blocked_t_uid
+1. 验证主播是否打开守护开关，未打开，弹toast
+2. 判断该类型产品是续费还是购买
+3. 判断是否在家族，加入家族  update_family_user
+4. 购买/续费逻辑
+  - 购买
+    + 获取产品信息
+    + 获取用户购买的 3 种守护档位，计算各个档位的 end_time，更新数据刷新缓存
+  - 续费
+    + 获取产品信息
+    + 获取用户购买的 3 种守护档位，计算各个档位的 end_time，更新数据刷新缓存
+5. 发特效、评论、横幅等
+
+*** 定时任务
+**** 守护到期提醒事件/守护到期事件
+**** 签到天数自减
+
+*** 送礼模块
+**** 专属礼物签到送礼，修改 backend 模块
+**** 专属守护礼物前10次经验加倍
+
+*** 续费
+**** 同档位续费
+**** 更改档位续费
+- 低档位 => 高档位？
+- 高档位 => 低档位？
+- 开通后：横幅、直播间动效、评论、家族群聊 card 消息(奖励领取按钮)、私信card，续费有这些特效吗？
+*** 其它
+**** 应援礼物
+**** 守护特权
+
+** 数据结构
+*** 产品表
+#+BEGIN_SRC sql
+  create table guard_products(
+      `id` int(10) unsigned not null auto_increment,
+      `type` tinyint(4) not null,
+      `type_name` varchar(32) not null,
+      `product_id` varchar(64) not null,
+      `paid_gold` int(10) not null,
+      `charge_days` int(8) not null,
+      `display_name` varchar(64) not null,
+      `display_price` varchar(64) not null ,
+      `is_enabled` tinyint(4) not null default 0,
+      `ctime` datetime not null,
+      `mtime` timestamp default current_time on update current_time,
+      primary key pk_id (id),
+      unique key uniq_product_id (product_id)
+  ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+#+END_SRC
+
+*** 守护关系表
+#+BEGIN_SRC sql
+  create table user_guards(
+      `id` int(10) unsigned not null auto_increment,
+      `uid` varchar(32) not null comment 'user id',
+      `t_uid` varchar(32) not null comment 'anchor user id',
+      `type` tinyint(4) not null comment 'guard type',
+      `start_time` datetime not null comment '生效时间',
+      `end_time` datetime not null comment '过期时间',
+      `is_enabled` tinyint(4) not null comment '有效性',
+      `auto_renewal` tinyint(4) not null default 0 comment '自动续费',
+      `renewal_product_id` varchar(64) not null comment '续费的类型',
+      `ctime` datetime not null comment '创建时间',
+      `mtime` timestamp not null default current_time on update current_time,
+      primary key pk_id (id),
+      unique key uniq_uid_tuid_type (uid, t_uid, type)
+  ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+#+END_SRC
+
+*** 守护购买历史表
+#+BEGIN_SRC sql
+  create table user_guard_records(
+      `id` int(10) unsigned not null auto_increment,
+      `uid` varchar(32) not null comment 'user id',
+      `t_uid` varchar(32) not null comment 'anchor user id',
+      `product_id` varchar(64) not null comment 'purchased product id',
+      `count` int(8) not null comment 'purchased number',
+      `paid_gold` int(10) not null comment 'paid gold num',
+      `charge_days` int(8) not null comment 'purchased days',
+      `is_enabled` tinyint(4) not null comment '有效性',
+      `ctime` datetime not null comment '创建时间',
+      `mtime` timestamp not null default current_time on update current_time,
+      primary key pk_id (id),
+      key key_uid (uid),
+      key key_t_uid (t_uid),
+      key key_product_id (product_id)
+  ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+#+END_SRC
+
+*** 主播拉黑用户后，退款历史表
+#+BEGIN_SRC sql
+  create table user_withdraw_guards(
+      `id` int(10) unsigned not null auto_increment,
+      `uid` varchar(32) not null comment 'user id',
+      `t_uid` varchar(32) not null comment 'anchor user id',
+      `type` tinyint(4) not null comment 'withdraw guard type',
+      `guard_days` int(8) not null comment 'remained days',
+      `withdraw_golds` int(10) not null comment '返还的金额',
+      `ctime` datetime not null comment '创建时间',
+      `mtime` timestamp not null default current_time on update current_time,
+      primary key pk_id (id),
+      key key_uid (uid),
+      key key_t_uid (t_uid),
+      key key_type (type)
+  ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
+#+END_SRC
+

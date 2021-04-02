@@ -1,0 +1,175 @@
+#+TITLE: golang json
+
+** Marshal 将 struct 编码成 json 字符串
+#+BEGIN_SRC golang
+package main
+
+import (
+    "encoding/json"
+    "fmt"
+)
+
+type Stu struct {
+    Name  string `json:"name"`
+    Age   int
+    HIgh  bool
+    sex   string
+    Class *Class `json:"class"`
+}
+
+type Class struct {
+    Name  string
+    Grade int
+}
+
+func main() {
+    stu := Stu{
+        Name: "张三",
+        Age:  18,
+        HIgh: true,
+        sex:  "男",
+    }
+
+    cla := new(Class)
+    cla.Name = "1班"
+    cla.Grade = 3
+    stu.Class=cla
+
+    jsonStu, err := json.Marshal(stu)
+    if err != nil {
+        fmt.Println("生成json字符串错误")
+    }
+
+    fmt.Println(string(jsonStu))
+}
+#+END_SRC
+
+结果
+#+BEGIN_SRC shell
+  {"name":"张三","Age":18,"HIgh":true,"class":{"Name":"1班","Grade":3}}
+#+END_SRC
+
+- =sex 不可导出= ，无法转成 json。因为只要是可导出成员（变量首字母大写），都可以转成 json
+- =json标签= ，如 Name 的标签 =json:"name"= ，那么转化成的 json key 就用该标签 =name= ，否则取变量名作为 key，如 =Age= =HIgh= 。
+- =bool 类型可以转换为 json 串= 。Channel， complex 以及函数不能被编码 json 字符串。当然，循环的数据结构也不行，它会导致 marshal 陷入死循环。
+- =指针变量，编码时自动转换为它所指向的值= ，如 cla 变量。
+ （当然，不传指针，Stu struct 的成员 Class 如果换成 Class struct 类型，效果也是一模一样的。只不过指针更快，且能节省内存空间。）
+
+** interface{}
+#+BEGIN_SRC golang
+type Stu struct {
+    Name  interface{} `json:"name"`
+    Age   interface{}
+    HIgh  interface{}
+    sex   interface{}
+    Class interface{} `json:"class"`
+}
+
+type Class struct {
+    Name  string
+    Grade int
+}
+#+END_SRC
+- 使用上述代码替换上个例子中的 Stu 和 Class，得到的结果一摸一样
+- =任何其他类型的数据都可以赋值给 interface{} 类型= 因为 interface{} 类型其实是个空接口，即没有方法的接口。go 的每一种类型都实现了该接口
+
+** Unmarshal 将 json 字符串解码成 struct
+#+BEGIN_SRC golang
+package main
+
+import (
+    "encoding/json"
+    "fmt"
+)
+
+type StuRead struct {
+    Name  interface{} `json:"name"`
+    Age   interface{}
+    HIgh  interface{}
+    sex   interface{}
+    Class interface{} `json:"class"`
+    Test  interface{}
+}
+
+type Class struct {
+    Name  string
+    Grade int
+}
+
+func main() {
+    data:="{\"NAme\":\"李四\",\"name\":\"张三\",\"age\":11,\"AgE\":18,\"high\":true,\"sex\":\"男\",\"CLASS\":{\"naME\":\"1班\",\"GradE\":3}}"
+    str:=[]byte(data)
+
+    //1.Unmarshal的第一个参数是json字符串，第二个参数是接受json解析的数据结构。
+    //第二个参数必须是指针，否则无法接收解析的数据，如stu仍为空对象StuRead{}
+    //2.可以直接stu:=new(StuRead),此时的stu自身就是指针
+    stu:=StuRead{}
+    err:=json.Unmarshal(str,&stu)
+
+    if err != nil{
+        fmt.Println(err)
+    }
+
+    fmt.Println(stu)
+}
+#+END_SRC
+
+结果
+#+BEGIN_SRC shell
+  {张三 18 true  map[naME:1班 GradE:3] }
+#+END_SRC
+
+- json 字符串中的 " 引号，需用 \ 进行转义
+- sex 为不可导出成员，依然不能被解码
+- data 中 key 字段不区分大小写，结构体成员的值会取最后一个匹配的 key
+- =Class 被解码为 map[string]interface{}= 可以将 Class 变量声明为 json.RawMessage 类型，参考下个例子
+
+** json.RawMessage
+#+BEGIN_SRC golang
+package main
+
+import (
+    "encoding/json"
+    "fmt"
+    "reflect"
+)
+
+type StuRead struct {
+    Name  interface{}
+    Age   interface{}
+    HIgh  interface{}
+    Class json.RawMessage `json:"class"` //注意这里
+}
+
+type Class struct {
+    Name  string
+    Grade int
+}
+
+func main() {
+    data := "{\"name\":\"张三\",\"Age\":18,\"high\":true,\"sex\":\"男\",\"CLASS\":{\"naME\":\"1班\",\"GradE\":3}}"
+    str := []byte(data)
+    stu := StuRead{}
+    _ = json.Unmarshal(str, &stu)
+
+    // 二次解析
+    cla := new(Class)
+    json.Unmarshal(stu.Class, cla)
+
+    fmt.Println("stu:", stu)
+    fmt.Println("string(stu.Class):", string(stu.Class))
+    fmt.Println("class:", cla)
+    fmt.Println("type:", reflect.TypeOf(stu.Class))
+}
+#+END_SRC
+
+结果
+#+BEGIN_SRC shell
+  stu: {张三 18 true [123 34 110 97 77 69 34 58 34 49 231 143 173 34 44 34 71 114 97 100 69 34 58 51 125]}
+  string(stu.Class): {"naME":"1班","GradE":3}
+  class: &{1班 3}
+  type: json.RawMessage
+#+END_SRC
+
+- 被声明为 json.RawMessage 类型的变量在 json 解析时，变量值仍保留 json 的原值，即未被自动解析为 map[string]interface{} 类型
+- 在第一次 json 解析时，变量 Class 的类型是 json.RawMessage。此时，我们可以对该变量进行二次 json 解析
