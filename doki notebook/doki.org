@@ -1,5 +1,6 @@
 #+TITLE: doki 笔记
 
+- [[./miveshow 配置.org][miveshow 配置]]
 - [[./故障解决.org][doki 故障解决笔记]]
 - [[./service_path.org][服务路径]]
 - [[./doki api.org][doki api]]

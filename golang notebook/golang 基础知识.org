@@ -1,48 +1,48 @@
 #+TITLE: golang 基础知识笔记
 
 1. %T 打印变量类型
- =fmt.Printf("%T", d)=
+   =fmt.Printf("%T", d)=
 
 2. 不同于 c 语言，Go 没有隐式类型转换，不同类型之间不能运算
 
 3. 常量的值会在编译的时候确定，函数调用发生在运行时，所以不能将函数的返回值赋值给常量
- =const b = math.Sqrt(4)= 会报错
+   =const b = math.Sqrt(4)= 会报错
 
 4. 声明一个无类型的常量后，可以把它赋值给类型兼容的变量
- #+BEGIN_SRC go
-   const a = 5      // 无类型的常量
-   const b int = 9  // 有类型的常量
-   var b int = a
-   var c int32 = a
-   var d float64 = a
-   var e complex64 = a
- #+END_SRC
+   #+BEGIN_SRC go
+     const a = 5      // 无类型的常量
+     const b int = 9  // 有类型的常量
+     var b int = a
+     var c int32 = a
+     var d float64 = a
+     var e complex64 = a
+   #+END_SRC
 
 5. 包的初始化顺序
    #+ATTR_ORG: :width 50%
    #+ATTR_HTML: :width 50%
    [[../images/package_order.png]]
-  要注意的是，
+   要注意的是，
    - 在 main.main 函数执行之前所有代码都运行在同一个 goroutine，也就是程序的主系统线程中。因此，如果某个 init 函数内部用 go 关键字启动了新的 goroutine 的话，新的 goroutine 只有在进入 main.main 函数之后才会开始执行
      #+BEGIN_SRC go
        package main
 
        import (
-          "fmt"
-          "time"
+           "fmt"
+           "time"
        )
 
        var test = 1
 
        func init() {
-          fmt.Println("enter into init")
+           fmt.Println("enter into init")
 
-          go func() {
-             test = 2
-             fmt.Println("hello world in goroute")
-          }()
+           go func() {
+               test = 2
+               fmt.Println("hello world in goroute")
+           }()
 
-          fmt.Println("exit from init")
+           fmt.Println("exit from init")
        }
 
        func main() {
@@ -53,12 +53,12 @@
      #+END_SRC
 
      结果
-     #+BEGIN_SRC shell
+     #+begin_example
        enter into init
        exit from init
        1st test: 1
        2nd test: 1
-     #+END_SRC
+     #+end_example
 
    - 每个包只会初始化一次。例如，即使 fmt 被多个包引入，也只会在第一次时被初始化
    - 包不能循环引用
@@ -68,37 +68,37 @@
 7. 循环语句没有 =while= 和 =do...while=
 
 8. switch 语句中使用 fallthrough 会强制执行后面的 case 语句，fallthrough 不会判断下一条 case 的表达式结果是否为 true
-  #+BEGIN_SRC go
-    package main
+   #+BEGIN_SRC go
+     package main
 
-    import (
-        "fmt"
-    )
+     import (
+         "fmt"
+     )
 
-    func number() int {
-        return 40
-    }
+     func number() int {
+         return 40
+     }
 
-    func main() {
-        switch num := number(); {
-        case num < 20, num == 40:  // 任意满足一个条件就通过
-            fmt.Printf("%d < 20 or %d == 40\n", num, num)
-            fallthrough
-        case num > 100:
-            fmt.Printf("%d > 100\n", num)
-        default:  // default 不一定放在 switch 语句最后
-            fmt.Printf("default")
-        case num < 70:
-            fmt.Printf("%d < 200", num)
-        }
-    }
-  #+END_SRC
+     func main() {
+         switch num := number(); {
+         case num < 20, num == 40:  // 任意满足一个条件就通过
+             fmt.Printf("%d < 20 or %d == 40\n", num, num)
+             fallthrough
+         case num > 100:
+             fmt.Printf("%d > 100\n", num)
+         default:  // default 不一定放在 switch 语句最后
+             fmt.Printf("default")
+         case num < 70:
+             fmt.Printf("%d < 200", num)
+         }
+     }
+   #+END_SRC
 
-  结果
-  #+BEGIN_SRC shell
-    40 < 20 or 40 == 40
-    40 > 100
-  #+END_SRC
+   结果
+   #+begin_example
+     40 < 20 or 40 == 40
+     40 > 100
+   #+end_example
 
 9. 不同长度的数组不能相互赋值。例如 [3]int 的变量不能赋值给 [5]int
 
@@ -107,30 +107,30 @@
 11. 切片是一个结构体，该结构体包含 len、cap 和指向数组的指针。当切片作为参数传递给函数时，会将该结构体值传递给函数
 
 12. 可变参数函数
-  #+BEGIN_SRC go
-    package main
+    #+BEGIN_SRC go
+      package main
 
-    import (
-        "fmt"
-    )
+      import (
+          "fmt"
+      )
 
-    func change(s ...string) {
-        s[0] = "Go"
-        s = append(s, "playground")
-        fmt.Println(s)
-    }
+      func change(s ...string) {
+          s[0] = "Go"
+          s = append(s, "playground")
+          fmt.Println(s)
+      }
 
-    func main() {
-        welcome := []string{"hello", "world"}
-        change(welcome...)
-        fmt.Println(welcome)
-    }
-  #+END_SRC
-  结果
-  #+BEGIN_SRC shell
-    [Go world playground]
-    [Go world]
-  #+END_SRC
+      func main() {
+          welcome := []string{"hello", "world"}
+          change(welcome...)
+          fmt.Println(welcome)
+      }
+    #+END_SRC
+    结果
+    #+begin_example
+      [Go world playground]
+      [Go world]
+    #+end_example
     + 可变参数 =s ...string= 会被转换为 =[]string= 类型切片然后在传入函数 change 中
     + 传入 =welcome...= 时，语法糖 =...= 代表不再转换为切片了，直接使用切片 =welcome=
 
@@ -139,27 +139,27 @@
     + 创建 map ~b := make(map[string]int)~
 
 14. rune
-  #+BEGIN_SRC go :imports '("fmt" "unicode/utf8")
-    runes := []rune("你好")
-    for i:=0; i < len(runes); i++ {
-        fmt.Printf("%c\n", runes[i])
-    }
-    s := "你好啊"
-    for index, rune := range s {
-        fmt.Printf("%c %d\n", rune, index)
-    }
-    fmt.Printf("len: %d, rune len: %d\n", len(s), utf8.RuneCountInString(s))
-  #+END_SRC
+    #+BEGIN_SRC go :imports '("fmt" "unicode/utf8")
+      runes := []rune("你好")
+      for i:=0; i < len(runes); i++ {
+          fmt.Printf("%c\n", runes[i])
+      }
+      s := "你好啊"
+      for index, rune := range s {
+          fmt.Printf("%c %d\n", rune, index)
+      }
+      fmt.Printf("len: %d, rune len: %d\n", len(s), utf8.RuneCountInString(s))
+    #+END_SRC
 
-  结果
-  #+BEGIN_EXAMPLE
-    你
-    好
-    你 0
-    好 3
-    啊 6
-    len: 9, rune len: 3
-  #+END_EXAMPLE
+    结果
+    #+BEGIN_EXAMPLE
+      你
+      好
+      你 0
+      好 3
+      啊 6
+      len: 9, rune len: 3
+    #+END_EXAMPLE
 
 15. 结构体是值类型。如果它的每一个字段都是可比较的，则该结构体也是可比较的。如果两个结构体变量的对应字段相等，则这两个变量也是相等的
 
@@ -167,3 +167,34 @@
 
 17. 当一个方法使用指针接收器，它可以接受值接收器和指针接收器
 
+18. 对于使用指针接受者的方法，用一个指针或者一个可取得地址的值来调用都是合法的。但接口中存储的具体值（Concrete Value）并不能取到地址，因此译器无法自动获取 a 的地址，于是程序报错
+    #+begin_src go
+      package main
+
+      import "fmt"
+
+      type Describer interface {  
+          Describe()
+      }
+
+      type Address struct {
+          state   string
+          country string
+      }
+
+      func (a *Address) Describe() { // 使用指针接受者实现
+          fmt.Printf("State %s Country %s", a.state, a.country)
+      }
+
+      func main() {  
+          var d Describer
+          a := Address{"Washington", "USA"}
+
+          // d = a  // 报错
+          d = &a    // 这是合法的
+          d.Describe()
+      }
+    #+end_src
+
+
+19. 并非调用延迟函数的时候才确定实参，而是当执行 defer 语句的时候，就会对延迟函数的实参进行求值

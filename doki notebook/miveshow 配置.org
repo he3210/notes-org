@@ -1,0 +1,124 @@
+#+TITLE: miveshow 配置
+
+** 依赖安装
+#+begin_src shell
+  $ pip3 install virtualenv
+  $ cd ~
+  $ mkdir env
+  $ cd env
+  $ virtualenv miveshow --python=python2
+  $ source ~/env/miveshow/bin/activate
+  $ cd ~/test/miveshow/websocket/src
+  $ pip install -r requirements.txt
+  $ deactivate
+#+end_src
+
+** 本地环境配置
+*** 添加 local.conf，开发环境标记为 dev
+#+begin_src shell
+  $ cd /Users/he/test/miveshow/webserver/conf
+  $ cat local.conf
+  env dev
+  log2kafka False
+#+end_src
+*** 创建 log 文件夹
+#+begin_src shell
+  $ cd ~/test/miveshow/websocket/src
+  $ mkdir log
+#+end_src
+
+** mysql
+#+begin_src shell
+  mysql -h localhost -P 6600 -umiveshow -pmiveshow123 -Dmiveshow_event;
+#+end_src
+
+** 问题汇总
+*** from _mysql import IntegrityError 无法导入的问题
+在测试环境发现（动态库 _mysql.so 是安装 MySQL-python 后才有的）
+#+begin_src python
+  >>> import _mysql
+  >>> print _mysql.__file__
+  /usr/local/lib/python2.7/dist-packages/_mysql.so
+#+end_src
+
+在本机发现缺少 libssl.1.0.0.dylib
+#+begin_src python
+  >>> import _mysql
+  Traceback (most recent call last):
+    File "<stdin>", line 1, in <module>
+  ImportError: dlopen(/Users/he/env/miveshow/lib/python2.7/site-packages/_mysql.so, 2): Library not loaded: /usr/local/opt/openssl/lib/libssl.1.0.0.dylib
+    Referenced from: /Users/he/env/miveshow/lib/python2.7/site-packages/_mysql.so
+    Reason: image not found
+#+end_src
+
+通过 brew list 命令发现 openssl@1.1，版本比较高，需要 1.0.0 版本。
+可以添加一个软连接
+
+#+begin_src shell
+  $ cd /usr/local/opt/openssl/lib/
+  $ ls -l
+  total 15144
+  drwxr-xr-x  4 he  staff      128 Mar 25 21:28 engines-1.1
+  -r--r--r--  1 he  staff  2437024 Apr 16 21:07 libcrypto.1.1.dylib
+  -r--r--r--  1 he  staff  4087176 Mar 25 21:28 libcrypto.a
+  lrwxr-xr-x  1 he  staff       19 Mar 25 21:28 libcrypto.dylib -> libcrypto.1.1.dylib
+  -r--r--r--  1 he  staff   502872 Apr 16 21:07 libssl.1.1.dylib
+  -r--r--r--  1 he  staff   723992 Mar 25 21:28 libssl.a
+  lrwxr-xr-x  1 he  staff       16 Mar 25 21:28 libssl.dylib -> libssl.1.1.dylib
+  drwxr-xr-x  5 he  staff      160 Apr 16 21:07 pkgconfig
+  $ ln -s ./libssl.1.1.dylib libssl.1.0.0.dylib
+#+end_src
+
+添加完该软连接之后，python 导入 _mysql 发现又缺少 libcrypto.1.0.0.dylib
+同理，添加软连接。添加完后，可以导入了
+#+begin_src shell
+  $ cd /usr/local/opt/openssl/lib/
+  $ ln -s ./libcrypto.1.1.dylib libcrypto.1.0.0.dylib
+#+end_src
+
+
+*** 删除系统自带的 pyutil，这个包和 util 库中的 pyutil 冲突
+#+begin_src shell
+  $ cd /Users/liangzhichao/Workspace/miveshow/lib/python2.7/site-packages
+  $ rm -rf pyutil
+#+end_src
+
+** docker 安装 debian miveshow 环境
+#+begin_src bash
+  $ docker pull debian
+  $ docker run --name miveshow -i -t debian /bin/bash
+  # python --version
+  bash: python: command not found
+  # apt install python2.7
+  # python --version
+  bash: python: command not found
+  # python2.7 --version
+  Python 2.7.16
+  # which python2.7
+  /usr/bin/python2.7
+  # cd /usr/bin/
+  # ln -s python2.7 python
+  # apt install python-pip
+  # apt install vim
+  # cat /root/.bashrc
+  export LS_OPTIONS='--color=auto'
+  eval "`dircolors`"
+  alias ls='ls $LS_OPTIONS'
+  alias ll='ls $LS_OPTIONS -l'
+  alias l='ls $LS_OPTIONS -lA'
+  # apt install git
+  # mkdir -p /opt/zeus/
+  # cd /opt/zeus/
+  # git clone gitlab:live/miveshow.git  # 提前配置好 ~/.ssh/config
+  # apt install wget
+  # apt install procps
+  # apt install redis
+  # apt install memcached
+  # service redis-server start  # 启动 redis
+  # service memcached start
+  # wget -qO - https://www.mongodb.org/static/pgp/server-4.4.asc | apt-key add -  # https://docs.mongodb.com/manual/tutorial/install-mongodb-on-debian/
+  # echo "deb http://repo.mongodb.org/apt/debian buster/mongodb-org/4.4 main" | tee /etc/apt/sources.list.d/mongodb-org-4.4.list
+  # apt update
+  # apt install mongodb-org
+  # mongod -f /etc/mongod.conf --fork  # mongod 后台启动
+#+end_src
