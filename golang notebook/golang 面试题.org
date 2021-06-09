@@ -1,0 +1,72 @@
++TITLE: golang 面试题
+
+** range 遍历时使用的不是元素的引用
+#+begin_src go
+  package main
+
+  import "fmt"
+  func main() {
+      slice := []int{7,8,9,10}
+      m := make(map[int]*int)
+
+      for i, val := range slice {
+          m[i] = &val
+          fmt.Println(&val)
+      }
+
+      for i, v := range m {
+          fmt.Println(i,"->",*v)
+      }
+  }
+#+end_src
+
+#+RESULTS:
+: 0xc0000b4008
+: 0xc0000b4008
+: 0xc0000b4008
+: 0xc0000b4008
+: 0 -> 10
+: 1 -> 10
+: 2 -> 10
+: 3 -> 10
+
+#+begin_src go
+  package main
+
+  import "fmt"
+  import "reflect"
+
+  type Test struct {
+      name string
+  }
+
+  func (this *Test) Point(){
+      fmt.Println(this.name)
+  }
+
+  func main() {
+      ts := []Test{{"a"}, {"b"}, {"c"},}
+
+      for _, t := range ts {
+          fmt.Println(reflect.TypeOf(t))
+          defer t.Point()
+      }
+  }
+#+end_src
+
+#+RESULTS:
+: main.Test
+: main.Test
+: main.Test
+: c
+: c
+: c
+
+** 下面这段代码有什么缺陷
+#+begin_src go
+  func funcMui(x,y int)(sum int,error){
+      return x+y,nil
+  }
+#+end_src
+第二个返回值没有命名
+解析： 在函数有多个返回值时，只要有一个返回值有命名，其他的也必须命名。如果有多个返回值必须加上括号()；如果只有一个返回值且命名也必须加上括号()。这里的第一个返回值有命名 sum，第二个没有命名，所以错误。

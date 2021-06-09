@@ -1,4 +1,4 @@
-+TITLE: mongodb 命令
+#+TITLE: mongodb 命令
 
 * 常用命令
 #+BEGIN_SRC shell
@@ -12,6 +12,7 @@
   $ db.msg.find({"msg_id": 6329, "type": 3}, {"_id": 0, "msg_id": 1, "msg": 1})
   { "msg_id": 6329, "msg" : "hello world" }
   $ db.msg.find({"_id": {$in: [ObjectId("5fc8aa05149d8015a0a98d3f"), ObjectId("5fc8aa05149d8015a0a98d38")]}})
+  $ db.msg.find({"_id": ObjectId("5fc8aa05149d8015a0a98d3f"), "ctime": {$gt: ISODate("2021-06-01T10:21:35Z")}})
   $ db.msg.update({"_id": ObjectId("5fc8aa05149d8015a0a98d3f")}, {$set:{"is_enabled": 0}})
 #+END_SRC
 

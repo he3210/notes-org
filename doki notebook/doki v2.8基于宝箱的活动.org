@@ -281,3 +281,5 @@ pre + event_name + task_id    task
 - 升降级分 allocate_a_division_task_safe_for_user
 - 结算时幸运分 settle_task
 - 地运段位分 allocate_a_task_for_user
+* 注意事项
+- 修改宝箱中可开出的 gift_id 时，要注意更改代码 generate_task_for_uid 调整代码中写死的gift_id

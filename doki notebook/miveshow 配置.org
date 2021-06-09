@@ -2,13 +2,13 @@
 
 ** 依赖安装
 #+begin_src shell
-  $ pip3 install virtualenv
+  $ pip3 install virtualenv  # 或 brew install virtualenv
   $ cd ~
   $ mkdir env
   $ cd env
   $ virtualenv miveshow --python=python2
   $ source ~/env/miveshow/bin/activate
-  $ cd ~/test/miveshow/websocket/src
+  $ cd ~/test/miveshow/webserver/src
   $ pip install -r requirements.txt
   $ deactivate
 #+end_src
@@ -33,47 +33,49 @@
 #+end_src
 
 ** 问题汇总
-*** from _mysql import IntegrityError 无法导入的问题
-在测试环境发现（动态库 _mysql.so 是安装 MySQL-python 后才有的）
-#+begin_src python
-  >>> import _mysql
-  >>> print _mysql.__file__
-  /usr/local/lib/python2.7/dist-packages/_mysql.so
-#+end_src
+*** 安装 MYSQL-python
+参考：https://www.zhihu.com/question/30963225
+#+begin_src sh
+  $ brew install mysql@5.6
+  $ brew install mysql-connector-c
+  $ pip install MySQL-python==1.2.5  # 此时报错 ld: library not found for -lssl
+  $ echo 'export PATH="$PATH:/usr/local/opt/mysql@5.6/bin:/usr/local/opt/mysql-client/bin:/usr/local/opt/openssl@1.1/bin"' >> ~/.zshrc
+  $ brew info openssl@1.1
+  openssl@1.1: stable 1.1.1k (bottled) [keg-only]
+  Cryptography and SSL/TLS Toolkit
+  https://openssl.org/
+  /usr/local/Cellar/openssl@1.1/1.1.1k (8,071 files, 18.5MB)
+    Poured from bottle on 2021-05-04 at 00:29:34
+  From: https://github.com/Homebrew/homebrew-core/blob/HEAD/Formula/openssl@1.1.rb
+  License: OpenSSL
+  ==> Caveats
+  A CA file has been bootstrapped using certificates from the system
+  keychain. To add additional certificates, place .pem files in
+    /usr/local/etc/openssl@1.1/certs
 
-在本机发现缺少 libssl.1.0.0.dylib
-#+begin_src python
-  >>> import _mysql
-  Traceback (most recent call last):
-    File "<stdin>", line 1, in <module>
-  ImportError: dlopen(/Users/he/env/miveshow/lib/python2.7/site-packages/_mysql.so, 2): Library not loaded: /usr/local/opt/openssl/lib/libssl.1.0.0.dylib
-    Referenced from: /Users/he/env/miveshow/lib/python2.7/site-packages/_mysql.so
-    Reason: image not found
-#+end_src
+  and run
+    /usr/local/opt/openssl@1.1/bin/c_rehash
 
-通过 brew list 命令发现 openssl@1.1，版本比较高，需要 1.0.0 版本。
-可以添加一个软连接
+  openssl@1.1 is keg-only, which means it was not symlinked into /usr/local,
+  because macOS provides LibreSSL.
 
-#+begin_src shell
-  $ cd /usr/local/opt/openssl/lib/
-  $ ls -l
-  total 15144
-  drwxr-xr-x  4 he  staff      128 Mar 25 21:28 engines-1.1
-  -r--r--r--  1 he  staff  2437024 Apr 16 21:07 libcrypto.1.1.dylib
-  -r--r--r--  1 he  staff  4087176 Mar 25 21:28 libcrypto.a
-  lrwxr-xr-x  1 he  staff       19 Mar 25 21:28 libcrypto.dylib -> libcrypto.1.1.dylib
-  -r--r--r--  1 he  staff   502872 Apr 16 21:07 libssl.1.1.dylib
-  -r--r--r--  1 he  staff   723992 Mar 25 21:28 libssl.a
-  lrwxr-xr-x  1 he  staff       16 Mar 25 21:28 libssl.dylib -> libssl.1.1.dylib
-  drwxr-xr-x  5 he  staff      160 Apr 16 21:07 pkgconfig
-  $ ln -s ./libssl.1.1.dylib libssl.1.0.0.dylib
-#+end_src
+  If you need to have openssl@1.1 first in your PATH, run:
+    echo 'export PATH="/usr/local/opt/openssl@1.1/bin:$PATH"' >> ~/.zshrc
 
-添加完该软连接之后，python 导入 _mysql 发现又缺少 libcrypto.1.0.0.dylib
-同理，添加软连接。添加完后，可以导入了
-#+begin_src shell
-  $ cd /usr/local/opt/openssl/lib/
-  $ ln -s ./libcrypto.1.1.dylib libcrypto.1.0.0.dylib
+  For compilers to find openssl@1.1 you may need to set:
+    export LDFLAGS="-L/usr/local/opt/openssl@1.1/lib"
+    export CPPFLAGS="-I/usr/local/opt/openssl@1.1/include"
+
+  For pkg-config to find openssl@1.1 you may need to set:
+    export PKG_CONFIG_PATH="/usr/local/opt/openssl@1.1/lib/pkgconfig"
+
+  ==> Analytics
+  install: 851,994 (30 days), 2,613,538 (90 days), 8,841,714 (365 days)
+  install-on-request: 66,168 (30 days), 268,421 (90 days), 1,160,568 (365 days)
+  build-error: 0 (30 days)
+  $ export LDFLAGS="-L/usr/local/opt/openssl@1.1/lib"
+  $ export CPPFLAGS="-I/usr/local/opt/openssl@1.1/include"
+  $ pip install MySQL-python==1.2.5  # 成功安装
 #+end_src
 
 
